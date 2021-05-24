@@ -1,0 +1,48 @@
+{
+	"name": "MetaTemplate",
+	"version": "2.0",
+	"author": [
+		"RobinHood70",
+		"Nephele (original design)"
+	],
+	"url": "https://en.uesp.net/wiki/UESPWiki:MetaTemplate",
+	"description": "Features to make templates more powerful",
+	"license-name": "GPL-2.0-or-later",
+	"type": "parserhook",
+	"callback": "MetaTemplateHooks::onRegister",
+	"config": {
+		"_prefix": "metatemplate",
+		"EnableCatPageTemplate": true,
+		"EnableData": true
+	},
+	"ConfigRegistry": {
+		"metatemplate": "MetaTemplate::configBuilder"
+	},
+	"MessagesDirs": {
+		"MetaTemplate": [
+			"i18n"
+		]
+	},
+	"ExtensionMessagesFiles": {
+		"MetaTemplateMagic": "i18n/MetaTemplate.i18n.magic.php",
+		"ParserHelperMagic": "i18n/ParserHelper.i18n.magic.php"
+	},
+	"AutoloadClasses": {
+		"MetaTemplate": "includes/MetaTemplate.php",
+		"MetaTemplateData": "includes/MetaTemplateData.php",
+		"MetaTemplateFrame_Hash": "includes/MetaTemplateFrame_Hash.php",
+		"MetaTemplateHooks": "includes/MetaTemplateHooks.php",
+		"MetaTemplatePreprocessor": "includes/MetaTemplatePreprocessor.php",
+		"ParserHelper": "includes/ParserHelper.php",
+		"ToMove": "includes/ToMove.php"
+	},
+	"Hooks": {
+		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
+		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
+		"PageContentSaveComplete": "MetaTemplateHooks::onPageContentSaveComplete",
+		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
+		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
+		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch"
+	},
+	"manifest_version": 1
+}

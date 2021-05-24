@@ -1,0 +1,26 @@
+{
+	"@metadata": {
+		"authors": []
+	},
+	"metatemplate-listsaved-template-disallowed": "{{#save\n",
+	"metatemplate-listsaved-template-maxlen": "10000",
+	"metatemplate-metavarsonpage": "MetaTemplate variables on a page",
+	"metatemplate-pageswithvar-legend": "Pages with a variable",
+	"metatemplate-pageswithvar-nodata": "You must specify a variable name when searching in any subset.",
+	"metatemplate-pageswithvar-sort": "Sort values",
+	"metatemplate-pageswithvar-submit": "Search",
+	"metatemplate-pageswithvar-subsetany": "Any",
+	"metatemplate-pageswithvar-subsetmain": "Main",
+	"metatemplate-pageswithvar-subsetspecific": "Specific",
+	"metatemplate-pageswithvar-text": "This page lists pages that use a particular MetaTemplate subset or variable.",
+	"metatemplate-subset": "Subset name:",
+	"metatemplate-tracking-explodeargs": "MetaTemplate-Pages with explodeargs calls",
+	"metatemplate-tracking-pickfrom": "MetaTemplate-Pickfrom separator is quoted",
+	"metatemplate-varname": "Variable name:",
+	"metatemplate-varsonpage-legend": "List all MetaTemplate variables on a page",
+	"metatemplate-varsonpage-no-page": "No page specified.",
+	"metatemplate-varsonpage-no-results": "There are no variables saved on this page.",
+	"metatemplate-varsonpage-page": "Page:",
+	"metatemplate-varsonpage-submit": "Go",
+	"metatemplate-varvalue": "Value"
+}

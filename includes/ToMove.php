@@ -42,11 +42,11 @@ class ToMove
      *
      * @return string
      */
-    public static function doArg(Parser $parser, $name = '', $default = '')
+    public static function doArg(Parser $parser, PPFrame $frame, array $args)
     {
-        $parser->disableCache();
+        $values = ParserHelper::expandAll($frame, $args);
         $request = RequestContext::getMain()->getRequest();
-        return $request->getVal($name, $default);
+        return $request->getVal($values[0], isset($values[1]) ? $values[1] : '');
     }
 
     /**
@@ -112,12 +112,11 @@ class ToMove
      */
     public static function doInclude(Parser $parser, PPFrame $frame, array $args)
     {
-        return $args[1];
         list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_IF, ParserHelper::NA_IFNOT);
         if (count($values) > 0 && ParserHelper::checkIfs($magicArgs)) {
             $nodes = [];
-            foreach ($values as $value) {
-                $pageName = $frame->expand($value);
+            foreach ($values as $pageName) {
+                $pageName = $frame->expand($pageName);
                 $t = Title::newFromText($pageName, NS_TEMPLATE);
                 if ($t && $t->exists()) {
                     $nodes[] = self::createTemplateNode($pageName);
@@ -189,20 +188,21 @@ class ToMove
     public static function doRand(Parser $parser, PPFrame $frame, array $args)
     {
         list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, self::NA_SEED);
+        $values = ParserHelper::expandAll($frame, $values);
         if (isset($magicArgs[self::NA_SEED])) {
             mt_srand(($frame->expand($magicArgs[self::NA_SEED])));
         }
 
-        $low = $frame->expand(ParserHelper::arrayGet($values, 0));
-        if (is_null($low) /* how did you do it? */ || !strlen($low)) {
+        $low = ParserHelper::arrayGet($values, 0);
+        if (count($values) == 1) {
+            $high = $low;
             $low = 1;
         } else {
-            $low = intval($low);
+            $high = intval(ParserHelper::arrayGet($values, 1, $low));
         }
 
-        $high = intval($frame->expand(ParserHelper::arrayGet($values, 1, '6')));
         if ($low != $high) {
-            $parser->disableCache();
+            $frame->setVolatile();
         }
 
         return ($low > $high) ? mt_rand($high, $low) : mt_rand($low, $high);
@@ -242,17 +242,18 @@ class ToMove
         $checkFormat = $frame->expand($values[1]);
         if (!is_numeric($checkFormat) && count($values) > 3) {
             // Old #explodeargs; can be deleted once all are converted.
-            $nargs = intval($frame->expand($values[3]));
+            $values = ParserHelper::expandAll($frame, $values);
+            $nargs = intval($values[3]);
             $templateName = $values[2];
-            $separator = $frame->expand($values[1]);
-            $values = explode($separator, $frame->expand($values[0]));
+            $separator = $checkFormat;
+            $values = explode($separator, $values[0]);
             $parser->addTrackingCategory('metatemplate-tracking-explodeargs');
             $nowiki = false;
         } else {
             $nowiki = ParserHelper::arrayGet($magicArgs, self::NA_NOWIKI, false);
             $nowiki = $parser->getOptions()->getIsPreview() ? boolval($nowiki) : in_array($nowiki, ParserHelper::getMagicWordNames(ParserHelper::AV_ALWAYS));
-            $templateName = $values[0];
-            $nargs = intval($frame->expand($values[1]));
+            $templateName = $frame->expand($values[0]);
+            $nargs = intval($checkFormat);
             $values = array_slice($values, 2);
             if (isset($magicArgs[self::NA_EXPLODE])) {
                 $separator = ParserHelper::arrayGet($magicArgs, self::NA_SEPARATOR, ',');
@@ -277,7 +278,6 @@ class ToMove
         list($named, $values) = self::splitNamedArgs($frame, $values);
         if (count($values) > 0) {
             $templates = [];
-            $templateName = $frame->expand($templateName);
             for ($index = 0; $index < count($values); $index += $nargs) {
                 $newTemplate = self::createTemplateNode($templateName);
                 for ($paramNum = 0; $paramNum < $nargs; $paramNum++) {
@@ -411,8 +411,8 @@ class ToMove
             $content = $node->getNextSibling();
             if ($content instanceof PPNode_Hash_Text) {
                 $contentText = (string)$content;
-                $close = strpos($contentText, ']]');
-                if ($close) {
+                $close = strpos($contentText, ']]'); // Should always be the end of the content text.
+                if ($close == strlen($contentText) - 2) {
                     $link = substr($contentText, 0, $close);
                     $split = explode('|', $link, 2);
                     $titleText = trim($split[0]);

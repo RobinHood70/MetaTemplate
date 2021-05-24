@@ -114,6 +114,34 @@ class ParserHelper
 			!self::arrayGet($magicArgs, self::NA_IFNOT, false);
 	}
 
+	public static function expandAll(PPFrame $frame, ...$values)
+	{
+		$retval = [];
+		foreach ($values as $value) {
+			$retval[] = $frame->expand($value);
+		}
+
+		return $retval;
+	}
+
+	public static function expandArray(PPFrame $frame, array $values, $count = 0, $flags = 0)
+	{
+		$retval = [];
+		if ($count == 0) {
+			$count = count($values);
+		}
+
+		foreach ($values as $value) {
+			$retval[] = $frame->expand($value, $flags);
+			$count--;
+			if ($count <= 0) {
+				break;
+			}
+		}
+
+		return $retval;
+	}
+
 	// Returns an associative array of the allowable named arguments and their expanded values. All other values,
 	// including unrecognized named arguments, will be returned under the VALUES_KEY key.
 	/**

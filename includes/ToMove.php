@@ -44,7 +44,7 @@ class ToMove
      */
     public static function doArg(Parser $parser, PPFrame $frame, array $args)
     {
-        $values = ParserHelper::expandAll($frame, $args);
+        $values = ParserHelper::expandArray($frame, $args);
         $request = RequestContext::getMain()->getRequest();
         return $request->getVal($values[0], isset($values[1]) ? $values[1] : '');
     }
@@ -188,7 +188,8 @@ class ToMove
     public static function doRand(Parser $parser, PPFrame $frame, array $args)
     {
         list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, self::NA_SEED);
-        $values = ParserHelper::expandAll($frame, $values);
+        $values = ParserHelper::expandArray($frame, $values);
+        show($values);
         if (isset($magicArgs[self::NA_SEED])) {
             mt_srand(($frame->expand($magicArgs[self::NA_SEED])));
         }
@@ -242,7 +243,7 @@ class ToMove
         $checkFormat = $frame->expand($values[1]);
         if (!is_numeric($checkFormat) && count($values) > 3) {
             // Old #explodeargs; can be deleted once all are converted.
-            $values = ParserHelper::expandAll($frame, $values);
+            $values = ParserHelper::expandArray($frame, $values);
             $nargs = intval($values[3]);
             $templateName = $values[2];
             $separator = $checkFormat;

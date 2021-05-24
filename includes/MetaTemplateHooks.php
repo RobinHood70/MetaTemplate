@@ -145,7 +145,7 @@ class MetaTemplateHooks
 				$ret = MetaTemplate::doPageNameX($parser, $frame);
 				break;
 			case ToMove::VR_SKINNAME:
-				$ret = ToMove::doSkinName($parser);
+				$ret = ToMove::doSkinName($frame);
 				break;
 		}
 	}
@@ -183,7 +183,7 @@ class MetaTemplateHooks
 		$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
 
-		$parser->setFunctionHook(ToMove::PF_ARG, 'ToMove::doArg');
+		$parser->setFunctionHook(ToMove::PF_ARG, 'ToMove::doArg', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(ToMove::PF_IFEXISTX, 'ToMove::doIfExistX', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(ToMove::PF_INCLUDE, 'ToMove::doInclude', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(ToMove::PF_PICKFROM, 'ToMove::doPickFrom', SFH_OBJECT_ARGS);

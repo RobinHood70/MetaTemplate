@@ -435,7 +435,7 @@ class MetaTemplate
 
         if ($level > 0) {
             // It should be impossible to alter the name of the current page without triggering a new parser expansion with new frames, so don't disable cache for that.
-            $parser->disableCache();
+            $frame->setVolatile();
         }
 
         if ($level == $depth) {

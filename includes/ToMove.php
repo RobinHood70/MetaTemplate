@@ -216,9 +216,9 @@ class ToMove
      *
      * @return string
      */
-    public static function doSkinName(Parser $parser)
+    public static function doSkinName(PPFrame $frame)
     {
-        $parser->disableCache();
+        $frame->setVolatile();
         $skin = RequestContext::getMain()->getSkin();
         return $skin->getSkinName();
     }

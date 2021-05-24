@@ -127,5 +127,6 @@ class MetaTemplateFrame_Hash extends PPTemplateFrame_Hash
 	public function setVolatile($flag = true)
 	{
 		$this->volatile = $flag;
+		$this->parser->disableCache();
 	}
 }

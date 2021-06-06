@@ -32,6 +32,8 @@
 		"MetaTemplateData": "includes/MetaTemplateData.php",
 		"MetaTemplateFrame_Hash": "includes/MetaTemplateFrame_Hash.php",
 		"MetaTemplatePreprocessor": "includes/MetaTemplatePreprocessor.php",
+		"MetaTemplateSet": "includes/MetaTemplateSet.php",
+		"MetaTemplateSetCollection": "includes/MetaTemplateSetCollection.php",
 		"MetaTemplateVariable": "includes/MetaTemplateVariable.php",
 		"ToMove": "includes/ToMove.php",
 		"MetaTemplateHooks": "includes/MetaTemplateHooks.php"
@@ -40,6 +42,7 @@
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"PageContentSaveComplete": "MetaTemplateHooks::onPageContentSaveComplete",
+		"ParserAfterParse": "MetaTemplateHooks::onParserAfterParse",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
 		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch"
 	},

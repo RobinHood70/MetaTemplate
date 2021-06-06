@@ -60,7 +60,12 @@ class ToMove
      */
     public static function doIfExistX(Parser $parser, PPFrame $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_IF, ParserHelper::NA_IFNOT);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            ParserHelper::NA_IF,
+            ParserHelper::NA_IFNOT
+        );
         $titleText = trim($frame->expand(ParserHelper::arrayGet($values, 0, '')));
         $title = Title::newFromText($titleText);
         if ($title && ParserHelper::checkIfs($magicArgs)) {
@@ -112,7 +117,12 @@ class ToMove
      */
     public static function doInclude(Parser $parser, PPFrame $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_IF, ParserHelper::NA_IFNOT);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            ParserHelper::NA_IF,
+            ParserHelper::NA_IFNOT
+        );
         if (count($values) > 0 && ParserHelper::checkIfs($magicArgs)) {
             $nodes = [];
             foreach ($values as $pageName) {
@@ -139,7 +149,14 @@ class ToMove
      */
     public static function doPickFrom(Parser $parser, PPFrame $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_IF, ParserHelper::NA_IFNOT, self::NA_SEED, self::NA_SEPARATOR);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            ParserHelper::NA_IF,
+            ParserHelper::NA_IFNOT,
+            self::NA_SEED,
+            self::NA_SEPARATOR
+        );
         $npick = intval(array_shift($values));
         if ($npick <= 0 || count($values) == 0 || !ParserHelper::checkIfs($magicArgs)) {
             return '';
@@ -187,9 +204,12 @@ class ToMove
      */
     public static function doRand(Parser $parser, PPFrame $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, self::NA_SEED);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            self::NA_SEED
+        );
         $values = ParserHelper::expandArray($frame, $values);
-        show($values);
         if (isset($magicArgs[self::NA_SEED])) {
             mt_srand(($frame->expand($magicArgs[self::NA_SEED])));
         }
@@ -237,7 +257,13 @@ class ToMove
      */
     public static function doSplitArgs(Parser $parser, PPFrame $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, self::NA_NOWIKI, self::NA_EXPLODE, self::NA_SEPARATOR);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            self::NA_NOWIKI,
+            self::NA_EXPLODE,
+            self::NA_SEPARATOR
+        );
 
         // Figure out what we're dealing with and populate appropriately.
         $checkFormat = $frame->expand($values[1]);

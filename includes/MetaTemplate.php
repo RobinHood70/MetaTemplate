@@ -117,7 +117,13 @@ class MetaTemplate
      */
     public static function doInherit(Parser $parser, PPFrame_Hash $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_CASE, ParserHelper::NA_IF, ParserHelper::NA_IFNOT);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            ParserHelper::NA_CASE,
+            ParserHelper::NA_IF,
+            ParserHelper::NA_IFNOT
+        );
         if (count($values) > 0 && ParserHelper::checkIfs($magicArgs)) {
             $anyCase = ParserHelper::checkAnyCase($magicArgs);
             foreach ($values as $value) {
@@ -226,7 +232,13 @@ class MetaTemplate
             return;
         }
 
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_CASE, ParserHelper::NA_IF, ParserHelper::NA_IFNOT);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            ParserHelper::NA_CASE,
+            ParserHelper::NA_IF,
+            ParserHelper::NA_IFNOT
+        );
         if (count($values) == 0 || !ParserHelper::checkIfs($magicArgs)) {
             return;
         }
@@ -252,7 +264,14 @@ class MetaTemplate
      */
     public static function doUnset(Parser $parser, PPFrame_Hash $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_CASE, ParserHelper::NA_IF, ParserHelper::NA_IFNOT, self::NA_SHIFT);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            ParserHelper::NA_CASE,
+            ParserHelper::NA_IF,
+            ParserHelper::NA_IFNOT,
+            self::NA_SHIFT
+        );
         if (count($values) == 0 || !ParserHelper::checkIfs($magicArgs)) {
             return;
         }
@@ -289,7 +308,7 @@ class MetaTemplate
      *
      * @return string|PPNode_Hash_Tree
      */
-    public static function getVar(PPFrame_Hash $frame, $varName, $anyCase = false, $checkAll = false)
+    public static function getVar(PPTemplateFrame_Hash $frame, $varName, $anyCase = false, $checkAll = false)
     {
         $retval = '';
         $anyCase == $anyCase && !ctype_digit($varName);
@@ -371,7 +390,13 @@ class MetaTemplate
      */
     private static function checkAndSetVar(PPFrame_Hash $frame, array $args, $name, $override = false)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs($frame, $args, ParserHelper::NA_CASE, ParserHelper::NA_IF, ParserHelper::NA_IFNOT);
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+            $frame,
+            $args,
+            ParserHelper::NA_CASE,
+            ParserHelper::NA_IF,
+            ParserHelper::NA_IFNOT
+        );
         if (ParserHelper::checkIfs($magicArgs)) {
             $anyCase = ParserHelper::checkAnyCase($magicArgs);
             $existing = self::getVar($frame, $name, $anyCase);
@@ -421,7 +446,10 @@ class MetaTemplate
     private static function getTitleFromArgs(Parser $parser, PPFrame $frame, array $args = null)
     {
         if (!is_null($args)) {
-            list(, $values) = ParserHelper::getMagicArgs($frame, $args);
+            list(, $values) = ParserHelper::getMagicArgs(
+                $frame,
+                $args
+            );
             $level = intval(ParserHelper::arrayGet($values, 0, 0));
         } else {
             $level = 0;

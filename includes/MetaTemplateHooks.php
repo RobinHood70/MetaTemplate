@@ -9,29 +9,6 @@ use MediaWiki\MediaWikiServices;
  */
 class MetaTemplateHooks
 {
-	/**
-	 * onPageContentSaveComplete
-	 *
-	 * @param mixed $wikiPage
-	 * @param mixed $user
-	 * @param mixed $mainContent
-	 * @param mixed $summaryText
-	 * @param mixed $isMinor
-	 * @param mixed $isWatch
-	 * @param mixed $section
-	 * @param mixed $flags
-	 * @param mixed $revision
-	 * @param mixed $status
-	 * @param mixed $originalRevId
-	 * @param mixed $undidRevId
-	 *
-	 * @return void
-	 */
-	public static function onPageContentSaveComplete($wikiPage, $user, $mainContent, $summaryText, $isMinor, $isWatch, $section, $flags, $revision, $status, $originalRevId, $undidRevId)
-	{
-		MetaTemplateData::saveCache();
-	}
-
 	// Initial table setup/modifications from v1.
 	/**
 	 * onLoadExtensionSchemaUpdates
@@ -45,17 +22,17 @@ class MetaTemplateHooks
 		$dir = dirname(__DIR__);
 		if (MetaTemplate::can('EnableData')) {
 			$db = $updater->getDB();
-			if ($db->textFieldSize(MetaTemplateData::TABLE_SET, 'mt_set_subset') < 50) {
+			if ($db->textFieldSize(MetaTemplateData::SET_TABLE, 'mt_set_subset') < 50) {
 				// MW 1.30-
 				foreach (['id', 'page_id', 'rev_id', 'subset'] as $field) {
-					$updater->modifyExtensionField(MetaTemplateData::TABLE_SET, "mt_set_$field", "$dir/sql/patch-" . MetaTemplateData::TABLE_SET . ".$field.sql");
+					$updater->modifyExtensionField(MetaTemplateData::SET_TABLE, "mt_set_$field", "$dir/sql/patch-" . MetaTemplateData::SET_TABLE . ".$field.sql");
 				}
 
 				foreach (['id', 'parsed', 'value'] as $field) {
-					$updater->modifyExtensionField(MetaTemplateData::TABLE_DATA, "mt_save_$field", "$dir/sql/patch-" . MetaTemplateData::TABLE_DATA . ".$field.sql");
+					$updater->modifyExtensionField(MetaTemplateData::DATA_TABLE, "mt_save_$field", "$dir/sql/patch-" . MetaTemplateData::DATA_TABLE . ".$field.sql");
 				}
 
-				$updater->dropExtensionField(MetaTemplateData::TABLE_SET, 'time', "$dir/sql/patch-" . MetaTemplateData::TABLE_SET . ".time.sql");
+				$updater->dropExtensionField(MetaTemplateData::SET_TABLE, 'time', "$dir/sql/patch-" . MetaTemplateData::SET_TABLE . ".time.sql");
 				// MW 1.31+
 				// $updater->modifyExtensionTable( $saveSet, "$dir/sql/patch-$saveSet.sql" );
 				// $updater->modifyExtensionTable( $saveData, "$dir/sql/patch-$saveData.sql" );
@@ -63,8 +40,8 @@ class MetaTemplateHooks
 		} else {
 			// Always run both unconditionally in case only one or the other was created previously.
 			// Updater will automatically skip each if the table exists.
-			$updater->addExtensionTable(MetaTemplateData::TABLE_SET, "$dir/sql/" . MetaTemplateData::TABLE_SET . '.sql');
-			$updater->addExtensionTable(MetaTemplateData::TABLE_DATA, "$dir/sql/" . MetaTemplateData::TABLE_DATA . '.sql');
+			$updater->addExtensionTable(MetaTemplateData::SET_TABLE, "$dir/sql/" . MetaTemplateData::SET_TABLE . '.sql');
+			$updater->addExtensionTable(MetaTemplateData::DATA_TABLE, "$dir/sql/" . MetaTemplateData::DATA_TABLE . '.sql');
 		}
 	}
 
@@ -87,19 +64,41 @@ class MetaTemplateHooks
 	}
 
 	/**
-	 * onParserAfterTidy
+	 * onPageContentSaveComplete
 	 *
-	 * @param Parser $parser
-	 * @param mixed $text
+	 * @param WikiPage $page
+	 * @param User $user
+	 * @param Content $content
+	 * @param string $summary
+	 * @param bool $isMinor
+	 * @param bool $isWatch
+	 * @param mixed $section
+	 * @param mixed $flags
+	 * @param Revision $revision
+	 * @param Status $status
+	 * @param int $originalRevId
+	 * @param int $baseRevId
 	 *
 	 * @return void
 	 */
-	/*
-	public static function onParserAfterTidy(Parser $parser, &$text)
+	public static function onPageContentSaveComplete(WikiPage &$page, User &$user, Content $content, $summary, $isMinor, $isWatch, $section, &$flags, Revision $revision, Status &$status, $baseRevId)
 	{
-		MetaTemplateData::saveCache();
+		MetaTemplateData::savePage($page);
 	}
-	*/
+
+	public static function onParserAfterParse(Parser $parser, &$text, StripState $stripState)
+	{
+		// This whole routine is a short-term hack that'll let purge work without saving excessively often. It will be
+		// replaced by a job-queue-based design (a la refreshLinks) shortly.
+		$title = $parser->getTitle();
+		if ($title->getNamespace() > 0) {
+			$page = WikiPage::factory($title);
+			$recentlyTouched = intval(wfTimestampNow()) - intval($page->getTouched());
+			if (!$parser->getOptions()->getIsPreview() || $recentlyTouched < 1) {
+				MetaTemplateData::savePage($page);
+			}
+		}
+	}
 
 	// Register any render callbacks with the parser
 	/**

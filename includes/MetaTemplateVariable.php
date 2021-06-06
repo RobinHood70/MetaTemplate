@@ -2,10 +2,9 @@
 
 class MetaTemplateVariable
 {
-
-    public function __construct($data, $parsed)
+    public function __construct($value, $parsed)
     {
-        $this->data = $data;
+        $this->value = $value;
         $this->parsed = $parsed;
     }
 
@@ -14,7 +13,7 @@ class MetaTemplateVariable
      *
      * @var PPNode_Hash_Tree
      */
-    public $data;
+    public $value;
 
     /**
      * $parsed

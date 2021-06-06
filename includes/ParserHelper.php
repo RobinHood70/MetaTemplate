@@ -71,7 +71,11 @@ class ParserHelper
 	 */
 	public static function arrayGet(array $array, $key, $default = null)
 	{
-		return (isset($array[$key]) || array_key_exists($key, $array)) ? $array[$key] : $default;
+		if (isset($array[$key]) || array_key_exists($key, $array)) {
+			return $array[$key];
+		}
+
+		return $default;
 	}
 
 	/**
@@ -260,6 +264,7 @@ class ParserHelper
 	 */
 	public static function nullCoalesce(...$args)
 	{
+		// Can be replaced with actual null coalescing operator in PHP 7+.
 		foreach ($args as $arg) {
 			if (!is_null($arg)) {
 				return $arg;

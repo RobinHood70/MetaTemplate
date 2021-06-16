@@ -12,11 +12,6 @@ class MetaTemplateData
 	const PF_LOAD = 'metatemplate-load';
 	const PF_SAVE = 'metatemplate-save';
 
-	const SET_TABLE = 'mt_save_set';
-	const SET_PREFIX = 'mt_set_';
-	const DATA_TABLE = 'mt_save_data';
-	const DATA_PREFIX = 'mt_save_';
-
 	private static $saveArgNameWidth = 50;
 	private static $saveKey = '|#save';
 	private static $subsetNameWidth = 50;
@@ -184,19 +179,6 @@ class MetaTemplateData
 	}
 
 	/**
-	 * tablesExist
-	 *
-	 * @return bool
-	 */
-	public static function tablesExist()
-	{
-		$dbRead = wfGetDB(DB_SLAVE);
-		return
-			$dbRead->tableExists(MetaTemplateData::SET_TABLE) &&
-			$dbRead->tableExists(MetaTemplateData::DATA_TABLE);
-	}
-
-	/**
 	 * add
 	 *
 	 * @param array $data
@@ -216,9 +198,9 @@ class MetaTemplateData
 
 	private static function	fetchData($pageId, $revId, $subsetName, ParserOutput $output, array $varNames)
 	{
-		$result = self::tryFetchFromCache($pageId, $subsetName, $output);
+		$result = self::loadFromCache($pageId, $subsetName, $output);
 		if (!$result) {
-			$result = self::tryFetchFromDatabase($pageId, $revId, $varNames, $subsetName);
+			$result = MetaTemplateSql::getInstance()->loadNamedVariables($pageId, $revId, $varNames, $subsetName);
 		}
 
 		return $result;
@@ -255,7 +237,7 @@ class MetaTemplateData
 	}
 
 	/**
-	 * tryFetchFromCache
+	 * loadFromCache
 	 *
 	 * @param mixed $pageId
 	 * @param array $varNames
@@ -263,56 +245,11 @@ class MetaTemplateData
 	 *
 	 * @return MetaTemplateVariablep[]|false;
 	 */
-	private static function tryFetchFromCache($pageId, $subsetName = '', ParserOutput $output)
+	private static function loadFromCache($pageId, $subsetName = '', ParserOutput $output)
 	{
 		$vars = $output->getExtensionData(self::PF_SAVE);
 		if (isset($vars[$pageId]->sets[$subsetName])) {
 			return $vars[$pageId]->sets[$subsetName]->variables;
-		}
-
-		return false;
-	}
-
-	/**
-	 * processData
-	 *
-	 * @param ResultWrapper $result
-	 * @param PPFrame $frame
-	 *
-	 * @return MetaTemplateVariable[]|bool
-	 */
-	private static function tryFetchFromDatabase($pageId, $subsetName, $revId, $varNames)
-	{
-		$dbRead = wfGetDB(DB_SLAVE);
-		$tables = [self::SET_TABLE, self::DATA_TABLE];
-		$conds = [
-			self::SET_PREFIX . 'page_id' => $pageId,
-			self::SET_PREFIX . "rev_id >= $revId",
-			self::SET_PREFIX . 'subset' => $subsetName,
-			self::DATA_PREFIX . 'varname' => $varNames
-		];
-		$fields = [
-			self::DATA_PREFIX . 'varname',
-			self::DATA_PREFIX . 'value',
-			self::DATA_PREFIX . 'parsed',
-		];
-
-		// Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
-		// ensure that we start with the lowest first, so data is overridden by the most recent values once we get
-		// there, but lower values will exist if the write is incomplete.
-		$options = ['ORDER BY' => self::SET_PREFIX . 'rev_id ASC'];
-		$joinConds = [self::SET_TABLE => ['JOIN', self::SET_PREFIX . 'id = ' . self::DATA_PREFIX . 'id']];
-		$result = $dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
-
-		$retval = [];
-		if ($result && $result->numRows()) {
-			$row = $result->fetchRow();
-			while ($row) {
-				$retval[] = new MetaTemplateVariable($row[self::DATA_PREFIX . 'value'], $row[self::DATA_PREFIX . 'parsed']);
-				$row = $result->fetchRow();
-			}
-
-			return $retval;
 		}
 
 		return false;

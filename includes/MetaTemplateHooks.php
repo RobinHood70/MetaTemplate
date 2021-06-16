@@ -22,17 +22,17 @@ class MetaTemplateHooks
 		$dir = dirname(__DIR__);
 		if (MetaTemplate::can('EnableData')) {
 			$db = $updater->getDB();
-			if ($db->textFieldSize(MetaTemplateData::SET_TABLE, 'mt_set_subset') < 50) {
+			if ($db->textFieldSize(MetaTemplateSql::SET_TABLE, 'mt_set_subset') < 50) {
 				// MW 1.30-
 				foreach (['id', 'page_id', 'rev_id', 'subset'] as $field) {
-					$updater->modifyExtensionField(MetaTemplateData::SET_TABLE, "mt_set_$field", "$dir/sql/patch-" . MetaTemplateData::SET_TABLE . ".$field.sql");
+					$updater->modifyExtensionField(MetaTemplateSql::SET_TABLE, "mt_set_$field", "$dir/sql/patch-" . MetaTemplateSql::SET_TABLE . ".$field.sql");
 				}
 
 				foreach (['id', 'parsed', 'value'] as $field) {
-					$updater->modifyExtensionField(MetaTemplateData::DATA_TABLE, "mt_save_$field", "$dir/sql/patch-" . MetaTemplateData::DATA_TABLE . ".$field.sql");
+					$updater->modifyExtensionField(MetaTemplateSql::DATA_TABLE, "mt_save_$field", "$dir/sql/patch-" . MetaTemplateSql::DATA_TABLE . ".$field.sql");
 				}
 
-				$updater->dropExtensionField(MetaTemplateData::SET_TABLE, 'time', "$dir/sql/patch-" . MetaTemplateData::SET_TABLE . ".time.sql");
+				$updater->dropExtensionField(MetaTemplateSql::SET_TABLE, 'time', "$dir/sql/patch-" . MetaTemplateSql::SET_TABLE . ".time.sql");
 				// MW 1.31+
 				// $updater->modifyExtensionTable( $saveSet, "$dir/sql/patch-$saveSet.sql" );
 				// $updater->modifyExtensionTable( $saveData, "$dir/sql/patch-$saveData.sql" );
@@ -40,8 +40,8 @@ class MetaTemplateHooks
 		} else {
 			// Always run both unconditionally in case only one or the other was created previously.
 			// Updater will automatically skip each if the table exists.
-			$updater->addExtensionTable(MetaTemplateData::SET_TABLE, "$dir/sql/" . MetaTemplateData::SET_TABLE . '.sql');
-			$updater->addExtensionTable(MetaTemplateData::DATA_TABLE, "$dir/sql/" . MetaTemplateData::DATA_TABLE . '.sql');
+			$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/" . MetaTemplateSql::SET_TABLE . '.sql');
+			$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/" . MetaTemplateSql::DATA_TABLE . '.sql');
 		}
 	}
 

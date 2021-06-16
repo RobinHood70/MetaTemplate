@@ -59,7 +59,7 @@ class MetaTemplate
         $config = self::getConfig();
         $retval = boolval($config->get($setting));
         if ($setting === 'EnableLoadSave') {
-            $retval &= MetaTemplateData::tablesExist();
+            $retval &= MetaTemplateSql::getInstance()->tablesExist();
         }
 
         return $retval;

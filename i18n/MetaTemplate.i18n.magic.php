@@ -1,6 +1,5 @@
 <?php
 
-$magicWords = [];
 $magicWords['en'] = [
 	MetaTemplate::NA_NAMESPACE => [0, 'namespace'],
 	MetaTemplate::NA_NESTLEVEL => [0, 'nestlevel'],
@@ -25,18 +24,4 @@ $magicWords['en'] = [
 	MetaTemplateData::PF_LISTSAVED => [0, 'listsaved'],
 	MetaTemplateData::PF_LOAD => [0, 'load'],
 	MetaTemplateData::PF_SAVE => [0, 'save'],
-	ToMove::NA_EXPLODE => [0, 'explode'],
-	ToMove::NA_NOWIKI => [0, 'nowiki'],
-	ToMove::NA_SEED => [0, 'seed'],
-	ToMove::NA_SEPARATOR => [0, 'separator'],
-	ToMove::PF_ARG => [0, 'arg'],
-	ToMove::PF_IFEXISTX => [0, 'ifexistx'],
-	ToMove::PF_INCLUDE => [0, 'include'],
-	ToMove::PF_PICKFROM => [0, 'pickfrom'],
-	ToMove::PF_RAND => [0, 'rand'],
-	ToMove::PF_SPLITARGS => [0, 'splitargs'],
-	ToMove::PF_TRIMLINKS => [0, 'trimlinks'],
-	ToMove::VR_SKINNAME => [0, 'SKINNAME'],
 ];
-
-require('ParserHelper.i18n.magic.php');

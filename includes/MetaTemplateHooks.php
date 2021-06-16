@@ -60,7 +60,6 @@ class MetaTemplateHooks
 		$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
 		$aCustomVariableIds[] = MetaTemplate::VR_NESTLEVEL;
 		$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
-		$aCustomVariableIds[] = ToMove::VR_SKINNAME;
 	}
 
 	// Register any render callbacks with the parser
@@ -77,7 +76,6 @@ class MetaTemplateHooks
 		self::initTagFunctions($parser);
 		ParserHelper::init();
 		MetaTemplate::init();
-		ToMove::init();
 	}
 
 	/**
@@ -106,13 +104,6 @@ class MetaTemplateHooks
 			case MetaTemplate::VR_PAGENAME0:
 				$ret = MetaTemplate::doPageNameX($parser, $frame);
 				break;
-			case ToMove::VR_SKINNAME:
-				$ret = ToMove::doSkinName();
-				break;
-		}
-
-		if (!$frame->isVolatile()) {
-			$variableCache[$magicWordId] = $ret;
 		}
 	}
 
@@ -159,14 +150,6 @@ class MetaTemplateHooks
 		$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
 
-		$parser->setFunctionHook(ToMove::PF_ARG, 'ToMove::doArg', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(ToMove::PF_IFEXISTX, 'ToMove::doIfExistX', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(ToMove::PF_INCLUDE, 'ToMove::doInclude', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(ToMove::PF_PICKFROM, 'ToMove::doPickFrom', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(ToMove::PF_RAND, 'ToMove::doRand', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(ToMove::PF_SPLITARGS, 'ToMove::doSplitargs', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(ToMove::PF_TRIMLINKS, 'ToMove::doTrimLinks', SFH_OBJECT_ARGS);
-
 		if (MetaTemplate::can('EnableData')) {
 			// $parser->setFunctionHook( MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS );
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
@@ -184,9 +167,6 @@ class MetaTemplateHooks
 	private static function initTagFunctions(Parser $parser)
 	{
 		self::setAllSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
-		// $parser->setHook(ToMove::TG_CLEANSPACE, 'efMetaTemplateCleanspace');
-		// $parser->setHook(ToMove::TG_CLEANTABLE, 'efMetaTemplateCleantable');
-		// $parser->setHook(ToMove::TG_DISPLAYCODE, 'efMetaTemplateDisplaycode');
 		if (MetaTemplate::can('EnableCatPageTemplate')) {
 			// $parser->setHook(MetaTemplate::TG_CATPAGETEMPLATE, 'MetaTemplateInit::efMetaTemplateCatPageTemplate');
 		}

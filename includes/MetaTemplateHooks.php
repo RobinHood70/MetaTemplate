@@ -107,7 +107,7 @@ class MetaTemplateHooks
 				$ret = MetaTemplate::doPageNameX($parser, $frame);
 				break;
 			case ToMove::VR_SKINNAME:
-				$ret = ToMove::doSkinName($frame);
+				$ret = ToMove::doSkinName();
 				break;
 		}
 

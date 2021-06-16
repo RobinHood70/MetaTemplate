@@ -237,7 +237,7 @@ class ToMove
      *
      * @return string
      */
-    public static function doSkinName(PPFrame $frame)
+    public static function doSkinName()
     {
         return RequestContext::getMain()->getSkin()->getSkinName();
     }

@@ -26,11 +26,15 @@ function showQuery(IDatabase $db, ResultWrapper $result)
 	show($db->lastQuery() . "\n\n" . $db->numRows($result) . ' rows returned.');
 }
 
-function writeFile($file, $msg)
+function writeFile($file, ...$msgs)
 {
 	$handle = fopen($file, 'a') or die("Cannot open file: $file");
-	$msg2 = print_r($msg, true);
-	fwrite($handle, $msg2);
+	foreach ($msgs as $msg) {
+		$msg2 = print_r($msg, true);
+		fwrite($handle, $msg2);
+	}
+
+	fwrite($handle, "\n");
 	fclose($handle);
 }
 

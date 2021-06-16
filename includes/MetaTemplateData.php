@@ -198,9 +198,9 @@ class MetaTemplateData
 
 	private static function	fetchData($pageId, $revId, $subsetName, ParserOutput $output, array $varNames)
 	{
-		$result = self::loadFromCache($pageId, $subsetName, $output);
+		$result = self::loadFromOutput($pageId, $subsetName, $output);
 		if (!$result) {
-			$result = MetaTemplateSql::getInstance()->loadNamedVariables($pageId, $revId, $varNames, $subsetName);
+			$result = MetaTemplateSql::getInstance()->loadVariables($pageId, $revId, $varNames, $subsetName);
 		}
 
 		return $result;
@@ -231,27 +231,28 @@ class MetaTemplateData
 		}
 	}
 
-	private static function trackPage(ParserOutput $output, WikiPage $page)
-	{
-		$output->addTemplate($page->getTitle(), $page->getId(), $page->getLatest());
-	}
-
 	/**
-	 * loadFromCache
+	 * loadFromOutput
 	 *
 	 * @param mixed $pageId
-	 * @param array $varNames
-	 * @param mixed $subset
+	 * @param string $subsetName
+	 * @param ParserOutput $output
 	 *
-	 * @return MetaTemplateVariablep[]|false;
+	 * @return MetaTemplateVariable[]|false
 	 */
-	private static function loadFromCache($pageId, $subsetName = '', ParserOutput $output)
+	private static function loadFromOutput($pageId, $subsetName = '', ParserOutput $output)
 	{
+		/** @var MetaTemplateSetCollection[] */
 		$vars = $output->getExtensionData(self::PF_SAVE);
 		if (isset($vars[$pageId]->sets[$subsetName])) {
 			return $vars[$pageId]->sets[$subsetName]->variables;
 		}
 
 		return false;
+	}
+
+	private static function trackPage(ParserOutput $output, WikiPage $page)
+	{
+		$output->addTemplate($page->getTitle(), $page->getId(), $page->getLatest());
 	}
 }

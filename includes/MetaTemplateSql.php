@@ -105,7 +105,7 @@ class MetaTemplateSql
      *
      * @return MetaTemplateVariable[]|false
      */
-    public function loadNamedVariables($pageId, $subsetName, $revId, $varNames)
+    public function loadVariables($pageId, $subsetName, $revId, $varNames)
     {
         $tables = [self::SET_TABLE, self::DATA_TABLE];
         $conds = [
@@ -234,9 +234,6 @@ class MetaTemplateSql
             $this->dbRead->tableExists(self::DATA_TABLE);
     }
 
-    // to delete a specific set_id from mt_save_set and all its associated values from mt_save_data
-    // used in cases of duplicate entries for same subset, and also in cases where a single subset
-    // needs to be removed from a page (but other subsets are still being kept)
     private function deleteSets($setIds)
     {
         if (!$setIds || empty($setIds)) {

@@ -19,7 +19,7 @@ class MetaTemplateDataUpdate extends DataUpdate
         if ($this->output && $this->title && $this->title->getNamespace() >= NS_MAIN && !wfReadOnly()) {
             $vars = $this->output->getExtensionData(MetaTemplateData::PF_SAVE);
             if ($vars && count($vars)) {
-                MetaTemplateSql::getInstance()->savePageData($vars);
+                MetaTemplateSql::getInstance()->saveVariables($vars);
                 $this->output->setExtensionData(MetaTemplateData::PF_SAVE, null);
             }
         }

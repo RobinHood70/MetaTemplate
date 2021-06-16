@@ -239,9 +239,7 @@ class ToMove
      */
     public static function doSkinName(PPFrame $frame)
     {
-        $frame->setVolatile();
-        $skin = RequestContext::getMain()->getSkin();
-        return $skin->getSkinName();
+        return RequestContext::getMain()->getSkin()->getSkinName();
     }
 
     // IMP: Adds nowiki option to view actual template calls for debugging. Only works in preview mode by default; set to 'always' to have it display that way when saved.

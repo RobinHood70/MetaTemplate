@@ -110,6 +110,10 @@ class MetaTemplateHooks
 				$ret = ToMove::doSkinName($frame);
 				break;
 		}
+
+		if (!$frame->isVolatile()) {
+			$variableCache[$magicWordId] = $ret;
+		}
 	}
 
 	/**

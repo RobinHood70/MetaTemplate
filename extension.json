@@ -30,6 +30,7 @@
 		"ParserHelper": "includes/ParserHelper.php",
 		"MetaTemplate": "includes/MetaTemplate.php",
 		"MetaTemplateData": "includes/MetaTemplateData.php",
+		"MetaTemplateDataUpdate": "includes/MetaTemplateDataUpdate.php",
 		"MetaTemplateFrame_Hash": "includes/MetaTemplateFrame_Hash.php",
 		"MetaTemplatePreprocessor": "includes/MetaTemplatePreprocessor.php",
 		"MetaTemplateSet": "includes/MetaTemplateSet.php",
@@ -41,10 +42,9 @@
 	"Hooks": {
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
-		"PageContentSaveComplete": "MetaTemplateHooks::onPageContentSaveComplete",
-		"ParserAfterParse": "MetaTemplateHooks::onParserAfterParse",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
-		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch"
+		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
+		"SecondaryDataUpdates": "MetaTemplateHooks::onSecondaryDataUpdates"
 	},
 	"manifest_version": 1
 }

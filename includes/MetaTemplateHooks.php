@@ -63,43 +63,6 @@ class MetaTemplateHooks
 		$aCustomVariableIds[] = ToMove::VR_SKINNAME;
 	}
 
-	/**
-	 * onPageContentSaveComplete
-	 *
-	 * @param WikiPage $page
-	 * @param User $user
-	 * @param Content $content
-	 * @param string $summary
-	 * @param bool $isMinor
-	 * @param bool $isWatch
-	 * @param mixed $section
-	 * @param mixed $flags
-	 * @param Revision $revision
-	 * @param Status $status
-	 * @param int $originalRevId
-	 * @param int $baseRevId
-	 *
-	 * @return void
-	 */
-	public static function onPageContentSaveComplete(WikiPage &$page, User &$user, Content $content, $summary, $isMinor, $isWatch, $section, &$flags, Revision $revision, Status &$status, $baseRevId)
-	{
-		MetaTemplateData::savePage($page);
-	}
-
-	public static function onParserAfterParse(Parser $parser, &$text, StripState $stripState)
-	{
-		// This whole routine is a short-term hack that'll let purge work without saving excessively often. It will be
-		// replaced by a job-queue-based design (a la refreshLinks) shortly.
-		$title = $parser->getTitle();
-		if ($title->getNamespace() > 0) {
-			$page = WikiPage::factory($title);
-			$recentlyTouched = intval(wfTimestampNow()) - intval($page->getTouched());
-			if (!$parser->getOptions()->getIsPreview() || $recentlyTouched < 1) {
-				MetaTemplateData::savePage($page);
-			}
-		}
-	}
-
 	// Register any render callbacks with the parser
 	/**
 	 * onParserFirstCallInit
@@ -161,6 +124,16 @@ class MetaTemplateHooks
 		// to modify the source files to insert our own parser and/or preprocessor.
 		global $wgParserConf;
 		$wgParserConf['preprocessorClass'] = "MetaTemplatePreprocessor";
+	}
+
+	public static function onSecondaryDataUpdates(
+		Title $title,
+		Content $old = null,
+		$recursive = true,
+		ParserOutput $parserOutput,
+		&$updates
+	) {
+		$updates[] = new MetaTemplateDataUpdate($title, $parserOutput);
 	}
 
 	/**

@@ -20,7 +20,7 @@
 		"MetaTemplate": "includes/MetaTemplate.php",
 		"MetaTemplateData": "includes/MetaTemplateData.php",
 		"MetaTemplateDataUpdate": "includes/MetaTemplateDataUpdate.php",
-		"MetaTemplateFrame_Hash": "includes/MetaTemplateFrame_Hash.php",
+		"MetaTemplateFrameHash": "includes/MetaTemplateFrameHash.php",
 		"MetaTemplateHooks": "includes/MetaTemplateHooks.php",
 		"MetaTemplatePreprocessor": "includes/MetaTemplatePreprocessor.php",
 		"MetaTemplateSet": "includes/MetaTemplateSet.php",

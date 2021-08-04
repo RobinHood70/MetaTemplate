@@ -4,10 +4,10 @@ class MetaTemplatePreprocessor extends Preprocessor_Hash
     /**
      * newFrame
      *
-     * @return MetaTemplateFrame_Hash
+     * @return MetaTemplateFrameHash
      */
     function newFrame()
     {
-        return new MetaTemplateFrame_Hash($this);
+        return new MetaTemplateFrameHash($this);
     }
 }

@@ -3,12 +3,23 @@
 use MediaWiki\MediaWikiServices;
 // use MediaWiki\DatabaseUpdater;
 
+// NOTE: Use Cite extension as a model for load/save and the various parser-related hooks, as it does somewhat similar
+//       things to what we're doing. Noticeably, it does chained hooking when it detects multiple parsers (e.g., in its
+//       clearState method). Is this something we need to do?
 // TODO: Add {{#define/local/preview:a=b|c=d}}
-/**
- * [Description MetaTemplateHooks]
- */
 class MetaTemplateHooks
 {
+	public static function onLinksUpdate(LinksUpdate &$linksUpdate)
+	{
+		$title = $linksUpdate->getTitle();
+		$displayTitle = $title->getFullText();
+		logFunctionText(" ($displayTitle)");
+
+		$output = $linksUpdate->getParserOutput();
+		self::saveVars($title, $output);
+		// MetaTemplateData::setPageVariables($output, null);
+	}
+
 	// Initial table setup/modifications from v1.
 	/**
 	 * onLoadExtensionSchemaUpdates
@@ -60,6 +71,14 @@ class MetaTemplateHooks
 		$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
 		$aCustomVariableIds[] = MetaTemplate::VR_NESTLEVEL;
 		$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
+	}
+
+	public static function onParserAfterTidy(Parser $parser, &$text)
+	{
+		if ($parser->getRevisionId() > 0) {
+			logFunctionText('(' . $parser->getTitle()->getFullText() . ')');
+			self::saveVars($parser->getTitle(), $parser->getOutput());
+		}
 	}
 
 	// Register any render callbacks with the parser
@@ -121,16 +140,6 @@ class MetaTemplateHooks
 		$wgParserConf['preprocessorClass'] = "MetaTemplatePreprocessor";
 	}
 
-	public static function onSecondaryDataUpdates(
-		Title $title,
-		Content $old = null,
-		$recursive = true,
-		ParserOutput $parserOutput,
-		&$updates
-	) {
-		$updates[] = new MetaTemplateDataUpdate($title, $parserOutput);
-	}
-
 	/**
 	 * initParserFunctions
 	 *
@@ -169,6 +178,21 @@ class MetaTemplateHooks
 		self::setAllSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		if (MetaTemplate::can('EnableCatPageTemplate')) {
 			// $parser->setHook(MetaTemplate::TG_CATPAGETEMPLATE, 'MetaTemplateInit::efMetaTemplateCatPageTemplate');
+		}
+	}
+
+	private static function saveVars(Title $title, ParserOutput $output)
+	{
+		$vars = MetaTemplateData::getPageVariables($output); // Need to plop a dummy entry here when called on a template page.
+		$sql = MetaTemplateSql::getInstance();
+		if ($vars && $vars->getRevId() === -1) {
+			// The above check will only be satisfied on Template-space pages that use #save. We need to have a way to
+			// check for data inconsistencies, and since templates save no other data, this seems like a good place to
+			// put this for now. Might also make sense as a maintenance job.
+			$sql->cleanupData();
+		} else {
+			// We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
+			$sql->saveVariables($title, $vars);
 		}
 	}
 

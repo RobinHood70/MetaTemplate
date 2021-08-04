@@ -20,8 +20,14 @@ $magicWords['en'] = [
 	MetaTemplate::VR_NESTLEVEL => [0, 'NESTLEVEL'],
 	MetaTemplate::VR_PAGENAME0 => [0, 'PAGENAME0'],
 	MetaTemplateData::NA_SAVEMARKUP => [0, 'savemarkup'],
-	MetaTemplateData::NA_SUBSET => [0, 'subset'],
+	MetaTemplateData::NA_SET => [0, 'set', 'subset'],
 	MetaTemplateData::PF_LISTSAVED => [0, 'listsaved'],
 	MetaTemplateData::PF_LOAD => [0, 'load'],
 	MetaTemplateData::PF_SAVE => [0, 'save'],
+];
+
+$specialPageAliases = [];
+
+$specialPageAliases['en'] = [
+	'metavarsonpage' => ['MetaTemplate', 'MetaTemplate'],
 ];

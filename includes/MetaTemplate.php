@@ -43,7 +43,7 @@ class MetaTemplate
         self::NA_PAGENAME,
         self::NA_SHIFT,
         MetaTemplateData::NA_SAVEMARKUP,
-        MetaTemplateData::NA_SUBSET,
+        MetaTemplateData::NA_SET,
     ];
 
     private static $config;

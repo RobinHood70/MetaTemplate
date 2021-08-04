@@ -2,34 +2,46 @@
 
 class MetaTemplateSet
 {
-    public function __construct($setId)
-    {
-        $this->setId = $setId;
-    }
-
     /**
-     * $setId
+     * $setName
      *
-     * @var int
+     * @var string
      */
-    public $setId;
+    private $setName;
 
     /**
      * $variables
      *
      * @var MetaTemplateVariable[];
      */
-    public $variables;
+    private $variables;
 
-    public function addSubset(array $data)
+    public function __construct($setName)
+    {
+        $this->setName = $setName;
+    }
+
+    public function addVariables(array $data)
     {
         foreach ($data as $key => $value) {
             $this->variables[$key] = $value;
         }
     }
 
-    public function addVar($varName, $value, $parsed = true)
+    public function addVariable($varName, $value, $parsed = true)
     {
-        $this->variables[$varName] = new MetaTemplateVariable($value, $parsed);
+        if (!isset($this->variables[$varName])) {
+            $this->variables[$varName] = new MetaTemplateVariable($value, $parsed);
+        }
+    }
+
+    public function getSetName()
+    {
+        return $this->setName;
+    }
+
+    public function &getVariables()
+    {
+        return $this->variables;
     }
 }

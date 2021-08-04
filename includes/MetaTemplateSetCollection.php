@@ -2,15 +2,17 @@
 
 class MetaTemplateSetCollection
 {
-    public $pageId;
-    public $revId;
+    private $pageId;
+    private $revId;
 
     /**
      * $sets
      *
      * @var MetaTemplateSet[]
      */
-    public $sets = [];
+    private $sets = [];
+
+    private $setIds = []; // We mostly want to ignore the IDs in any operations, except when it comes to the final upserts, so we store them separately.
 
     public function __construct($pageId, $revId)
     {
@@ -21,16 +23,49 @@ class MetaTemplateSetCollection
     /**
      * addSet
      *
-     * @param mixed $subsetName
+     * @param mixed $setName
      *
      * @return MetaTemplateSet
      */
-    public function getOrAddSet($subsetName, $revId)
+    public function getOrCreateSet($setId, $setName)
     {
-        if (!isset($this->sets[$subsetName])) {
-            $this->sets[$subsetName] = new MetaTemplateSet($revId);
+        $this->setIds[$setName] = $setId;
+        if (!isset($this->sets[$setName])) {
+            $this->sets[$setName] = new MetaTemplateSet($setName);
         }
 
-        return $this->sets[$subsetName];
+        return $this->sets[$setName];
+    }
+
+    public function getPageId()
+    {
+        return $this->pageId;
+    }
+
+    public function getRevId()
+    {
+        return $this->revId;
+    }
+
+    /**
+     * getSet
+     *
+     * @param string $setName
+     *
+     * @return MetaTemplateSet|bool
+     */
+    public function getSet($setName)
+    {
+        return ParserHelper::arrayGet($this->sets, $setName, false);
+    }
+
+    public function getSetId($setName)
+    {
+        return ParserHelper::arrayGet($this->setIds, $setName, 0);
+    }
+
+    public function getSets()
+    {
+        return $this->sets;
     }
 }

@@ -1,31 +1,21 @@
 {
 	"name": "MetaTemplate",
+	"description": "Features to make templates more powerful",
 	"version": "2.0",
 	"author": [
 		"RobinHood70",
 		"Nephele (original design)"
 	],
 	"url": "https://en.uesp.net/wiki/UESPWiki:MetaTemplate",
-	"description": "Features to make templates more powerful",
-	"license-name": "GPL-2.0-or-later",
-	"type": "parserhook",
 	"callback": "MetaTemplateHooks::onRegister",
 	"config": {
 		"_prefix": "metatemplate",
 		"EnableCatPageTemplate": true,
 		"EnableData": true
 	},
-	"ConfigRegistry": {
-		"metatemplate": "MetaTemplate::configBuilder"
-	},
-	"MessagesDirs": {
-		"MetaTemplate": [
-			"i18n"
-		]
-	},
-	"ExtensionMessagesFiles": {
-		"MetaTemplateMagic": "i18n/MetaTemplate.i18n.magic.php"
-	},
+	"license-name": "GPL-2.0-or-later",
+	"manifest_version": 1,
+	"type": "parserhook",
 	"AutoloadClasses": {
 		"MetaTemplate": "includes/MetaTemplate.php",
 		"MetaTemplateData": "includes/MetaTemplateData.php",
@@ -36,14 +26,32 @@
 		"MetaTemplateSet": "includes/MetaTemplateSet.php",
 		"MetaTemplateSetCollection": "includes/MetaTemplateSetCollection.php",
 		"MetaTemplateSql": "includes/MetaTemplateSql.php",
-		"MetaTemplateVariable": "includes/MetaTemplateVariable.php"
+		"MetaTemplateUpserts": "includes/MetaTemplateUpserts.php",
+		"MetaTemplateVariable": "includes/MetaTemplateVariable.php",
+		"MetaVarsPager": "includes/MetaVarsPager.php",
+		"SpecialMetaVarsOnPage": "includes/SpecialMetaVarsOnPage.php"
+	},
+	"ConfigRegistry": {
+		"metatemplate": "MetaTemplate::configBuilder"
+	},
+	"ExtensionMessagesFiles": {
+		"MetaTemplateAlias": "i18n/MetaTemplate.i18n.alias.php",
+		"MetaTemplateMagic": "i18n/MetaTemplate.i18n.magic.php"
 	},
 	"Hooks": {
+		"LinksUpdate": "MetaTemplateHooks::onLinksUpdate",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
+		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
-		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
-		"SecondaryDataUpdates": "MetaTemplateHooks::onSecondaryDataUpdates"
+		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch"
 	},
-	"manifest_version": 1
+	"MessagesDirs": {
+		"MetaTemplate": [
+			"i18n"
+		]
+	},
+	"SpecialPages": {
+		"MetaVarsOnPage": "SpecialMetaVarsOnPage"
+	}
 }

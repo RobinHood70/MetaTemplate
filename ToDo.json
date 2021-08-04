@@ -1,19 +1,16 @@
 {
 	"SpecialPages": {
 		"PagesWithMetaVar": "SpecialPagesWithMetaVar",
-		"MetaVarsOnPage": "SpecialMetaVarsOnPage"
 	},
 	"APIPropModules": {
 		"metavars": "ApiQueryMetaVars"
 	},
 	"AutoloadClasses": {
-		"MetaTemplateSaveData": "MetaTemplateSaveData.php",
 		"MetaTemplateCategoryPage": "MetaTemplateCategoryPage.php",
 		"MetaTemplateCategoryViewer": "MetaTemplateCategoryPage.php",
 		"CategoryTreeCategoryPage": "FakeCategoryTreeStubs.php",
 		"ApiQueryMetaVars": "ApiQueryMetaVars.php",
 		"SpecialPagesWithMetaVar": "SpecialPagesWithMetaVar.php",
-		"SpecialMetaVarsOnPage": "SpecialMetaVarsOnPage.php"
 	},
 	"Hooks": {
 		"ArticleDeleteComplete": "MetaTemplateSaveData::OnDelete",

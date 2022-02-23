@@ -9,17 +9,6 @@ use MediaWiki\MediaWikiServices;
 // TODO: Add {{#define/local/preview:a=b|c=d}}
 class MetaTemplateHooks
 {
-	public static function onLinksUpdate(LinksUpdate &$linksUpdate)
-	{
-		$title = $linksUpdate->getTitle();
-		$displayTitle = $title->getFullText();
-		logFunctionText(" ($displayTitle)");
-
-		$output = $linksUpdate->getParserOutput();
-		self::saveVars($title, $output);
-		// MetaTemplateData::setPageVariables($output, null);
-	}
-
 	// Initial table setup/modifications from v1.
 	/**
 	 * onLoadExtensionSchemaUpdates
@@ -75,9 +64,11 @@ class MetaTemplateHooks
 
 	public static function onParserAfterTidy(Parser $parser, &$text)
 	{
-		if ($parser->getRevisionId() > 0) {
-			logFunctionText('(' . $parser->getTitle()->getFullText() . ')');
-			self::saveVars($parser->getTitle(), $parser->getOutput());
+		$output = $parser->getOutput();
+		// getTimeSinceStart is a kludge to detect if this is the real page we're processing or some small part of it that we don't care about.
+		if (!$parser->getOptions()->getIsPreview() && !is_null($output->getTimeSinceStart('wall'))) {
+			logFunctionText('(' . $parser->getRevisionId() . ': ' . $parser->getTitle()->getFullText() . ')');
+			MetaTemplateSql::getInstance()->saveVariables($parser->getTitle(), MetaTemplateData::getPageVariables($output));
 		}
 	}
 
@@ -178,21 +169,6 @@ class MetaTemplateHooks
 		self::setAllSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		if (MetaTemplate::can('EnableCatPageTemplate')) {
 			// $parser->setHook(MetaTemplate::TG_CATPAGETEMPLATE, 'MetaTemplateInit::efMetaTemplateCatPageTemplate');
-		}
-	}
-
-	private static function saveVars(Title $title, ParserOutput $output)
-	{
-		$vars = MetaTemplateData::getPageVariables($output); // Need to plop a dummy entry here when called on a template page.
-		$sql = MetaTemplateSql::getInstance();
-		if ($vars && $vars->getRevId() === -1) {
-			// The above check will only be satisfied on Template-space pages that use #save. We need to have a way to
-			// check for data inconsistencies, and since templates save no other data, this seems like a good place to
-			// put this for now. Might also make sense as a maintenance job.
-			$sql->cleanupData();
-		} else {
-			// We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
-			$sql->saveVariables($title, $vars);
 		}
 	}
 

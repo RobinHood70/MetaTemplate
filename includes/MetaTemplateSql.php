@@ -19,6 +19,14 @@ class MetaTemplateSql
     /** @var DatabaseBase */
     private $dbWrite;
 
+    /**
+     * A list of all the pages purged during this session. Never cleared, since this effectively acts as an instance
+     * varible for the parent page.
+     *
+     * @var array
+     */
+    private static $pagesPurged = [];
+
     private function __construct()
     {
         $this->dbRead = wfGetDB(DB_SLAVE);
@@ -163,7 +171,7 @@ class MetaTemplateSql
         return false;
     }
 
-    public function saveVariables(Title $title, MetaTemplateSetCollection $newData = null)
+    public function saveVariables(Title $title, MetaTemplateSetCollection $vars = null)
     {
         // This algorithm is based on the assumption that data is rarely changed, therefore:
         // * It's best to read the existing DB data before making any DB updates/inserts.
@@ -171,55 +179,26 @@ class MetaTemplateSql
         //   once instead of individually or by set.
         // * It's best to use the read-only DB until we know we need to write.
 
-        logFunctionText('(' . $title->getFullText() . ')');
-        $pageId = $title->getArticleID();
-        $oldData = $this->loadPageVariables($pageId);
+        if ($vars) {
+            logFunctionText('(' . $vars->getRevId() . ': ' . $title->getFullText() . ')');
+            if ($vars->getRevId() === -1) {
+                // The above check will only be satisfied on Template-space pages that use #save. We need to have a way to
+                // check for data inconsistencies, and since templates save no other data, this seems like a good place to
+                // put this for now. Might also make sense as a maintenance job.
+                $this->cleanupData();
+                $this->recursiveInvalidateCache($title);
+            } else {
+                // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
+                $pageId = $title->getArticleID();
 
-        $upserts = new MetaTemplateUpserts($oldData, $newData);
-        if ($upserts->getTotal() === 0) {
-            return;
-        }
-
-        $deletes = $upserts->getDeletes();
-        // writeFile('  Deletes: ', count($deletes));
-        if (count($deletes)) {
-            $this->dbWrite->delete(self::DATA_TABLE, [self::DATA_PREFIX . 'id' => $deletes]);
-            $this->dbWrite->delete(self::SET_TABLE, [self::SET_PREFIX . 'id' => $deletes]);
-        }
-
-        $inserts = $upserts->getInserts();
-        // writeFile('  Inserts: ', count($inserts));
-        if (count($inserts)) {
-            foreach ($inserts as $revId => $newSet) {
-                // TODO: $revId doesn't need to be part of $inserts.
-                $this->dbWrite->insert(self::SET_TABLE, [
-                    self::SET_PREFIX . 'page_id' => $pageId,
-                    self::SET_PREFIX . 'rev_id' => $revId,
-                    self::SET_PREFIX . 'subset' => $newSet->getSetName()
-                ]);
-                $setId = $this->dbWrite->insertId();
-                $this->insertData($setId, $newSet);
-            }
-        }
-
-        $updates = $upserts->getUpdates();
-        // writeFile('  Updates: ', count($updates));
-        if (count($updates)) {
-            $newRevId = $newData->getRevId();
-            foreach ($updates as $setId => $newSet) {
-                // Safe to index this without checking, as the upsert process has already done so.
-                $oldSet = $oldData->getSet($newSet->getSetName());
-                $this->updateSetData($setId, $oldSet, $newSet);
-            }
-
-            if (
-                $oldData->getRevId() < $newRevId
-            ) {
-                $this->dbWrite->update(
-                    self::SET_TABLE,
-                    [self::SET_PREFIX . 'rev_id' => $newRevId],
-                    [self::SET_PREFIX . 'id' => $setId]
-                );
+                // Whether or not the data changed, the page has been evaluated, so add it to the list.
+                self::$pagesPurged[$pageId] = true;
+                $oldData = $this->loadPageVariables($pageId);
+                $upserts = new MetaTemplateUpserts($oldData, $vars);
+                if ($upserts->getTotal() > 0) {
+                    $this->reallySaveVariables($upserts);
+                    $this->recursiveInvalidateCache($title);
+                }
             }
         }
     }
@@ -236,13 +215,106 @@ class MetaTemplateSql
             $this->dbRead->tableExists(self::DATA_TABLE);
     }
 
+    private function reallySaveVariables(MetaTemplateUpserts $upserts)
+    {
+        $deletes = $upserts->getDeletes();
+        // writeFile('  Deletes: ', count($deletes));
+        if (count($deletes)) {
+            $this->dbWrite->delete(self::DATA_TABLE, [self::DATA_PREFIX . 'id' => $deletes]);
+            $this->dbWrite->delete(self::SET_TABLE, [self::SET_PREFIX . 'id' => $deletes]);
+        }
+
+        $pageId = $upserts->getPageId();
+        $newRevId = $upserts->getNewRevId();
+        // writeFile('  Inserts: ', count($inserts));
+        foreach ($upserts->getInserts() as $newSet) {
+            $this->dbWrite->insert(self::SET_TABLE, [
+                self::SET_PREFIX . 'page_id' => $pageId,
+                self::SET_PREFIX . 'rev_id' => $newRevId,
+                self::SET_PREFIX . 'subset' => $newSet->getSetName()
+            ]);
+            $setId = $this->dbWrite->insertId();
+            $this->insertData($setId, $newSet);
+        }
+
+        $updates = $upserts->getUpdates();
+        // writeFile('  Updates: ', count($updates));
+        if (count($updates)) {
+            foreach ($updates as $setId => $setData) {
+                list($oldSet, $newSet) = $setData;
+                $this->updateSetData($setId, $oldSet, $newSet);
+            }
+
+            if (
+                $upserts->getOldRevId() < $newRevId
+            ) {
+                $this->dbWrite->update(
+                    self::SET_TABLE,
+                    [self::SET_PREFIX . 'rev_id' => $newRevId],
+                    [self::SET_PREFIX . 'id' => $setId]
+                );
+            }
+        }
+    }
+
+    private function recursiveInvalidateCache(Title $title)
+    {
+        // Note: this is recursive only in the sense that it will cause page re-evaluation, which will instantiate
+        // other parsers. This should not be left in-place in the final product, as it's very server-intensive.
+        // Instead, call the cache's enqueue jobs method to put things on the queue.
+        $table = 'templatelinks';
+        /** @var Title[] */
+        $linkTitles = iterator_to_array($title->getBacklinkCache()->getLinks($table));
+        $linkIds = [];
+        foreach ($linkTitles as $link) {
+            $linkIds[] = $link->getArticleID();
+        }
+
+        $result = $this->dbRead->select(
+            self::SET_TABLE,
+            [self::SET_PREFIX . 'page_id'],
+            [self::SET_PREFIX . 'page_id' => $linkIds],
+            __METHOD__
+        );
+
+        $recursiveIds = [];
+        for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
+            $recursiveIds[] = $row[self::SET_PREFIX . 'page_id'];
+        }
+
+        foreach ($linkIds as $linkId) {
+            if (!isset(self::$pagesPurged[$linkId])) {
+                self::$pagesPurged[$linkId] = true;
+                $title = Title::newFromID($linkId);
+                if (isset($recursiveIds[$linkId])) {
+                    writeFile('Queue: ' . $title->getFullText());
+                    $job = new RefreshLinksJob(
+                        $title,
+                        [
+                            'table' => $table,
+                            'recursive' => true,
+                        ] + Job::newRootJobParams(
+                            "refreshlinks:{$table}:{$title->getPrefixedText()}"
+                        )
+                    );
+
+                    writeFile($job);
+                    JobQueueGroup::singleton()->push($job);
+                } else {
+                    writeFile('Purge: ' . $title->getFullText());
+                    $page = WikiPage::factory($title);
+                    $page->doPurge();
+                }
+            }
+        }
+    }
+
     private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet)
     {
         $oldVars = &$oldSet->getVariables();
         $newVars = $newSet->getVariables();
         $deletes = [];
         foreach ($oldVars as $oldName => $oldValue) {
-            // writeFile('upserts.txt', $varName, ":\n", $varValue);
             if (isset($newVars[$oldName])) {
                 $newValue = $newVars[$oldName];
                 // writeFile('upserts.txt',  $oldVars[$varName]);
@@ -279,52 +351,6 @@ class MetaTemplateSql
             $this->dbWrite->delete(self::DATA_TABLE, [
                 self::DATA_PREFIX . 'id' => $setId,
                 self::DATA_PREFIX . 'varname' => $deletes
-            ]);
-        }
-    }
-
-    private function updateSetDataOld($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet)
-    {
-        $oldVars = &$oldSet->getVariables();
-        $newVars = $newSet->getVariables();
-        $inserts = [];
-        foreach ($newVars as $varName => $varValue) {
-            // writeFile('upserts.txt', $varName, ":\n", $varValue);
-            if (isset($oldVars[$varName])) {
-                // writeFile('upserts.txt',  $oldVars[$varName]);
-                if ($varValue !== $oldVars[$varName]) {
-                    // updates can't be done in a batch... unless I delete then insert them all
-                    // but I'm assuming that it's most likely only value needs to be updated, in which case
-                    // it's most efficient to simply make updates one value at a time
-                    $this->dbWrite->update(
-                        self::DATA_TABLE,
-                        [
-                            self::DATA_PREFIX . 'value' => $varValue->getValue(),
-                            self::DATA_PREFIX . 'parsed' => $varValue->getParsed()
-                        ],
-                        [
-                            self::DATA_PREFIX . 'id' => $setId,
-                            self::DATA_PREFIX . 'varname' => $varName
-                        ]
-                    );
-                }
-
-                unset($oldVars[$varName]);
-            } else {
-                $inserts[$varName] = $varValue;
-            }
-        }
-
-        if (count($inserts)) {
-            $insertSet = new MetaTemplateSet($newSet->getSetName());
-            $insertSet->addVariables($inserts);
-            $this->insertData($setId, $insertSet);
-        }
-
-        if (count($oldVars)) {
-            $this->dbWrite->delete(self::DATA_TABLE, [
-                self::DATA_PREFIX . 'id' => $setId,
-                self::DATA_PREFIX . 'varname' => array_keys($oldVars)
             ]);
         }
     }

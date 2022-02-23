@@ -46,7 +46,6 @@
 		"MetaTemplateMagic": "i18n/MetaTemplate.i18n.magic.php"
 	},
 	"Hooks": {
-		"LinksUpdate": "MetaTemplateHooks::onLinksUpdate",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",

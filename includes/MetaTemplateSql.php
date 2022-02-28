@@ -171,6 +171,21 @@ class MetaTemplateSql
         return false;
     }
 
+    public function deleteVariable(Title $title)
+    {
+        // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
+        $pageId = $title->getArticleID();
+
+        // Whether or not the data changed, the page has been evaluated, so add it to the list.
+        self::$pagesPurged[$pageId] = true;
+        $oldData = $this->loadPageVariables($pageId);
+        $upserts = new MetaTemplateUpserts($oldData, $vars);
+        if ($upserts->getTotal() > 0) {
+            $this->reallySaveVariables($upserts);
+            $this->recursiveInvalidateCache($title);
+        }
+    }
+
     public function saveVariables(Title $title, MetaTemplateSetCollection $vars = null)
     {
         // This algorithm is based on the assumption that data is rarely changed, therefore:

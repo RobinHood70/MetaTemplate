@@ -9,6 +9,11 @@ use MediaWiki\MediaWikiServices;
 // TODO: Add {{#define/local/preview:a=b|c=d}}
 class MetaTemplateHooks
 {
+	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount)
+	{
+		MetaTemplateSql::getInstance()->saveVariables($article->getTitle(), MetaTemplateData::getPageVariables($output));
+	}
+
 	// Initial table setup/modifications from v1.
 	/**
 	 * onLoadExtensionSchemaUpdates

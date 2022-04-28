@@ -19,15 +19,21 @@
 
 /**
  * Expansion frame with template arguments. Overrides MediaWiki default so it can be used to preview with arguments in
- * root space (i.e., while previewing or viewing a template page). In essence, this allows a template to display as
- * though it had been called with specific arguments, while also allowing root pages to hold values declared by
- * #preview, #define, and #local.
+ * root space (i.e., while previewing or viewing a template page or setting variables on a page that's not
+ * transcluded). To create the MetaTemplateFramehash, extend PPTemplateFrame_Hash and then override any function that
+ * refers to $this->parent without doing an isset on it first, then remove that part of the function since parent will
+ * always be null for this. In essence, this allows a page to display as though it had been called with specific
+ * arguments or to hold values declared by #preview, #define, and #local.
  *
  * @ingroup Parser
  */
 // phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps
 class MetaTemplateFrameHash extends PPTemplateFrame_Hash
 {
+
+	private $volatile = false;
+	private $ttl = null;
+
 	/**
 	 * @param Preprocessor $preprocessor
 	 */
@@ -97,6 +103,16 @@ class MetaTemplateFrameHash extends PPTemplateFrame_Hash
 	}
 
 	/**
+	 * Get the TTL
+	 *
+	 * @return int|null
+	 */
+	public function getTTL()
+	{
+		return $this->ttl;
+	}
+
+	/**
 	 * Return true if the frame is a template frame
 	 *
 	 * @return bool
@@ -106,6 +122,15 @@ class MetaTemplateFrameHash extends PPTemplateFrame_Hash
 		return false;
 	}
 
+	/**
+	 * Get the volatile flag
+	 *
+	 * @return bool
+	 */
+	public function isVolatile()
+	{
+		return $this->volatile;
+	}
 
 	/**
 	 * Set the TTL

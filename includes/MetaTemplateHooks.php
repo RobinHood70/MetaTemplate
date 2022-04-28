@@ -11,7 +11,7 @@ class MetaTemplateHooks
 {
 	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount)
 	{
-		MetaTemplateSql::getInstance()->saveVariables($article->getTitle(), MetaTemplateData::getPageVariables($output));
+		MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 	}
 
 	// Initial table setup/modifications from v1.
@@ -72,8 +72,9 @@ class MetaTemplateHooks
 		$output = $parser->getOutput();
 		// getTimeSinceStart is a kludge to detect if this is the real page we're processing or some small part of it that we don't care about.
 		if (!$parser->getOptions()->getIsPreview() && !is_null($output->getTimeSinceStart('wall'))) {
-			logFunctionText(' (' . $parser->getRevisionId() . ': ' . $parser->getTitle()->getFullText() . ')');
-			MetaTemplateSql::getInstance()->saveVariables($parser->getTitle(), MetaTemplateData::getPageVariables($output));
+			logFunctionText($parser->getRevisionId() . ': ' . $parser->getTitle()->getFullText());
+			$pageVars = MetaTemplateData::getPageVariables($output);
+			MetaTemplateSql::getInstance()->saveVariables($parser->getTitle(), $pageVars);
 		}
 	}
 

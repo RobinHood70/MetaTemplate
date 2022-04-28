@@ -20,6 +20,11 @@ class MetaTemplateSetCollection
         $this->revId = $revId;
     }
 
+    public function isEmpty()
+    {
+        return empty($this->sets);
+    }
+
     /**
      * addSet
      *

@@ -156,15 +156,17 @@ class MetaTemplateData
 			return;
 		}
 
-		logFunctionText(' (' . $title->getFullText() . ' ...)');
 		if ($title->getNamespace() === NS_TEMPLATE) {
 			// Marker value that the template uses #save. This causes a data cleanup as part of the save.
+			logFunctionText($title->getFullText() . ' (Template save)');
 			$pageId = $title->getArticleID();
 			$sets = new MetaTemplateSetCollection($pageId, -1);
 			self::setPageVariables($parser->getOutput(), $sets);
 			return;
 		}
 
+
+		logFunctionText($title->getFullText() . ' (Normal save)');
 		// process before deciding whether to truly proceed, so that nowiki tags are previewed properly
 		list($magicArgs, $values) = ParserHelper::getMagicArgs(
 			$frame,

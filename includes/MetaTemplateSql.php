@@ -171,15 +171,16 @@ class MetaTemplateSql
         return false;
     }
 
-    public function deleteVariable(Title $title)
+    public function deleteVariables(Title $title)
     {
+        logFunctionText('Delete variables on ' . $title->getFullText());
         // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
         $pageId = $title->getArticleID();
 
         // Whether or not the data changed, the page has been evaluated, so add it to the list.
         self::$pagesPurged[$pageId] = true;
         $oldData = $this->loadPageVariables($pageId);
-        $upserts = new MetaTemplateUpserts($oldData, $vars);
+        $upserts = new MetaTemplateUpserts($oldData, null);
         if ($upserts->getTotal() > 0) {
             $this->reallySaveVariables($upserts);
             $this->recursiveInvalidateCache($title);
@@ -194,26 +195,26 @@ class MetaTemplateSql
         //   once instead of individually or by set.
         // * It's best to use the read-only DB until we know we need to write.
 
-        if ($vars) {
-            logFunctionText('(' . $vars->getRevId() . ': ' . $title->getFullText() . ')');
-            if ($vars->getRevId() === -1) {
-                // The above check will only be satisfied on Template-space pages that use #save. We need to have a way to
-                // check for data inconsistencies, and since templates save no other data, this seems like a good place to
-                // put this for now. Might also make sense as a maintenance job.
-                $this->cleanupData();
-                $this->recursiveInvalidateCache($title);
-            } else {
-                // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
-                $pageId = $title->getArticleID();
+        if (is_null($vars) || $vars->isEmpty()) {
+            $this->deleteVariables($title);
+        } else if ($vars->getRevId() === -1) {
+            // The above check will only be satisfied on Template-space pages that use #save. We need to have a way to
+            // check for data inconsistencies, and since templates save no other data, this seems like a good place to
+            // put this for now. Might also make sense as a maintenance job.
+            $this->cleanupData();
+            $this->recursiveInvalidateCache($title);
+        } else {
+            logFunctionText($title->getFullText() . ', RevID ' . $vars->getRevId());
+            // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
+            $pageId = $title->getArticleID();
 
-                // Whether or not the data changed, the page has been evaluated, so add it to the list.
-                self::$pagesPurged[$pageId] = true;
-                $oldData = $this->loadPageVariables($pageId);
-                $upserts = new MetaTemplateUpserts($oldData, $vars);
-                if ($upserts->getTotal() > 0) {
-                    $this->reallySaveVariables($upserts);
-                    $this->recursiveInvalidateCache($title);
-                }
+            // Whether or not the data changed, the page has been evaluated, so add it to the list.
+            self::$pagesPurged[$pageId] = true;
+            $oldData = $this->loadPageVariables($pageId);
+            $upserts = new MetaTemplateUpserts($oldData, $vars);
+            if ($upserts->getTotal() > 0) {
+                $this->reallySaveVariables($upserts);
+                $this->recursiveInvalidateCache($title);
             }
         }
     }

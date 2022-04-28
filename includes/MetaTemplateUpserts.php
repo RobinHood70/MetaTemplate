@@ -15,8 +15,8 @@ class MetaTemplateUpserts
 
     public function __construct(MetaTemplateSetCollection $oldData = null, MetaTemplateSetCollection $newData = null)
     {
-        // writeFile('upserts.txt', "OldData\n", $oldData);
-        // writeFile('upserts.txt', "NewData\n", $newData);
+        writeFile("OldData\n", $oldData);
+        writeFile("NewData\n", $newData);
 
         $oldSets = (bool)$oldData ? $oldData->getSets() : []; // new MetaTemplateSet('');
         $newSets = (bool)$newData ? $newData->getSets() : []; // new MetaTemplateSet('');

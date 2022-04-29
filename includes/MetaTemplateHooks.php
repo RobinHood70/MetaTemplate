@@ -72,7 +72,6 @@ class MetaTemplateHooks
 		$output = $parser->getOutput();
 		// getTimeSinceStart is a kludge to detect if this is the real page we're processing or some small part of it that we don't care about.
 		if (!$parser->getOptions()->getIsPreview() && !is_null($output->getTimeSinceStart('wall'))) {
-			logFunctionText($parser->getRevisionId() . ': ' . $parser->getTitle()->getFullText());
 			$pageVars = MetaTemplateData::getPageVariables($output);
 			MetaTemplateSql::getInstance()->saveVariables($parser->getTitle(), $pageVars);
 		}

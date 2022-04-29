@@ -173,11 +173,9 @@ class MetaTemplateSql
 
     public function deleteVariables(Title $title)
     {
-        logFunctionText('Delete variables on ' . $title->getFullText());
         // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
-        $pageId = $title->getArticleID();
-
         // Whether or not the data changed, the page has been evaluated, so add it to the list.
+        $pageId = $title->getArticleID();
         self::$pagesPurged[$pageId] = true;
         $oldData = $this->loadPageVariables($pageId);
         $upserts = new MetaTemplateUpserts($oldData, null);
@@ -204,7 +202,6 @@ class MetaTemplateSql
             $this->cleanupData();
             $this->recursiveInvalidateCache($title);
         } else {
-            logFunctionText($title->getFullText() . ', RevID ' . $vars->getRevId());
             // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
             $pageId = $title->getArticleID();
 
@@ -303,7 +300,6 @@ class MetaTemplateSql
                 self::$pagesPurged[$linkId] = true;
                 $title = Title::newFromID($linkId);
                 if (isset($recursiveIds[$linkId])) {
-                    writeFile('Queue: ' . $title->getFullText());
                     $job = new RefreshLinksJob(
                         $title,
                         [
@@ -314,10 +310,8 @@ class MetaTemplateSql
                         )
                     );
 
-                    writeFile($job);
                     JobQueueGroup::singleton()->push($job);
                 } else {
-                    writeFile('Purge: ' . $title->getFullText());
                     $page = WikiPage::factory($title);
                     $page->doPurge();
                 }

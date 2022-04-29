@@ -3,9 +3,6 @@
 use MediaWiki\MediaWikiServices;
 // use MediaWiki\DatabaseUpdater;
 
-// NOTE: Use Cite extension as a model for load/save and the various parser-related hooks, as it does somewhat similar
-//       things to what we're doing. Noticeably, it does chained hooking when it detects multiple parsers (e.g., in its
-//       clearState method). Is this something we need to do?
 // TODO: Add {{#define/local/preview:a=b|c=d}}
 class MetaTemplateHooks
 {
@@ -41,12 +38,12 @@ class MetaTemplateHooks
 				// MW 1.31+
 				// $updater->modifyExtensionTable( $saveSet, "$dir/sql/patch-$saveSet.sql" );
 				// $updater->modifyExtensionTable( $saveData, "$dir/sql/patch-$saveData.sql" );
+			} else {
+				// Always run both unconditionally in case only one or the other was created previously.
+				// Updater will automatically skip each if the table exists.
+				$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/" . MetaTemplateSql::SET_TABLE . '.sql');
+				$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/" . MetaTemplateSql::DATA_TABLE . '.sql');
 			}
-		} else {
-			// Always run both unconditionally in case only one or the other was created previously.
-			// Updater will automatically skip each if the table exists.
-			$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/" . MetaTemplateSql::SET_TABLE . '.sql');
-			$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/" . MetaTemplateSql::DATA_TABLE . '.sql');
 		}
 	}
 

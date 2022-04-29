@@ -180,7 +180,7 @@ class MetaTemplateSql
         $oldData = $this->loadPageVariables($pageId);
         $upserts = new MetaTemplateUpserts($oldData, null);
         if ($upserts->getTotal() > 0) {
-            $this->reallySaveVariables($upserts);
+            $this->saveUpserts($upserts);
             $this->recursiveInvalidateCache($title);
         }
     }
@@ -210,7 +210,7 @@ class MetaTemplateSql
             $oldData = $this->loadPageVariables($pageId);
             $upserts = new MetaTemplateUpserts($oldData, $vars);
             if ($upserts->getTotal() > 0) {
-                $this->reallySaveVariables($upserts);
+                $this->saveUpserts($upserts);
                 $this->recursiveInvalidateCache($title);
             }
         }
@@ -228,7 +228,7 @@ class MetaTemplateSql
             $this->dbRead->tableExists(self::DATA_TABLE);
     }
 
-    private function reallySaveVariables(MetaTemplateUpserts $upserts)
+    private function saveUpserts(MetaTemplateUpserts $upserts)
     {
         $deletes = $upserts->getDeletes();
         // writeFile('  Deletes: ', count($deletes));

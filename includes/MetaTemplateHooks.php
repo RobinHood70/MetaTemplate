@@ -84,9 +84,9 @@ class MetaTemplateHooks
 	 */
 	public static function onParserFirstCallInit(Parser $parser)
 	{
+		ParserHelper::init();
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
-		ParserHelper::init();
 		MetaTemplate::init();
 	}
 
@@ -153,7 +153,7 @@ class MetaTemplateHooks
 		$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
 
 		if (MetaTemplate::can('EnableData')) {
-			// $parser->setFunctionHook( MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS );
+			// $parser->setFunctionHook(MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS);
 		}

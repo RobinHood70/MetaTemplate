@@ -5,6 +5,7 @@
  */
 class MetaTemplateData
 {
+	const NA_ORDER = 'metatemplate-order';
 	const NA_SAVEMARKUP = 'metatemplate-savemarkup';
 	const NA_SET = 'metatemplate-set';
 
@@ -16,47 +17,20 @@ class MetaTemplateData
 	private static $saveKey = '|#save';
 	private static $setNameWidth = 50;
 
-	/**
-	 * getPageVariables
-	 *
-	 * @param ParserOutput $output
-	 *
-	 * @return MetaTemplateSetCollection|null
-	 */
-	public static function getPageVariables(ParserOutput $output)
+	public static function doListSaved(Parser $parser, PPFrame_Hash $frame, array $args)
 	{
-		return $output->getExtensionData(self::$saveKey);
-	}
+		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+			$frame,
+			$args,
+			ParserHelper::NA_CASE,
+			ParserHelper::NA_IF,
+			ParserHelper::NA_IFNOT,
+			self::NA_ORDER
+		);
 
-	public static function setPageVariables(ParserOutput $output, MetaTemplateSetCollection $value = null)
-	{
-		$output->setExtensionData(self::$saveKey, $value);
-	}
-
-	/**
-	 * add
-	 *
-	 * @param WikiPage $page
-	 * @param ParserOutput $output
-	 * @param array $variables
-	 * @param mixed $setName
-	 *
-	 * @return void
-	 */
-	private static function addVariables(WikiPage $page, ParserOutput $output, $setName, array $variables)
-	{
-		// $displayTitle = $page->getTitle()->getFullText();
-		// logFunctionText(" ($displayTitle, ParserOutput, $setName, Variables)");
-		$pageId = $page->getId();
-		$revId = $page->getLatest();
-		$pageVars = self::getPageVariables($output);
-		if (!$pageVars) {
-			$pageVars = new MetaTemplateSetCollection($pageId, $revId);
-			self::setPageVariables($output, $pageVars);
+		if (!ParserHelper::checkIfs($magicArgs) || count($values) < 2) {
+			return;
 		}
-
-		$set = $pageVars->getOrCreateSet(0, $setName);
-		$set->addVariables($variables);
 	}
 
 	// IMP: Respects case=any when determining what to load.
@@ -222,6 +196,49 @@ class MetaTemplateData
 		// This tag is a marker for the doSave function, so we don't need to do anything beyond normal frame expansion.
 		$value = $parser->recursiveTagParse($value, $frame);
 		return $value;
+	}
+
+	/**
+	 * getPageVariables
+	 *
+	 * @param ParserOutput $output
+	 *
+	 * @return MetaTemplateSetCollection|null
+	 */
+	public static function getPageVariables(ParserOutput $output)
+	{
+		return $output->getExtensionData(self::$saveKey);
+	}
+
+	public static function setPageVariables(ParserOutput $output, MetaTemplateSetCollection $value = null)
+	{
+		$output->setExtensionData(self::$saveKey, $value);
+	}
+
+	/**
+	 * add
+	 *
+	 * @param WikiPage $page
+	 * @param ParserOutput $output
+	 * @param array $variables
+	 * @param mixed $setName
+	 *
+	 * @return void
+	 */
+	private static function addVariables(WikiPage $page, ParserOutput $output, $setName, array $variables)
+	{
+		// $displayTitle = $page->getTitle()->getFullText();
+		// logFunctionText(" ($displayTitle, ParserOutput, $setName, Variables)");
+		$pageId = $page->getId();
+		$revId = $page->getLatest();
+		$pageVars = self::getPageVariables($output);
+		if (!$pageVars) {
+			$pageVars = new MetaTemplateSetCollection($pageId, $revId);
+			self::setPageVariables($output, $pageVars);
+		}
+
+		$set = $pageVars->getOrCreateSet(0, $setName);
+		$set->addVariables($variables);
 	}
 
 	private static function	fetchVariables(WikiPage $page, ParserOutput $output, $revId, $setName, array $varNames)

@@ -352,7 +352,7 @@ class MetaTemplate
      */
     public static function setVar(PPFrame_Hash $frame, $varName, $value)
     {
-        show($varName, '=', $frame->expand($value));
+        // show($varName, '=', $frame->expand($value));
         if (is_int($varName) || (is_string($varName) && ctype_digit($varName))) {
             $varName = intval($varName);
             $args = &$frame->numberedArgs;

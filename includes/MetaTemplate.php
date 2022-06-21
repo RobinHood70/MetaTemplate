@@ -36,16 +36,6 @@ class MetaTemplate
     const VR_NESTLEVEL = 'metatemplate-nestlevel';
     const VR_PAGENAME0 = 'metatemplate-pagename0';
 
-    private static $allMagicWords = [
-        self::NA_NAMESPACE,
-        self::NA_NESTLEVEL,
-        self::NA_ORDER,
-        self::NA_PAGENAME,
-        self::NA_SHIFT,
-        MetaTemplateData::NA_SAVEMARKUP,
-        MetaTemplateData::NA_SET,
-    ];
-
     private static $config;
     private static $ignoredArgs = [ParserHelper::NA_NSBASE, ParserHelper::NA_NSID];
 
@@ -88,7 +78,7 @@ class MetaTemplate
                 $frame->depth > 0 ||
                 $parser->getOptions()->getIsPreview() ||
                 $parser->getTitle()->getNamespace() != NS_TEMPLATE ||
-                in_array($name, ParserHelper::getMagicWordNames(self::$ignoredArgs))
+                ParserHelper::magicWordIn($name, self::$ignoredArgs)
             ) {
                 self::checkAndSetVar($frame, $args, $name);
             }
@@ -178,14 +168,17 @@ class MetaTemplate
      */
     public static function doNestLevel(PPFrame_Hash $frame)
     {
-        $value = $frame->depth;
-        foreach (ParserHelper::getMagicWordNames(self::NA_NESTLEVEL) as $nestWord) {
-            if (!is_null($frame->getArgument($nestWord))) {
-                $value = $frame->expand($frame->getArgument($nestWord));
+        return ParserHelper::getMagicValue(self::NA_NESTLEVEL, $frame->getArguments(), $frame->depth);
+
+        /*
+        foreach ($frame->getArguments() as $key => $value) {
+            if (ParserHelper::magicWordIn($key, [self::NA_NESTLEVEL])) {
+                return $frame->expand($value);
             }
         }
 
-        return sprintf("%d", $value);
+        return strval($value); // sprintf("%d", $value);
+        */
     }
 
     /**
@@ -337,7 +330,15 @@ class MetaTemplate
     {
         // MW 1.32+ $magicFactory = $parser->getMagicWordFactory( );
         //          $magicFactory->get( $word );
-        ParserHelper::cacheMagicWords(self::$allMagicWords);
+        ParserHelper::cacheMagicWords([
+            self::NA_NAMESPACE,
+            self::NA_NESTLEVEL,
+            self::NA_ORDER,
+            self::NA_PAGENAME,
+            self::NA_SHIFT,
+            MetaTemplateData::NA_SAVEMARKUP,
+            MetaTemplateData::NA_SET,
+        ]);
     }
 
     /**
@@ -351,6 +352,7 @@ class MetaTemplate
      */
     public static function setVar(PPFrame_Hash $frame, $varName, $value)
     {
+        show($varName, '=', $frame->expand($value));
         if (is_int($varName) || (is_string($varName) && ctype_digit($varName))) {
             $varName = intval($varName);
             $args = &$frame->numberedArgs;

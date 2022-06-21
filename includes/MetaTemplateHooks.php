@@ -168,25 +168,9 @@ class MetaTemplateHooks
 	 */
 	private static function initTagFunctions(Parser $parser)
 	{
-		self::setAllSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+		ParserHelper::setHookSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		if (MetaTemplate::can('EnableCatPageTemplate')) {
 			// $parser->setHook(MetaTemplate::TG_CATPAGETEMPLATE, 'MetaTemplateInit::efMetaTemplateCatPageTemplate');
-		}
-	}
-
-	/**
-	 * setAllSynonyms
-	 *
-	 * @param Parser $parser
-	 * @param mixed $id
-	 * @param callable $callback
-	 *
-	 * @return void
-	 */
-	private static function setAllSynonyms(Parser $parser, $id, callable $callback)
-	{
-		foreach (MagicWord::get($id)->getSynonyms() as $synonym) {
-			$parser->setHook($synonym, $callback);
 		}
 	}
 }

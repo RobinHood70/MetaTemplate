@@ -107,7 +107,7 @@ class MetaTemplateData
 						$value = $frame->expand($prepro);
 					}
 
-					MetaTemplate::setVar($frame, $varName, $value);
+					MetaTemplate::setVar($parser, $frame, $varName, $value);
 				}
 			}
 		}

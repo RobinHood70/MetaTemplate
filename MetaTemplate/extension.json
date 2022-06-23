@@ -17,7 +17,7 @@
 	"manifest_version": 1,
 	"requires": {
 		"_": "Requires entry is ignored for manifest_version=1, but placed here for information.",
-		"MediaWiki": ">= 1.25.0",
+		"MediaWiki": ">= 1.28.0",
 		"platform": {
 			"php": ">= 5.4"
 		}

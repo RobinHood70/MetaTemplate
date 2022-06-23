@@ -80,7 +80,7 @@ class MetaTemplate
                 $parser->getTitle()->getNamespace() != NS_TEMPLATE ||
                 ParserHelper::magicWordIn($name, self::$ignoredArgs)
             ) {
-                self::checkAndSetVar($frame, $args, $name);
+                self::checkAndSetVar($parser, $frame, $args, $name);
             }
         }
     }
@@ -120,7 +120,7 @@ class MetaTemplate
                 $varName = $frame->expand($value);
                 $value = self::getVar($frame, $varName, $anyCase, true);
                 if (!is_null($value)) {
-                    self::setVar($frame, $varName, $value);
+                    self::setVar($parser, $frame, $varName, $value);
                 }
             }
         }
@@ -139,7 +139,7 @@ class MetaTemplate
     public static function doLocal(Parser $parser, PPFrame_Hash $frame, array $args)
     {
         if (count($args) > 1) {
-            self::checkAndSetVar($frame, $args, $frame->expand($args[0]), true);
+            self::checkAndSetVar($parser, $frame, $args, $frame->expand($args[0]), true);
         }
     }
 
@@ -206,7 +206,7 @@ class MetaTemplate
     public static function doPreview(Parser $parser, PPFrame_Hash $frame, array $args)
     {
         if (count($args) > 1 && $frame->depth == 0 && $parser->getOptions()->getIsPreview()) {
-            self::checkAndSetVar($frame, $args, $frame->expand($args[0]));
+            self::checkAndSetVar($parser, $frame, $args, $frame->expand($args[0]));
         }
     }
 
@@ -241,7 +241,7 @@ class MetaTemplate
             $varName = $frame->expand($value);
             $value = self::getVar($frame, $varName, $anyCase);
             if (isset($frame->parent, $value)) {
-                self::setVar($frame->parent, $varName, $value);
+                self::setVar($parser, $frame->parent, $varName, $value);
             }
         }
     }
@@ -350,7 +350,7 @@ class MetaTemplate
      *
      * @return void
      */
-    public static function setVar(PPFrame_Hash $frame, $varName, $value)
+    public static function setVar(Parser $parser, PPFrame_Hash $frame, $varName, $value)
     {
         // show($varName, '=', $frame->expand($value));
         if (is_int($varName) || (is_string($varName) && ctype_digit($varName))) {
@@ -368,16 +368,8 @@ class MetaTemplate
                 $child->value = $value;
             $cache[$varName] = $value;
         } else {
-            $element = new PPNode_Hash_Tree('value');
-            if (is_string($value)) {
-                $cacheValue =  $value;
-                $child = new PPNode_Hash_Text($value);
-            } else {
-                $cacheValue = $frame->expand($value);
-                $child = $value;
-            }
-
-            $element->addChild($child);
+            $element = $parser->getPreprocessor()->newPartNodeArray([$varName => $value])->item(0);
+            $cacheValue = is_string($value) ? $value : $frame->expand($value);
             $args[$varName] = $element;
             $cache[$varName] = $cacheValue;
         }
@@ -390,7 +382,7 @@ class MetaTemplate
      *
      * @return void
      */
-    private static function checkAndSetVar(PPFrame_Hash $frame, array $args, $name, $override = false)
+    private static function checkAndSetVar(Parser $parser, PPFrame_Hash $frame, array $args, $name, $override = false)
     {
         list($magicArgs, $values) = ParserHelper::getMagicArgs(
             $frame,
@@ -404,14 +396,14 @@ class MetaTemplate
             $existing = self::getVar($frame, $name, $anyCase);
             $value = $values[1];
             if (is_null($existing)) {
-                self::setVar($frame, $name, $value);
+                self::setVar($parser, $frame, $name, $value);
             } elseif ($override) {
                 self::unsetVar($frame, $name, $anyCase);
-                self::setVar($frame, $name, $value);
+                self::setVar($parser, $frame, $name, $value);
             } elseif ($anyCase) { // Unset/reset to ensure correct case.
                 $value = ParserHelper::nullCoalesce($existing, $value);
                 self::unsetVar($frame, $name, $anyCase);
-                self::setVar($frame, $name, $value);
+                self::setVar($parser, $frame, $name, $value);
             }
         }
     }

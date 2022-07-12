@@ -31,6 +31,8 @@ class MetaTemplateData
 		if (!ParserHelper::checkIfs($magicArgs) || count($values) < 2) {
 			return;
 		}
+
+		// TODO: Incomplete! Keft iff gere,
 	}
 
 	// IMP: Respects case=any when determining what to load.
@@ -157,13 +159,12 @@ class MetaTemplateData
 
 		$anyCase = ParserHelper::checkAnyCase($magicArgs);
 		$saveMarkup = ParserHelper::arrayGet($magicArgs, self::NA_SAVEMARKUP, false);
-		$frameFlags = $saveMarkup ? PPFrame::NO_TEMPLATES : 0;
 		$set = ParserHelper::arrayGet($magicArgs, self::NA_SET, '');
 		$variables = [];
 		foreach (self::getVarNames($frame, $values, $anyCase) as $varName => $value) {
 			if (!is_null($value)) {
 				$frame->namedArgs[self::$saveKey] = 'saving'; // This is a total hack to let the tag hook know that we're saving now.
-				$value = $frame->expand($value, $frameFlags);
+				$value = $frame->expand($value, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
 				// show(htmlspecialchars($value));
 				if ($frame->namedArgs[self::$saveKey] != 'saving') {
 					$value = $parser->mStripState->unstripGeneral($value);

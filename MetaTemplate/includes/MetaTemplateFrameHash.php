@@ -41,11 +41,24 @@ class MetaTemplateFrameHash extends PPTemplateFrame_Hash
 	{
 		$this->preprocessor = $preprocessor;
 		$this->parser = $preprocessor->parser;
-		$this->title = $this->parser->mTitle;
-		$this->titleCache = [$this->title ? $this->title->getPrefixedDBkey() : false];
+		$title = $this->parser->mTitle;
 		$this->loopCheckHash = [];
+		if ($title) {
+			$this->title = $title;
+			$this->titleCache = [$title->getPrefixedDBkey()];
+			$pdbk = $title->getPrefixedDBkey();
+			$this->loopCheckHash[$pdbk] = true;
+		} else {
+			throw new MWException(__METHOD__ . ': root node must always have a title.');
+		}
+
 		$this->depth = 0;
 		$this->childExpansionCache = [];
+		$this->parent = false;
+		$this->numberedArgs = [];
+		$this->namedArgs = [];
+		$this->numberedExpansionCache = [];
+		$this->namedExpansionCache = [];
 	}
 
 	/**

@@ -1,5 +1,9 @@
 <?php
 
+// While it's good form to do this anyway, this line MUST be here or the entire wiki will come crashing to a halt
+// whenever you try to add new magic words.
+$magicWords = [];
+
 $magicWords['en'] = [
 	MetaTemplate::NA_NAMESPACE => [0, 'namespace'],
 	MetaTemplate::NA_NESTLEVEL => [0, 'nestlevel'],

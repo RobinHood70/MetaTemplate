@@ -111,7 +111,7 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) > 0 && ParserHelper::checkIfs($magicArgs)) {
+        if (count($values) > 0 && ParserHelper::checkIfs($frame, $magicArgs)) {
             $anyCase = ParserHelper::checkAnyCase($magicArgs);
             foreach ($values as $value) {
                 $varName = $frame->expand($value);
@@ -167,7 +167,7 @@ class MetaTemplate
         $args = $frame->getNamedArguments();
         if (!is_null($args)) {
             $magicArgs = ParserHelper::transformArgs($args);
-            $retval = ParserHelper::arrayGet($magicArgs, self::NA_NESTLEVEL);
+            $retval = $frame->expand(ParserHelper::arrayGet($magicArgs, self::NA_NESTLEVEL));
         }
 
         return $retval;
@@ -228,7 +228,7 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) == 0 || !ParserHelper::checkIfs($magicArgs)) {
+        if (count($values) == 0 || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
 
@@ -262,7 +262,7 @@ class MetaTemplate
             self::NA_SHIFT
         );
 
-        if (!count($values) || !ParserHelper::checkIfs($magicArgs)) {
+        if (!count($values) || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
 
@@ -393,7 +393,7 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (ParserHelper::checkIfs($magicArgs)) {
+        if (ParserHelper::checkIfs($frame, $magicArgs)) {
             $anyCase = ParserHelper::checkAnyCase($magicArgs);
             $existing = self::getVar($frame, $name, $anyCase);
             $value = $values[1];

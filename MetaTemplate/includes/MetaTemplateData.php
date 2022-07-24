@@ -28,7 +28,7 @@ class MetaTemplateData
 			self::NA_ORDER
 		);
 
-		if (!ParserHelper::checkIfs($magicArgs) || count($values) < 2) {
+		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) < 2) {
 			return;
 		}
 
@@ -57,7 +57,7 @@ class MetaTemplateData
 			self::NA_SET
 		);
 
-		if (!ParserHelper::checkIfs($magicArgs) || count($values) < 2) {
+		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) < 2) {
 			return;
 		}
 
@@ -153,7 +153,7 @@ class MetaTemplateData
 		);
 
 		$page = WikiPage::factory($title);
-		if (!ParserHelper::checkIfs($magicArgs) || count($values) == 0 || $page->getContentModel() !== CONTENT_MODEL_WIKITEXT) {
+		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) == 0 || $page->getContentModel() !== CONTENT_MODEL_WIKITEXT) {
 			return;
 		}
 

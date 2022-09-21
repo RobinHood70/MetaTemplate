@@ -10,8 +10,6 @@ use MediaWiki\MediaWikiServices;
  */
 class MetaTemplate
 {
-    const AV_ANY = 'metatemplate-any';
-
     // IMP: Disallowed arguments will now be passed back to the caller rather than being ignored.
     const NA_NAMESPACE = 'metatemplate-namespace';
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
@@ -29,6 +27,9 @@ class MetaTemplate
     const PF_RETURN = 'metatemplate-return';
     const PF_UNSET = 'metatemplate-unset';
 
+    const STTNG_ENABLEDATA = 'EnableData';
+    const STTNG_ENABLECPT = 'EnableCatPageTemplate';
+
     const TG_CATPAGETEMPLATE = 'metatemplate-catpagetemplate'; // Might be movable
 
     const VR_FULLPAGENAME0 = 'metatemplate-fullpagename0';
@@ -37,7 +38,9 @@ class MetaTemplate
     const VR_PAGENAME0 = 'metatemplate-pagename0';
 
     private static $config;
-    private static $ignoredArgs = [ParserHelper::NA_NSBASE, ParserHelper::NA_NSID];
+
+    /** @var MagicWordArray */
+    private static $ignoredArgs;
 
     /**
      * @param mixed $setting
@@ -48,7 +51,7 @@ class MetaTemplate
     {
         $config = self::getConfig();
         $retval = boolval($config->get($setting));
-        if ($setting === 'EnableLoadSave') {
+        if ($setting === self::STTNG_ENABLEDATA) {
             $retval &= MetaTemplateSql::getInstance()->tablesExist();
         }
 
@@ -75,7 +78,7 @@ class MetaTemplate
         $name = $frame->expand($args[0]);
         if (
             !$frame->depth ||
-            ParserHelper::magicWordIn($name, self::$ignoredArgs)
+            self::$ignoredArgs->matchStartToEnd($name)
         ) {
             self::checkAndSetVar($parser, $frame, $args, $name);
         }
@@ -103,7 +106,7 @@ class MetaTemplate
      */
     public static function doInherit(Parser $parser, PPFrame_Hash $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -111,8 +114,8 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) > 0 && ParserHelper::checkIfs($frame, $magicArgs)) {
-            $anyCase = ParserHelper::checkAnyCase($magicArgs);
+        if (count($values) > 0 && ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+            $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
             foreach ($values as $value) {
                 $varName = $frame->expand($value);
                 $value = self::getVar($frame, $varName, $anyCase, true);
@@ -166,8 +169,8 @@ class MetaTemplate
         $retval = $frame->depth;
         $args = $frame->getNamedArguments();
         if (!is_null($args)) {
-            $magicArgs = ParserHelper::transformArgs($args);
-            $retval = $frame->expand(ParserHelper::arrayGet($magicArgs, self::NA_NESTLEVEL));
+            $magicArgs = ParserHelper::getInstance()->transformArgs($args);
+            $retval = $frame->expand(ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_NESTLEVEL));
         }
 
         return $retval;
@@ -220,7 +223,7 @@ class MetaTemplate
             return;
         }
 
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -228,11 +231,11 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) == 0 || !ParserHelper::checkIfs($frame, $magicArgs)) {
+        if (count($values) == 0 || !ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
             return;
         }
 
-        $anyCase = ParserHelper::checkAnyCase($magicArgs);
+        $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
         foreach ($values as $value) {
             $varName = $frame->expand($value);
             $value = self::getVar($frame, $varName, $anyCase);
@@ -253,7 +256,7 @@ class MetaTemplate
      */
     public static function doUnset(Parser $parser, PPFrame_Hash $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -262,12 +265,12 @@ class MetaTemplate
             self::NA_SHIFT
         );
 
-        if (!count($values) || !ParserHelper::checkIfs($frame, $magicArgs)) {
+        if (!count($values) || !ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
             return;
         }
 
-        $anyCase = ParserHelper::checkAnyCase($magicArgs);
-        $shift = boolval(ParserHelper::arrayGet($magicArgs, self::NA_SHIFT, false));
+        $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+        $shift = boolval(ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SHIFT, false));
         foreach ($values as $value) {
             $varName = $frame->expand($value);
             self::unsetVar($frame, $varName, $anyCase, $shift);
@@ -325,9 +328,8 @@ class MetaTemplate
      */
     public static function init()
     {
-        // MW 1.32+ $magicFactory = $parser->getMagicWordFactory( );
-        //          $magicFactory->get( $word );
-        ParserHelper::cacheMagicWords([
+        self::$ignoredArgs = new MagicWordArray([ParserHelper::NA_NSBASE, ParserHelper::NA_NSID]);
+        ParserHelper::getInstance()->cacheMagicWords([
             self::NA_NAMESPACE,
             self::NA_NESTLEVEL,
             self::NA_ORDER,
@@ -349,7 +351,7 @@ class MetaTemplate
      */
     public static function setVar(Parser $parser, PPFrame_Hash $frame, $varName, $value)
     {
-        // show($varName, '=', $frame->expand($value));
+        // RHDebug::show($varName, '=', $frame->expand($value));
         if (is_int($varName) || (is_string($varName) && ctype_digit($varName))) {
             $varName = intval($varName);
             $args = &$frame->numberedArgs;
@@ -385,7 +387,7 @@ class MetaTemplate
             return;
         }
 
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -393,8 +395,8 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (ParserHelper::checkIfs($frame, $magicArgs)) {
-            $anyCase = ParserHelper::checkAnyCase($magicArgs);
+        if (ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+            $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
             $existing = self::getVar($frame, $name, $anyCase);
             $value = $values[1];
             if (is_null($existing)) {
@@ -403,9 +405,8 @@ class MetaTemplate
                 self::unsetVar($frame, $name, $anyCase);
                 self::setVar($parser, $frame, $name, $value);
             } elseif ($anyCase) { // Unset/reset to ensure correct case.
-                $value = ParserHelper::nullCoalesce($existing, $value);
                 self::unsetVar($frame, $name, $anyCase);
-                self::setVar($parser, $frame, $name, $value);
+                self::setVar($parser, $frame, $name, $existing);
             }
         }
     }
@@ -444,8 +445,8 @@ class MetaTemplate
         if (is_null($args)) {
             $level = 0;
         } else {
-            $values = ParserHelper::getMagicArgs($frame, $args)[1];
-            $level = intval(ParserHelper::arrayGet($values, 0, 0));
+            $values = ParserHelper::getInstance()->getMagicArgs($frame, $args)[1];
+            $level = intval(ParserHelper::getInstance()->arrayGet($values, 0, 0));
         }
 
         // It should be impossible to alter the name of the current page without triggering a new parser expansion
@@ -486,11 +487,11 @@ class MetaTemplate
     {
         $value = null;
         if (isset($frame->namedArgs)) {
-            $value = ParserHelper::arrayGet($frame->namedArgs, $varName);
+            $value = ParserHelper::getInstance()->arrayGet($frame->namedArgs, $varName);
         }
 
         if (!isset($value) && isset($frame->numberedArgs)) {
-            $value = ParserHelper::arrayGet($frame->numberedArgs, $varName);
+            $value = ParserHelper::getInstance()->arrayGet($frame->numberedArgs, $varName);
         }
 
         return $value;

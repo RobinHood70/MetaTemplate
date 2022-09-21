@@ -19,7 +19,7 @@ class MetaTemplateData
 
 	public static function doListSaved(Parser $parser, PPFrame_Hash $frame, array $args)
 	{
-		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+		list($magicArgs, $values) = ParserHelper::getInstance()->getInstance()->getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -28,7 +28,7 @@ class MetaTemplateData
 			self::NA_ORDER
 		);
 
-		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) < 2) {
+		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs) || count($values) < 2) {
 			return;
 		}
 
@@ -48,7 +48,7 @@ class MetaTemplateData
 	 */
 	public static function doLoad(Parser $parser, PPFrame_Hash $frame, array $args)
 	{
-		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -57,7 +57,7 @@ class MetaTemplateData
 			self::NA_SET
 		);
 
-		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) < 2) {
+		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs) || count($values) < 2) {
 			return;
 		}
 
@@ -71,7 +71,7 @@ class MetaTemplateData
 		// case it's created in the future.
 		$page = WikiPage::factory($loadTitle);
 		self::trackPage($output, $page);
-		$anyCase = ParserHelper::checkAnyCase($magicArgs);
+		$anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
 		$varNames = [];
 		$varList = self::getVarNames($frame, $values, $anyCase);
 		foreach ($varList as $varName => $value) {
@@ -85,7 +85,7 @@ class MetaTemplateData
 			return;
 		}
 
-		$setName = ParserHelper::arrayGet($magicArgs, self::NA_SET, '');
+		$setName = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SET, '');
 		if (strlen($setName) > self::$setNameWidth) {
 			// We check first because substr can return false with '', converting the string to a boolean unexpectedly.
 			$setName = substr($setName, 0, self::$setNameWidth);
@@ -142,7 +142,7 @@ class MetaTemplateData
 
 
 		// process before deciding whether to truly proceed, so that nowiki tags are previewed properly
-		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -153,13 +153,13 @@ class MetaTemplateData
 		);
 
 		$page = WikiPage::factory($title);
-		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) == 0 || $page->getContentModel() !== CONTENT_MODEL_WIKITEXT) {
+		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs) || count($values) == 0 || $page->getContentModel() !== CONTENT_MODEL_WIKITEXT) {
 			return;
 		}
 
-		$anyCase = ParserHelper::checkAnyCase($magicArgs);
-		$saveMarkup = ParserHelper::arrayGet($magicArgs, self::NA_SAVEMARKUP, false);
-		$set = ParserHelper::arrayGet($magicArgs, self::NA_SET, '');
+		$anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+		$saveMarkup = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SAVEMARKUP, false);
+		$set = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SET, '');
 		$variables = [];
 		foreach (self::getVarNames($frame, $values, $anyCase) as $varName => $value) {
 			if (!is_null($value)) {

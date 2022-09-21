@@ -22,7 +22,7 @@ class MetaTemplateHooks
 	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater)
 	{
 		$dir = dirname(__DIR__);
-		if (MetaTemplate::can('EnableData')) {
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 			$db = $updater->getDB();
 			if ($db->textFieldSize(MetaTemplateSql::SET_TABLE, 'mt_set_subset') < 50) {
 				// MW 1.30-
@@ -84,7 +84,6 @@ class MetaTemplateHooks
 	 */
 	public static function onParserFirstCallInit(Parser $parser)
 	{
-		ParserHelper::init();
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
 		MetaTemplate::init();
@@ -126,6 +125,8 @@ class MetaTemplateHooks
 	 */
 	public static function onRegister()
 	{
+		// TODO: Investigate why preprocessor always running in <noinclude> mode on template save.
+
 		// This should work until at least 1.33 and I'm pretty sure 1.34. As of 1.35, it will fail, and the path
 		// forward is unclear. We might be able to override the Parser class itself with a custom one, or we may have
 		// to modify the source files to insert our own parser and/or preprocessor.
@@ -152,7 +153,7 @@ class MetaTemplateHooks
 		$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
 
-		if (MetaTemplate::can('EnableData')) {
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 			// $parser->setFunctionHook(MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS);
@@ -168,8 +169,8 @@ class MetaTemplateHooks
 	 */
 	private static function initTagFunctions(Parser $parser)
 	{
-		ParserHelper::setHookSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
-		if (MetaTemplate::can('EnableCatPageTemplate')) {
+		ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 			// $parser->setHook(MetaTemplate::TG_CATPAGETEMPLATE, 'MetaTemplateInit::efMetaTemplateCatPageTemplate');
 		}
 	}

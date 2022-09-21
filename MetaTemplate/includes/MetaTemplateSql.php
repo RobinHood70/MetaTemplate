@@ -29,8 +29,9 @@ class MetaTemplateSql
 
     private function __construct()
     {
-        $this->dbRead = wfGetDB(DB_SLAVE);
-        $this->dbWrite = wfGetDB(DB_MASTER);
+        $this->dbRead = wfGetDB(DB_REPLICA);
+        $dbWriteConst = defined('DB_PRIMARY') ? 'DB_PRIMARY' : 'DB_MASTER';
+        $this->dbWrite = wfGetDB(constant($dbWriteConst));
     }
 
     /**

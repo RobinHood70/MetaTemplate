@@ -16,10 +16,7 @@
 	"license-name": "GPL-2.0-or-later",
 	"manifest_version": 1,
 	"requires": {
-		"MediaWiki": ">= 1.28.0",
-		"platform": {
-			"php": ">= 5.4"
-		}
+		"MediaWiki": ">= 1.28.0"
 	},
 	"type": "parserhook",
 	"AutoloadClasses": {

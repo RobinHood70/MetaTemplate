@@ -15,8 +15,12 @@ class MetaTemplateUpserts
 
     public function __construct(MetaTemplateSetCollection $oldData = null, MetaTemplateSetCollection $newData = null)
     {
-        $oldSets = (bool)$oldData ? $oldData->getSets() : []; // new MetaTemplateSet('');
-        $newSets = (bool)$newData ? $newData->getSets() : []; // new MetaTemplateSet('');
+        /** @var MetaTemplateSet[] */
+        $oldSets = (bool)$oldData ? $oldData->getSets() : false; // new MetaTemplateSet('');
+        /** @var MetaTemplateSet[] */
+        $newSets = (bool)$newData ? $newData->getSets() : false; // new MetaTemplateSet('');
+        // RHshow("Old sets:\n", $oldSets);
+        // RHshow("New sets:\n", $newSets);
         if ($oldSets == $newSets) {
             return;
         }
@@ -29,16 +33,19 @@ class MetaTemplateUpserts
                     $this->deletes[] = $oldData->getSetId($setName);
                 }
             }
-        }
 
-        // writeFile('upserts.txt', "Upsert Deletes\n", $this->deletes);
+            /*
+            if (count($this->deletes)) {
+                RHshow("Upsert Deletes\n", $this->deletes);
+            } */
+        }
 
         if ($newData) {
             $this->pageId = $newData->getPageId(); // Possibly redundant, but if both collections are present, both page IDs will be the same.
             $this->newRevId = $newData->getRevId();
             if ($newSets) {
                 foreach ($newSets as $setName => $newSet) {
-                    $oldSet = isset($oldSets) ?  ParserHelper::arrayGet($oldSets, $setName) : null;
+                    $oldSet = $oldSets ?  ParserHelper::getInstance()->arrayGet($oldSets, $setName) : null;
                     if ($oldSet) {
                         // All sets are checked for updates as long as an old set existed, since transcluded info may have changed values.
                         $this->updates[$oldData->getSetId($setName)] = [$oldSet, $newSet];
@@ -47,10 +54,15 @@ class MetaTemplateUpserts
                     }
                 }
             }
-        }
+            /*
+            if (count($this->inserts)) {
+                RHshow("Upsert Inserts\n", $this->inserts);
+            }
 
-        // writeFile('upserts.txt', "Upsert Inserts\n", $this->inserts);
-        // writeFile('upserts.txt', "Upsert Updates\n", $this->updates);
+            if (count($this->updates)) {
+                RHshow("Upsert Updates\n", $this->updates);
+            } */
+        }
     }
 
     public function getDeletes()

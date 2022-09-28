@@ -5,23 +5,20 @@
  */
 class MetaTemplateSql
 {
-    const SET_TABLE = 'mt_save_set';
-    const SET_PREFIX = 'mt_set_';
-    const DATA_TABLE = 'mt_save_data';
-    const DATA_PREFIX = 'mt_save_';
+    const SET_TABLE = 'mtSaveSet';
+    const DATA_TABLE = 'mtSaveData';
 
     /** @var MetaTemplateSql */
     private static $instance;
 
-    /** @var DatabaseBase */
+    /** @var IDatabase */
     private $dbRead;
 
-    /** @var DatabaseBase */
+    /** @var IDatabase */
     private $dbWrite;
 
     /**
-     * A list of all the pages purged during this session. Never cleared, since this effectively acts as an instance
-     * varible for the parent page.
+     * A list of all the pages purged during this session to avoid looping.
      *
      * @var array
      */
@@ -48,23 +45,29 @@ class MetaTemplateSql
         return self::$instance;
     }
 
-    public function cleanupData($pageId = NULL)
+    public function deleteVariables(Title $title)
     {
-        // TODO: Investigate what kind of data cleanup might need to be done.
-        return;
+        $pageId = $title->getArticleID();
 
-        // Proof of concept. Last deletion, especially, is not a good way to do this on a per-page basis. Check main code to see if this can all be incorporated there.
-        $conds = is_null($pageId)
-            ? 'page.page_id IS NULL'
-            : ['page.page_id' => 'NULL', self::SET_TABLE . 'page_id' => $pageId];
-        $this->dbWrite->deleteJoin(self::SET_TABLE, 'page', self::SET_PREFIX . 'page_id', 'page_id', $conds, __METHOD__);
+        // Assumes cascading is in effect to delete DATA_TABLE rows.
+        $this->dbWrite->delete(self::SET_TABLE, ['pageId' => $pageId]);
+        self::$pagesPurged[$pageId] = true;
+        $this->recursiveInvalidateCache($title);
+    }
 
-        $conds = is_null($pageId)
-            ? self::SET_PREFIX . 'rev_id < page.page_latest'
-            : [self::SET_PREFIX . 'rev_id < page.page_latest', self::SET_TABLE . 'page_id = ' . $pageId];
-        $this->dbWrite->deleteJoin(self::SET_TABLE, 'page', self::SET_PREFIX . 'page_id', 'page_id', $conds, __METHOD__);
+    public function insertData($setId, MetaTemplateSet $newSet)
+    {
+        $data = [];
+        foreach ($newSet->getVariables() as $key => $var) {
+            $data[] = [
+                'setId' => $setId,
+                'varName' => $key,
+                'varValue' => $var->getValue(),
+                'parsed' => $var->getParsed()
+            ];
+        }
 
-        $this->dbWrite->deleteJoin(self::DATA_TABLE, self::SET_TABLE, self::DATA_PREFIX . 'id', 'id', self::SET_TABLE . self::SET_PREFIX . `id IS NULL`, __METHOD__);
+        $this->dbWrite->insert(self::DATA_TABLE, $data);
     }
 
     /**
@@ -77,53 +80,35 @@ class MetaTemplateSql
     public function loadPageVariables($pageId)
     {
         // Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
-        // data is tracked with $deleteIds. While the database should never be in this state with the current design,
-        // this should allow for correct behaviour with simultaneous database updates in the event that of some future
-        // non-transactional approach.
+        // data is tracked with $deleteIds.
 
         // logFunctionText("($pageId)");
         $tables = [self::SET_TABLE, self::DATA_TABLE];
-        $conds = [self::SET_PREFIX . 'page_id' => $pageId];
+        $conds = ['pageId' => $pageId];
         $fields = [
-            self::SET_PREFIX . 'id',
-            self::SET_PREFIX . 'rev_id',
-            self::SET_PREFIX . 'subset',
-            self::DATA_PREFIX . 'varname',
-            self::DATA_PREFIX . 'value',
-            self::DATA_PREFIX . 'parsed',
+            self::SET_TABLE . '.setId',
+            'revId',
+            'setName',
+            'varName',
+            'varValue',
+            'parsed',
         ];
-        $options = ['ORDER BY' => self::SET_PREFIX . 'rev_id DESC'];
-        $joinConds = [self::SET_TABLE => ['JOIN', [self::SET_PREFIX . 'id = ' . self::DATA_PREFIX . 'id']]];
+        $options = ['ORDER BY' => 'revId'];
+        $joinConds = [self::DATA_TABLE => ['LEFT JOIN', [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']]];
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
-        // logFunctionText(' ', formatQuery($this->dbRead));
         $row = $this->dbRead->fetchRow($result);
-        if ($row) {
-            $retval = new MetaTemplateSetCollection($pageId, $row[self::SET_PREFIX . 'rev_id']);
-            while ($row) {
-                $set =  $retval->getOrCreateSet($row[self::SET_PREFIX . 'id'], $row[self::SET_PREFIX . 'subset']);
-                $set->addVariable($row[self::DATA_PREFIX . 'varname'], $row[self::DATA_PREFIX . 'value'], $row[self::DATA_PREFIX . 'parsed']);
-                $row = $this->dbRead->fetchRow($result);
-            }
-
-            return $retval;
+        if (!$row) {
+            return null;
         }
 
-        return null;
-    }
-
-    public function insertData($setId, MetaTemplateSet $newSet)
-    {
-        $data = [];
-        foreach ($newSet->getVariables() as $key => $var) {
-            $data[] = [
-                self::DATA_PREFIX . 'id' => $setId,
-                self::DATA_PREFIX . 'varname' => $key,
-                self::DATA_PREFIX . 'value' => $var->getValue(),
-                self::DATA_PREFIX . 'parsed' => $var->getParsed()
-            ];
+        $retval = new MetaTemplateSetCollection($pageId, $row['revId']);
+        while ($row) {
+            $set =  $retval->getOrCreateSet($row['setId'], $row['setName']);
+            $set->addVariable($row['varName'], $row['varValue'], $row['parsed']);
+            $row = $this->dbRead->fetchRow($result);
         }
 
-        $this->dbWrite->insert(self::DATA_TABLE, $data);
+        return $retval;
     }
 
     /**
@@ -136,71 +121,57 @@ class MetaTemplateSql
      *
      * @return MetaTemplateVariable[]|bool
      */
-    public function loadTableVariables($pageId, $revId, $setName = '', $varNames = [])
+    public function loadTableVariables($pageId, $setName = '', $varNames = [])
     {
         $tables = [self::SET_TABLE, self::DATA_TABLE];
         $conds = [
-            self::SET_PREFIX . 'page_id' => $pageId,
-            self::SET_PREFIX . 'rev_id >= ' . intval($revId),
-            self::SET_PREFIX . 'subset' => $setName,
-            self::DATA_PREFIX . 'varname' => $varNames
+            'setName' => $setName,
+            'pageId' => $pageId
         ];
+
+        if (count($varNames)) {
+            $conds['varName'] = $varNames;
+        }
+
         $fields = [
-            self::DATA_PREFIX . 'varname',
-            self::DATA_PREFIX . 'value',
-            self::DATA_PREFIX . 'parsed',
+            'varName',
+            'varValue',
+            'parsed'
         ];
 
         // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
         // ensure that we start with the lowest first, so data is overridden by the most recent values once we get
         // there, but lower values will exist if the write is incomplete.
-        $options = ['ORDER BY' => self::SET_PREFIX . 'rev_id ASC'];
-        $joinConds = [self::SET_TABLE => ['JOIN', self::SET_PREFIX . 'id = ' . self::DATA_PREFIX . 'id']];
-        $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
+        $joinConds = [self::DATA_TABLE => ['LEFT JOIN', [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']]];
+        $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", [], $joinConds);
+        if (!$result || !$result->numRows()) {
+            return null;
+        }
 
         $retval = [];
-        if ($result && $result->numRows()) {
+        $row = $result->fetchRow();
+        while ($row) {
+            // Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
+            // will overwrite the older values.
+            $retval[$row['varName']] = new MetaTemplateVariable($row['varValue'], $row['parsed']);
             $row = $result->fetchRow();
-            while ($row) {
-                $retval[$row[self::DATA_PREFIX . 'varname']] = new MetaTemplateVariable($row[self::DATA_PREFIX . 'value'], $row[self::DATA_PREFIX . 'parsed']);
-                $row = $result->fetchRow();
-            }
-
-            return $retval;
         }
 
-        return false;
-    }
-
-    public function deleteVariables(Title $title)
-    {
-        // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
-        // Whether or not the data changed, the page has been evaluated, so add it to the list.
-        $pageId = $title->getArticleID();
-        self::$pagesPurged[$pageId] = true;
-        $oldData = $this->loadPageVariables($pageId);
-        $upserts = new MetaTemplateUpserts($oldData, null);
-        if ($upserts->getTotal() > 0) {
-            $this->saveUpserts($upserts);
-            $this->recursiveInvalidateCache($title);
-        }
+        return $retval;
     }
 
     public function saveVariables(Title $title, MetaTemplateSetCollection $vars = null)
     {
         // This algorithm is based on the assumption that data is rarely changed, therefore:
         // * It's best to read the existing DB data before making any DB updates/inserts.
-        // * Chances are that we're going to need to read all the data for this save_set, so best to read it all at
+        // * Chances are that we're going to need to read all the data for this save set, so best to read it all at
         //   once instead of individually or by set.
         // * It's best to use the read-only DB until we know we need to write.
 
         if (is_null($vars) || $vars->isEmpty()) {
             $this->deleteVariables($title);
         } else if ($vars->getRevId() === -1) {
-            // The above check will only be satisfied on Template-space pages that use #save. We need to have a way to
-            // check for data inconsistencies, and since templates save no other data, this seems like a good place to
-            // put this for now. Might also make sense as a maintenance job.
-            $this->cleanupData();
+            // The above check will only be satisfied on Template-space pages that use #save.
             $this->recursiveInvalidateCache($title);
         } else {
             // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
@@ -234,8 +205,8 @@ class MetaTemplateSql
         $deletes = $upserts->getDeletes();
         // writeFile('  Deletes: ', count($deletes));
         if (count($deletes)) {
-            $this->dbWrite->delete(self::DATA_TABLE, [self::DATA_PREFIX . 'id' => $deletes]);
-            $this->dbWrite->delete(self::SET_TABLE, [self::SET_PREFIX . 'id' => $deletes]);
+            // Assumes cascading is in effect, so doesn't delete DATA_TABLE entries.
+            $this->dbWrite->delete(self::SET_TABLE, ['setId' => $deletes]);
         }
 
         $pageId = $upserts->getPageId();
@@ -243,9 +214,9 @@ class MetaTemplateSql
         // writeFile('  Inserts: ', count($inserts));
         foreach ($upserts->getInserts() as $newSet) {
             $this->dbWrite->insert(self::SET_TABLE, [
-                self::SET_PREFIX . 'page_id' => $pageId,
-                self::SET_PREFIX . 'rev_id' => $newRevId,
-                self::SET_PREFIX . 'subset' => $newSet->getSetName()
+                'setName' => $newSet->getSetName(),
+                'pageId' => $pageId,
+                'revId' => $newRevId
             ]);
             $setId = $this->dbWrite->insertId();
             $this->insertData($setId, $newSet);
@@ -264,8 +235,8 @@ class MetaTemplateSql
             ) {
                 $this->dbWrite->update(
                     self::SET_TABLE,
-                    [self::SET_PREFIX . 'rev_id' => $newRevId],
-                    [self::SET_PREFIX . 'id' => $setId]
+                    ['setId' => $setId],
+                    ['revId' => $newRevId]
                 );
             }
         }
@@ -276,24 +247,26 @@ class MetaTemplateSql
         // Note: this is recursive only in the sense that it will cause page re-evaluation, which will instantiate
         // other parsers. This should not be left in-place in the final product, as it's very server-intensive.
         // Instead, call the cache's enqueue jobs method to put things on the queue.
-        $table = 'templatelinks';
-        /** @var Title[] */
-        $linkTitles = iterator_to_array($title->getBacklinkCache()->getLinks($table));
+        $templateLinks = 'templatelinks';
         $linkIds = [];
-        foreach ($linkTitles as $link) {
+        foreach ($title->getBacklinkCache()->getLinks($templateLinks) as $link) {
             $linkIds[] = $link->getArticleID();
+        }
+
+        if (!count($linkIds)) {
+            return;
         }
 
         $result = $this->dbRead->select(
             self::SET_TABLE,
-            [self::SET_PREFIX . 'page_id'],
-            [self::SET_PREFIX . 'page_id' => $linkIds],
+            ['pageId'],
+            ['pageId' => $linkIds],
             __METHOD__
         );
 
         $recursiveIds = [];
         for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-            $recursiveIds[] = $row[self::SET_PREFIX . 'page_id'];
+            $recursiveIds[] = $row['pageId'];
         }
 
         foreach ($linkIds as $linkId) {
@@ -304,10 +277,10 @@ class MetaTemplateSql
                     $job = new RefreshLinksJob(
                         $title,
                         [
-                            'table' => $table,
+                            'table' => $templateLinks,
                             'recursive' => true,
                         ] + Job::newRootJobParams(
-                            "refreshlinks:{$table}:{$title->getPrefixedText()}"
+                            "refreshlinks:{$templateLinks}:{$title->getPrefixedText()}"
                         )
                     );
 
@@ -328,20 +301,19 @@ class MetaTemplateSql
         foreach ($oldVars as $oldName => $oldValue) {
             if (isset($newVars[$oldName])) {
                 $newValue = $newVars[$oldName];
-                // writeFile('upserts.txt',  $oldVars[$varName]);
+                // RHwriteFile('upserts.txt',  $oldVars[$varName]);
                 if ($oldValue != $newValue) {
-                    // updates can't be done in a batch... unless I delete then insert them all
-                    // but I'm assuming that it's most likely only value needs to be updated, in which case
-                    // it's most efficient to simply make updates one value at a time
+                    // Makes the assumption that most of the time, only a few columns are being updated, so does not
+                    // attempt to batch the operation in any way.
                     $this->dbWrite->update(
                         self::DATA_TABLE,
                         [
-                            self::DATA_PREFIX . 'value' => $newValue->getValue(),
-                            self::DATA_PREFIX . 'parsed' => $newValue->getParsed()
+                            'varValue' => $newValue->getValue(),
+                            'parsed' => $newValue->getParsed()
                         ],
                         [
-                            self::DATA_PREFIX . 'id' => $setId,
-                            self::DATA_PREFIX . 'varname' => $oldName
+                            'setId' => $setId,
+                            'varName' => $oldName
                         ]
                     );
                 }
@@ -360,8 +332,8 @@ class MetaTemplateSql
 
         if (count($deletes)) {
             $this->dbWrite->delete(self::DATA_TABLE, [
-                self::DATA_PREFIX . 'id' => $setId,
-                self::DATA_PREFIX . 'varname' => $deletes
+                'setId' => $setId,
+                'varName' => $deletes
             ]);
         }
     }

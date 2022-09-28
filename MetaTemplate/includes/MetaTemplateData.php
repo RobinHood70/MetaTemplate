@@ -32,7 +32,7 @@ class MetaTemplateData
 			return;
 		}
 
-		// TODO: Incomplete! Keft iff gere,
+		// TODO: Incomplete! Left off here.
 	}
 
 	// IMP: Respects case=any when determining what to load.
@@ -48,6 +48,7 @@ class MetaTemplateData
 	 */
 	public static function doLoad(Parser $parser, PPFrame_Hash $frame, array $args)
 	{
+		// RHshow('#load:', $parser->getTitle()->getFullText());
 		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
 			$frame,
 			$args,
@@ -57,7 +58,7 @@ class MetaTemplateData
 			self::NA_SET
 		);
 
-		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs) || count($values) < 2) {
+		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
 			return;
 		}
 
@@ -74,15 +75,12 @@ class MetaTemplateData
 		$anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
 		$varNames = [];
 		$varList = self::getVarNames($frame, $values, $anyCase);
-		foreach ($varList as $varName => $value) {
-			if (is_null($value)) {
-				$varNames[] = $varName;
+		if (count($varList)) {
+			foreach ($varList as $varName => $value) {
+				if (is_null($value)) {
+					$varNames[] = $varName;
+				}
 			}
-		}
-
-		// If there are no variables to get, abort.
-		if (!count($varNames)) {
-			return;
 		}
 
 		$setName = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SET, '');
@@ -91,31 +89,31 @@ class MetaTemplateData
 			$setName = substr($setName, 0, self::$setNameWidth);
 		}
 
-		$result = self::fetchVariables($page, $output, $parser->getRevisionId(), $setName, $varNames);
-		if (is_null($result) && $loadTitle->isRedirect()) {
+		$result = self::fetchVariables($page, $output, $setName, $varNames);
+		if (!$result && $loadTitle->isRedirect()) {
 			// If no results were returned and the page is a redirect, see if there's variables there.
 			$page = WikiPage::factory($page->getRedirectTarget());
 			self::trackPage($output, $page);
+			$result = self::fetchVariables($page, $output, $setName, $varNames);
 		}
 
 		if ($result) {
-			foreach ($varNames as $varName) {
-				if (isset($result[$varName])) {
-					$var = $result[$varName];
-					if ($var->getParsed()) {
-						$value = $var->getValue();
-					} else {
-						$prepro = $parser->preprocessToDom($var->getValue());
-						$value = $frame->expand($prepro);
-					}
-
-					MetaTemplate::setVar($parser, $frame, $varName, $value);
+			foreach ($result as $varName => $var) {
+				if ($var->getParsed()) {
+					$value = $var->getValue();
+					// RHshow('Parsed: ', $value);
+				} else {
+					$prepro = $parser->preprocessToDom($var->getValue());
+					$value = $frame->expand($prepro);
+					// RHshow('Unparsed: ', $value);
 				}
+
+				MetaTemplate::setVar($parser, $frame, $varName, $value);
 			}
 		}
 	}
 
-	// IMP: No longer auto-inherits set variable. Subset changed to set (subset still supported for bc).
+	// IMP: No longer auto-inherits set variable. "subset" changed to "setName" ("subset" still supported for bc).
 	/**
 	 * doSave
 	 *
@@ -161,7 +159,8 @@ class MetaTemplateData
 		$saveMarkup = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SAVEMARKUP, false);
 		$set = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SET, '');
 		$variables = [];
-		foreach (self::getVarNames($frame, $values, $anyCase) as $varName => $value) {
+		$getVars = self::getVarNames($frame, $values, $anyCase);
+		foreach ($getVars as $varName => $value) {
 			if (!is_null($value)) {
 				$frame->namedArgs[self::$saveKey] = 'saving'; // This is a total hack to let the tag hook know that we're saving now.
 				$value = $frame->expand($value, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
@@ -242,17 +241,12 @@ class MetaTemplateData
 		$set->addVariables($variables);
 	}
 
-	private static function	fetchVariables(WikiPage $page, ParserOutput $output, $revId, $setName, array $varNames)
+	private static function	fetchVariables(WikiPage $page, ParserOutput $output, $setName, array $varNames)
 	{
-		// logFunctionText(' ' . $page->getTitle()->getFullText());
 		$pageId = $page->getId();
-		if (!$revId) {
-			$revId = $page->getLatest();
-		}
-
 		$result = self::loadFromOutput($output, $pageId, $setName);
 		if (!$result) {
-			$result = MetaTemplateSql::getInstance()->loadTableVariables($pageId, $revId, $setName, $varNames);
+			$result = MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
 		}
 
 		return $result;

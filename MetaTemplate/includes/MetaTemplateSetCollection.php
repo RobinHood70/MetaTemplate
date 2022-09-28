@@ -61,12 +61,12 @@ class MetaTemplateSetCollection
      */
     public function getSet($setName)
     {
-        return ParserHelper::arrayGet($this->sets, $setName, false);
+        return ParserHelper::getInstance()->arrayGet($this->sets, $setName, false);
     }
 
     public function getSetId($setName)
     {
-        return ParserHelper::arrayGet($this->setIds, $setName, 0);
+        return ParserHelper::getInstance()->arrayGet($this->setIds, $setName, 0);
     }
 
     public function getSets()

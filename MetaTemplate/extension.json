@@ -49,7 +49,8 @@
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
-		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch"
+		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
+		"ParserTestTables": "MetaTemplateHooks::onParserTestTables"
 	},
 	"MessagesDirs": {
 		"MetaTemplate": [

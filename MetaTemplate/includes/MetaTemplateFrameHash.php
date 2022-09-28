@@ -30,7 +30,6 @@
 // phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps
 class MetaTemplateFrameHash extends PPTemplateFrame_Hash
 {
-
 	private $volatile = false;
 	private $ttl = null;
 

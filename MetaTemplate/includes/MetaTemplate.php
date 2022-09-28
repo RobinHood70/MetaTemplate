@@ -341,7 +341,7 @@ class MetaTemplate
     }
 
     /**
-     * setVar
+     * Takes the provided variable and adds it to the template frame as though it had been passed in.
      *
      * @param PPFrame_Hash $frame
      * @param mixed $varName
@@ -351,7 +351,12 @@ class MetaTemplate
      */
     public static function setVar(Parser $parser, PPFrame_Hash $frame, $varName, $value)
     {
-        // RHDebug::show($varName, '=', $frame->expand($value));
+        // RHshow($varName, '=', $frame->expand($value));
+
+        /*
+            $args = Numbered/Named Args to add node value to.
+            $cache = Numbered/Named Cache to add the fully expanded value to.
+        */
         if (is_int($varName) || (is_string($varName) && ctype_digit($varName))) {
             $varName = intval($varName);
             $args = &$frame->numberedArgs;
@@ -362,15 +367,30 @@ class MetaTemplate
         }
 
         if ($frame->getArgument($varName) !== false) {
+            // RHshow("$varName =>\n", $frame->getArgument($varName));
+            // RHshow('Warning! ' . __METHOD__ . ' encountered a re-used template parameter. This needs testing.');
+            // This may need fixing, following the idea below, or just run this task separately to delete the current
+            // argument, then run the else clause for both.
             $child = $args[$varName]->getFirstChild();
-            if ($child)
-                $child->value = $value;
             $cache[$varName] = $value;
+            if ($child) {
+                $child->value = $value;
+            }
         } else {
-            $element = $parser->getPreprocessor()->newPartNodeArray([$varName => $value])->item(0);
-            $cacheValue = is_string($value) ? $value : $frame->expand($value);
-            $args[$varName] = $element;
-            $cache[$varName] = $cacheValue;
+            if (is_string($value)) {
+                // Value is a string, so create node and leave text as is.
+                $valueNode = new PPNode_Hash_Text([$value], 0);
+                $valueText = $value;
+            } else {
+                // Value is a node, so leave node as it is and expand value for text.
+                $valueNode = $value;
+                $valueText = $frame->expand($value);
+            }
+
+            $args[$varName] = $valueNode;
+            $cache[$varName] = $valueText;
+            // RHshow("Args:\n", $args);
+            // RHshow("Cache:\n", $cache);
         }
     }
 
@@ -400,11 +420,15 @@ class MetaTemplate
             $existing = self::getVar($frame, $name, $anyCase);
             $value = $values[1];
             if (is_null($existing)) {
+                // RHshow('Existing value: ', $existing, ' => ', $value);
                 self::setVar($parser, $frame, $name, $value);
             } elseif ($override) {
+                // RHshow('Override value: ', $override, ' => ', $value);
                 self::unsetVar($frame, $name, $anyCase);
                 self::setVar($parser, $frame, $name, $value);
-            } elseif ($anyCase) { // Unset/reset to ensure correct case.
+            } elseif ($anyCase) {
+                // RHshow('Any case value: : ', $anyCase, ' => ', $value);
+                // Unset/reset to ensure correct case.
                 self::unsetVar($frame, $name, $anyCase);
                 self::setVar($parser, $frame, $name, $existing);
             }

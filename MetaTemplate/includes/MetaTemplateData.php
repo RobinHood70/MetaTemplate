@@ -37,6 +37,7 @@ class MetaTemplateData
 
 	// IMP: Respects case=any when determining what to load.
 	// IMP: No longer auto-inherits and uses set. Functionality is now at user's discretion via traditional methods or inheritance.
+	// IMP: Load all from subset with {{#load:<page> [|subset=subset] }}
 	/**
 	 * doLoad
 	 *

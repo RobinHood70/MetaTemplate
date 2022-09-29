@@ -1,4 +1,4 @@
-/**
+/*
  * SQL to create the mtSaveSet table for MetaTemplate.
  *
  * This is designed to be run from the install script or via update.php, ensuring that proper variable substitution is

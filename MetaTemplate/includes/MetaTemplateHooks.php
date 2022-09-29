@@ -1,15 +1,30 @@
 <?php
 // namespace MediaWiki\Extension\MetaTemplate;
-use MediaWiki\MediaWikiServices;
 // use MediaWiki\DatabaseUpdater;
 
 // TODO: Add {{#define/local/preview:a=b|c=d}}
 class MetaTemplateHooks
 {
 	const OLDSET_TABLE = 'mt_save_set';
-	const OLDSET_PREFIX = 'mt_set_';
 	const OLDDATA_TABLE = 'mt_save_data';
-	const OLDDATA_PREFIX = 'mt_save_';
+
+	public static function migrateDataTable(DatabaseUpdater $updater, $dir)
+	{
+		$db = $updater->getDB();
+		if (!$db->tableExists(self::OLDDATA_TABLE)) {
+			$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
+			$updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+		}
+	}
+
+	public static function migrateSetTable(DatabaseUpdater $updater, $dir)
+	{
+		$db = $updater->getDB();
+		if (!$db->tableExists(self::OLDSET_TABLE)) {
+			$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
+			$updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+		}
+	}
 
 	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount)
 	{
@@ -30,19 +45,16 @@ class MetaTemplateHooks
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 			$db = $updater->getDB();
 			if (!$db->tableExists(MetaTemplateSql::SET_TABLE)) {
-				$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/" . MetaTemplateSql::SET_TABLE . '.sql');
-				$updater->addExtensionUpdate([__CLASS__, 'migrateSets']);
+				$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
 			}
+
+			$updater->addExtensionUpdate([[__CLASS__, 'migrateSetTable'], $dir]);
 
 			if (!$db->tableExists(MetaTemplateSql::DATA_TABLE)) {
-				$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/" . MetaTemplateSql::DATA_TABLE . '.sql');
-				$updater->addExtensionUpdate([__CLASS__, 'migrateData']);
+				$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::DATA_TABLE . '.sql');
 			}
 
-			$updater->dropExtensionField(MetaTemplateSql::SET_TABLE, 'time', "$dir/sql/patch-" . MetaTemplateSql::SET_TABLE . ".time.sql");
-			// MW 1.31+
-			// $updater->modifyExtensionTable( $saveSet, "$dir/sql/patch-$saveSet.sql" );
-			// $updater->modifyExtensionTable( $saveData, "$dir/sql/patch-$saveData.sql" );
+			$updater->addExtensionUpdate([[__CLASS__, 'migrateDataTable'], $dir]);
 		}
 	}
 
@@ -158,7 +170,7 @@ class MetaTemplateHooks
 		$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
 
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) && MetaTemplateSql::getInstance()->tablesExist()) {
 			// $parser->setFunctionHook(MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS);

@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\MediaWikiServices;
+
 /**
  * [Description MetaTemplateData]
  */
@@ -26,9 +28,12 @@ class MetaTemplateSql
 
     private function __construct()
     {
-        $this->dbRead = wfGetDB(DB_REPLICA);
         $dbWriteConst = defined('DB_PRIMARY') ? 'DB_PRIMARY' : 'DB_MASTER';
-        $this->dbWrite = wfGetDB(constant($dbWriteConst));
+        $lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+        $this->dbRead = $lb->getConnectionRef(constant($dbWriteConst));
+
+        // We get dbWrite lazily since writing will often be unnecessary.
+        $this->dbWrite = $lb->getLazyConnectionRef(constant($dbWriteConst));
     }
 
     /**

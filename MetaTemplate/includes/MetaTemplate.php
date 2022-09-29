@@ -50,12 +50,7 @@ class MetaTemplate
     public static function can($setting)
     {
         $config = self::getConfig();
-        $retval = boolval($config->get($setting));
-        if ($setting === self::STTNG_ENABLEDATA) {
-            $retval &= MetaTemplateSql::getInstance()->tablesExist();
-        }
-
-        return $retval;
+        return boolval($config->get($setting));
     }
 
     /**

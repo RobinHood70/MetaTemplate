@@ -214,11 +214,13 @@ class MetaTemplate
      */
     public static function doReturn(Parser $parser, PPFrame_Hash $frame, array $args)
     {
-        if ($frame->depth != 0) {
+        $parent = $frame->parent;
+        if (!$parent) {
             return;
         }
 
-        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+        $helper = ParserHelper::getInstance();
+        list($magicArgs, $values) = $helper->getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -226,16 +228,14 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) == 0 || !ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
-            return;
-        }
-
-        $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
-        foreach ($values as $value) {
-            $varName = $frame->expand($value);
-            $value = self::getVar($frame, $varName, $anyCase);
-            if (isset($frame->parent, $value)) {
-                self::setVar($parser, $frame->parent, $varName, $value);
+        if ($values && $helper->checkIfs($frame, $magicArgs)) {
+            $anyCase = $helper->checkAnyCase($magicArgs);
+            foreach ($values as $value) {
+                $varName = $frame->expand($value);
+                $varValue = self::getVar($frame, $varName, $anyCase);
+                if (isset($varValue)) {
+                    self::setVar($parser, $parent, $varName, $varValue);
+                }
             }
         }
     }

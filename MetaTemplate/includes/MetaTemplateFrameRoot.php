@@ -7,14 +7,14 @@
  *     the class; in older versions, it's bundled into Preprocessor_Hash.php.
  *  2. Remove all properties and methods except the constructor, cachedExpand(), isTemplate(), setTTL() and
  *     setVolatile().
- *	3. Rename the class to "MetaTemplateFrameHash" in the class header and have it extend PPTemplateFrame_Hash.
+ *	3. Rename the class to "MetaTemplateFrameRoot" in the class header and have it extend PPTemplateFrame_Hash.
  *	4. Copy getNamedArgument() and getNumberedArgument() (the singular ones only) from PPTemplateFrame_Hash.
  *	5. Only in those two functions, replace "$this->parent" with "$this".
  *
  *  (In the alternative, you can extend PPFrame and merge in all argument-related properties and functions. This has
  *  the advantage of the inhertance nesting being lower and the cost of being a more complex merge. In addition, you
  *  lose the ability to use constructs such as "instanceof PPTemplateFrame_Hash" to detect either PPTemplateFrame_Hash
- *  or MetaTemplateFrameHash.)
+ *  or MetaTemplateFrameRoot.)
  */
 
 /**
@@ -28,7 +28,7 @@
  * @ingroup Parser
  */
 // phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps
-class MetaTemplateFrameHash extends PPTemplateFrame_Hash
+class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 {
 	private $volatile = false;
 	private $ttl = null;

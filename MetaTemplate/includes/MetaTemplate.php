@@ -233,9 +233,7 @@ class MetaTemplate
             foreach ($values as $value) {
                 $varName = $frame->expand($value);
                 $varValue = self::getVar($frame, $varName, $anyCase);
-                if (isset($varValue)) {
-                    self::setVar($parser, $parent, $varName, $varValue);
-                }
+                self::setVar($parser, $parent, $varName, $varValue);
             }
         }
     }

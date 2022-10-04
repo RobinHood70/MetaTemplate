@@ -30,7 +30,12 @@
 class SpecialMetaVarsOnPage extends SpecialPage
 {
 
-    private $page;
+    /**
+     * The name of the page to look at.
+     *
+     * @var Page
+     */
+    private $pageName;
 
     private $limit;
 
@@ -53,7 +58,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $out->addModuleStyles('mediawiki.special');
 
         $request = $this->getRequest();
-        $this->page = $request->getVal('page', $par);
+        $this->pageName = $request->getVal('page', $par);
         $this->limit = intval($request->getVal('limit', 50));
 
         $fields = [
@@ -61,7 +66,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
                 'type' => 'text',
                 'name' => 'page',
                 'label-message' => 'metatemplate-metavarsonpage-pagecolon',
-                'default' => $this->page,
+                'default' => $this->pageName,
             ],
             'Limit' => [
                 'type' => 'select',
@@ -89,23 +94,20 @@ class SpecialMetaVarsOnPage extends SpecialPage
 
     function showList()
     {
-        if (is_null($this->page)) {
+        if (!$this->pageName) {
             return;
         }
 
-        $title = Title::newFromText($this->page);
-        $conds = array();
+        $title = Title::newFromText($this->pageName);
+        $conds = [];
         $out = $this->getOutput();
 
         if ($title && $title->canExist()) {
-            $conds['mt_set_page_id'] = $title->getArticleID();
+            // RHshow($title->getFullText(), ' (', $title->getArticleID(), ')');
+            $conds[MetaTemplateSql::SET_TABLE . '.pageId'] = $title->getArticleID();
             $pager = new MetaVarsPager($this->getContext(), $conds, $this->limit);
             if ($pager->getNumRows()) {
-                $out->addHTML(
-                    $pager->getNavigationBar() .
-                        $pager->getBody() .
-                        $pager->getNavigationBar()
-                );
+                $out->addParserOutput($pager->getFullOutput());
             } else {
                 $out->addWikiMsg('metatemplate-metavarsonpage-no-results');
             }
@@ -147,11 +149,11 @@ class MetaVarsPager extends TablePager
         static $headers = null;
 
         if ($headers === null) {
-            $headers = array(
-                'mt_set_subset' => 'metatemplate-metavarsonpage-set',
-                'mt_save_varname' => 'metatemplate-metavarsonpage-varname',
-                'mt_save_value' => 'metatemplate-metavarsonpage-varvalue',
-            );
+            $headers = [
+                'setName' => 'metatemplate-metavarsonpage-set',
+                'varName' => 'metatemplate-metavarsonpage-varname',
+                'varValue' => 'metatemplate-metavarsonpage-varvalue',
+            ];
 
             foreach ($headers as $key => $val) {
                 $headers[$key] = $this->msg($val)->text();
@@ -164,10 +166,13 @@ class MetaVarsPager extends TablePager
     function formatValue($name, $value)
     {
         switch ($name) {
-            case 'mt_set_subset':
+            case MetaTemplateSql::SET_TABLE . '.setName':
                 $formatted = Html::rawElement(
                     'span',
-                    array('class' => 'metatemplate-metavarsonpage-set', 'style' => 'white-space:nowrap;'),
+                    [
+                        'class' => 'metatemplate-metavarsonpage-set',
+                        'style' => 'white-space:nowrap;'
+                    ],
                     $value
                 );
                 break;
@@ -181,20 +186,21 @@ class MetaVarsPager extends TablePager
 
     function getQueryInfo()
     {
-        return array(
-            'tables' => array('mt_save_set', 'mt_save_data'),
-            'fields' => array(
-                'mt_set_page_id',
-                'mt_set_subset',
-                'mt_save_varname',
-                'mt_save_value',
-            ),
+        return [
+            'tables' => [MetaTemplateSql::SET_TABLE, MetaTemplateSql::DATA_TABLE],
+            'fields' => [
+                MetaTemplateSql::SET_TABLE . '.pageId',
+                MetaTemplateSql::SET_TABLE . '.setName',
+                MetaTemplateSql::DATA_TABLE . '.varName',
+                MetaTemplateSql::DATA_TABLE . '.varValue',
+            ],
             'conds' => $this->conds,
-            'options' => array(),
-            'join_conds' => array(
-                'mt_save_data' => array('INNER JOIN', 'mt_save_set.mt_set_id = mt_save_data.mt_save_id'),
-            ),
-        );
+            'options' => [],
+            'join_conds' => [
+                // . MetaTemplateSql::DATA_TABLE . '.mt_save_id'),
+                MetaTemplateSql::DATA_TABLE => ['INNER JOIN', MetaTemplateSql::SET_TABLE . '.setId=' . MetaTemplateSql::DATA_TABLE . '.setId'],
+            ]
+        ];
     }
 
     public function getTableClass()
@@ -204,16 +210,16 @@ class MetaVarsPager extends TablePager
 
     function getDefaultSort()
     {
-        return 'mt_set_subset';
+        return MetaTemplateSql::SET_TABLE . '.setName';
     }
 
     function getExtraSortFields()
     {
-        return array('mt_save_varname');
+        return [MetaTemplateSql::DATA_TABLE . '.varName'];
     }
 
     function isFieldSortable($name)
     {
-        return $name !== 'mt_save_value';
+        return $name !== MetaTemplateSql::DATA_TABLE . '.varValue';
     }
 }

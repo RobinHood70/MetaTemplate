@@ -503,34 +503,35 @@ class MetaTemplate
     private static function unsetVar(PPFrame_Hash $frame, $varName, $anyCase, $shift = false)
     {
         if (is_string($varName) && ctype_digit($varName)) {
-            if ($shift) {
-                $newArgs = [];
-                $newCache = [];
-                foreach ($frame->numberedArgs as $key => $value) {
-                    if ($varName != $key) {
-                        $newKey = $key > $varName ? $key - 1 : $key;
-                        $newArgs[$newKey] = $value;
-                        if (isset($frame->numberedCache[$key])) {
-                            $newCache[$newKey] = $frame->numberedExpansionCache[$key];
-                        }
-                    }
-                }
-
-                foreach ($frame->namedArgs as $key => $value) {
-                    if ($varName != $key) {
-                        $newKey = ctype_digit($key) && $key > $varName ? $key - 1 :  $key;
-                        $newArgs[$newKey] = $value;
-                        if (isset($frame->namedCache[$key])) {
-                            $newCache[$newKey] = $frame->namedExpansionCache[$key];
-                        }
-                    }
-                }
-
-                $frame->numberedArgs = $newArgs;
-                $frame->numberedExpansionCache = $newCache;
-            } else {
+            if (!$shift) {
                 unset($frame->numberedArgs[$varName], $frame->numberedExpansionCache[$varName]);
+                return;
             }
+
+            $newArgs = [];
+            $newCache = [];
+            foreach ($frame->numberedArgs as $key => $value) {
+                if ($varName != $key) {
+                    $newKey = $key > $varName ? $key - 1 : $key;
+                    $newArgs[$newKey] = $value;
+                    if (isset($frame->numberedCache[$key])) {
+                        $newCache[$newKey] = $frame->numberedExpansionCache[$key];
+                    }
+                }
+            }
+
+            foreach ($frame->namedArgs as $key => $value) {
+                if ($varName != $key) {
+                    $newKey = ctype_digit($key) && $key > $varName ? $key - 1 :  $key;
+                    $newArgs[$newKey] = $value;
+                    if (isset($frame->namedCache[$key])) {
+                        $newCache[$newKey] = $frame->namedExpansionCache[$key];
+                    }
+                }
+            }
+
+            $frame->numberedArgs = $newArgs;
+            $frame->numberedExpansionCache = $newCache;
         } elseif ($anyCase) {
             $lcname = strtolower($varName);
             $namedArgs = $frame->getNamedArguments();

@@ -75,7 +75,7 @@ class MetaTemplateData
 		self::trackPage($output, $page);
 		$anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
 		$varNames = [];
-		$varList = self::getVarNames($frame, $values, $anyCase);
+		$varList = self::getVars($frame, $values, $anyCase);
 		if (count($varList)) {
 			foreach ($varList as $varName => $value) {
 				if (is_null($value)) {
@@ -109,7 +109,7 @@ class MetaTemplateData
 					// RHshow('Unparsed: ', $value);
 				}
 
-				MetaTemplate::setVar($parser, $frame, $varName, $value);
+				MetaTemplate::setVar($frame, $varName, $value);
 			}
 		}
 	}
@@ -160,9 +160,9 @@ class MetaTemplateData
 		$saveMarkup = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SAVEMARKUP, false);
 		$set = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SET, '');
 		$variables = [];
-		$getVars = self::getVarNames($frame, $values, $anyCase);
+		$getVars = self::getVars($frame, $values, $anyCase);
 		foreach ($getVars as $varName => $value) {
-			if (!is_null($value)) {
+			if (!is_null($value) && $value !== false) {
 				$frame->namedArgs[self::$saveKey] = 'saving'; // This is a total hack to let the tag hook know that we're saving now.
 				$value = $frame->expand($value, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
 				// show(htmlspecialchars($value));
@@ -253,7 +253,17 @@ class MetaTemplateData
 		return $result;
 	}
 
-	private static function getVarNames(PPFrame $frame, $values, $anyCase)
+	/**
+	 * [Description for getVars]
+	 *
+	 * @param PPFrame $frame
+	 * @param mixed $values
+	 * @param mixed $anyCase
+	 *
+	 * @return [type]
+	 *
+	 */
+	private static function getVars(PPFrame $frame, $values, $anyCase)
 	{
 		$retval = [];
 		foreach ($values as $varNameNodes) {

@@ -75,10 +75,23 @@ class MetaTemplateHooks
 		$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
 	}
 
+	public static function onMetaTemplateSetBypassVars(array &$bypassVars)
+	{
+		// TODO: This function is a placeholder until UespCustomCode is rewritten, at which point this can be
+		// transferred there.
+		// Going with hard-coded values, since these are unlikely to change, even if we transfer them to other
+		// languages. If we do want to translate them, it's changed easily enough at that time.
+		$bypassVars[] = 'ns_base';
+		$bypassVars[] = 'ns_id';
+	}
+
 	public static function onParserAfterTidy(Parser $parser, &$text)
 	{
 		$output = $parser->getOutput();
-		// getTimeSinceStart is a kludge to detect if this is the real page we're processing or some small part of it that we don't care about.
+		// getTimeSinceStart is a kludge to detect if this is the real page we're processing or some small part of it
+		// that we don't care about. Saving varibles here is also a kludge. While it could use some more checking,
+		// there didn't seem to be anywhere that only occurred on save that also occurred when doing a refreshLinks
+		// operation.
 		if (!$parser->getOptions()->getIsPreview() && !is_null($output->getTimeSinceStart('wall'))) {
 			$pageVars = MetaTemplateData::getPageVariables($output);
 			MetaTemplateSql::getInstance()->saveVariables($parser->getTitle(), $pageVars);
@@ -186,7 +199,10 @@ class MetaTemplateHooks
 	 */
 	private static function initTagFunctions(Parser $parser)
 	{
-		ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+		}
+
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 			// $parser->setHook(MetaTemplate::TG_CATPAGETEMPLATE, 'MetaTemplateInit::efMetaTemplateCatPageTemplate');
 		}

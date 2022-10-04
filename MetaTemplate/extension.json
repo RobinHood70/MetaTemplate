@@ -44,6 +44,7 @@
 	"Hooks": {
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
+		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
 		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",

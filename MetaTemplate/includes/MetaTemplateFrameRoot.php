@@ -5,22 +5,17 @@
  *
  *	1. Copy PPFrame_Hash from MediaWiki's includes/parser/ folder. In modern versions, the file is named the same as
  *     the class; in older versions, it's bundled into Preprocessor_Hash.php.
- *  2. Remove all properties and methods except the constructor, cachedExpand(), isTemplate(), setTTL() and
+ *  2. Remove all properties and methods except $volatile, $ttl, the constructor, cachedExpand(), isTemplate(), setTTL() and
  *     setVolatile().
  *	3. Rename the class to "MetaTemplateFrameRoot" in the class header and have it extend PPTemplateFrame_Hash.
  *	4. Copy getNamedArgument() and getNumberedArgument() (the singular ones only) from PPTemplateFrame_Hash.
  *	5. Only in those two functions, replace "$this->parent" with "$this".
- *
- *  (In the alternative, you can extend PPFrame and merge in all argument-related properties and functions. This has
- *  the advantage of the inhertance nesting being lower and the cost of being a more complex merge. In addition, you
- *  lose the ability to use constructs such as "instanceof PPTemplateFrame_Hash" to detect either PPTemplateFrame_Hash
- *  or MetaTemplateFrameRoot.)
  */
 
 /**
  * Expansion frame with template arguments. Overrides MediaWiki default so it can be used to preview with arguments in
  * root space (i.e., while previewing or viewing a template page or setting variables on a page that's not
- * transcluded). To create the MetaTemplateFramehash, extend PPTemplateFrame_Hash and then override any function that
+ * transcluded). To create MetaTemplateFrameRoot, extend PPTemplateFrame_Hash and then override any function that
  * refers to $this->parent without doing an isset on it first, then remove that part of the function since parent will
  * always be null for this. In essence, this allows a page to display as though it had been called with specific
  * arguments or to hold values declared by #preview, #define, and #local.
@@ -34,26 +29,19 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 	private $ttl = null;
 
 	/**
-	 * @param Preprocessor $preprocessor
+	 * @param Preprocessor_Hash $preprocessor
 	 */
-	public function __construct(Preprocessor $preprocessor)
+	public function __construct(Preprocessor_Hash $preprocessor)
 	{
 		$this->preprocessor = $preprocessor;
 		$this->parser = $preprocessor->parser;
-		$title = $this->parser->mTitle;
+		$this->title = $this->parser->mTitle;
+		$this->titleCache = [$this->title ? $this->title->getPrefixedDBkey() : false];
 		$this->loopCheckHash = [];
-		if ($title) {
-			$this->title = $title;
-			$this->titleCache = [$title->getPrefixedDBkey()];
-			$pdbk = $title->getPrefixedDBkey();
-			$this->loopCheckHash[$pdbk] = true;
-		} else {
-			throw new MWException(__METHOD__ . ': root node must always have a title.');
-		}
-
 		$this->depth = 0;
 		$this->childExpansionCache = [];
-		$this->parent = false;
+
+		$this->parent = null;
 		$this->numberedArgs = [];
 		$this->namedArgs = [];
 		$this->numberedExpansionCache = [];
@@ -164,6 +152,6 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 	public function setVolatile($flag = true)
 	{
 		$this->volatile = $flag;
-		$this->parser->disableCache();
+		$this->parser->getOutput()->updateCacheExpiry(0);
 	}
 }

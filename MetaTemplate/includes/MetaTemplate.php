@@ -39,13 +39,26 @@ class MetaTemplate
 
     private static $config;
 
-    /** @var MagicWordArray */
-    private static $ignoredArgs;
+    /**
+     * An array of strings containing the names of parameters that should be passed through to a template, even if
+     * displayed on its own page.
+     *
+     * @var array $bypassVars // @ var MagicWordArray
+     */
+    private static $bypassVars;
 
     /**
-     * @param mixed $setting
+     * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
+     * section of extension.json. Prepend the names with $metatemplate to alter their values in LocalSettings.php.
+     * Currently, these include:
+     *
+     *     EnableCatPageTemplate - if set to false, the <catpagetemplate> tag will be disabled.
+     *     EnableData - if set to false, #load, #save, #listsaved and <savemarkup> are all disabled.
+     *
+     * @param string $setting
      *
      * @return bool
+     *
      */
     public static function can($setting)
     {
@@ -70,10 +83,18 @@ class MetaTemplate
      */
     public static function doDefine(Parser $parser, PPFrame $frame, array $args)
     {
+        if (!isset($args[0])) {
+            return;
+        }
+
         $name = $frame->expand($args[0]);
+
         if (
-            !$frame->depth ||
-            self::$ignoredArgs->matchStartToEnd($name)
+            // Show {{{argument names}}} if on the actual template page and not previewing, but allow ns_base and ns_id through at all times.
+            $frame->parent ||
+            isset(self::$bypassVars[$name]) || // If re-instated as magic words, use: self::$bypassVars->matchStartToEnd($name)
+            $parser->getTitle()->getNamespace() !== NS_TEMPLATE ||
+            $parser->getOptions()->getIsPreview()
         ) {
             self::checkAndSetVar($parser, $frame, $args, $name);
         }
@@ -94,14 +115,15 @@ class MetaTemplate
 
     /**
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPTemplateFrame_Hash $frame
      * @param array $args
      *
      * @return void
      */
-    public static function doInherit(Parser $parser, PPFrame_Hash $frame, array $args)
+    public static function doInherit(Parser $parser, PPTemplateFrame_Hash $frame, array $args)
     {
-        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+        $helper = ParserHelper::getInstance();
+        list($magicArgs, $values) = $helper->getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -109,13 +131,13 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) > 0 && ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
-            $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
-            foreach ($values as $value) {
-                $varName = $frame->expand($value);
-                $value = self::getVar($frame, $varName, $anyCase, true);
-                if (!is_null($value)) {
-                    self::setVar($parser, $frame, $varName, $value);
+        if (!empty($values) && $helper->checkIfs($frame, $magicArgs)) {
+            $anyCase = $helper->checkAnyCase($magicArgs);
+            foreach ($values as $name) {
+                $varName = $frame->expand($name);
+                $varValue = self::getVar($frame, $varName, $anyCase, true);
+                if ($varValue !== false) {
+                    self::setVar($frame, $varName, $varValue);
                 }
             }
         }
@@ -233,7 +255,7 @@ class MetaTemplate
             foreach ($values as $value) {
                 $varName = $frame->expand($value);
                 $varValue = self::getVar($frame, $varName, $anyCase);
-                self::setVar($parser, $parent, $varName, $varValue);
+                self::setVar($parent, $varName, $varValue);
             }
         }
     }
@@ -287,7 +309,7 @@ class MetaTemplate
     /**
      * getVar
      *
-     * @param PPFrame_Hash $frame
+     * @param PPTemplateFrame_Hash $frame
      * @param mixed $varName
      * @param bool $anyCase
      * @param bool $checkAll
@@ -296,20 +318,23 @@ class MetaTemplate
      */
     public static function getVar(PPTemplateFrame_Hash $frame, $varName, $anyCase = false, $checkAll = false)
     {
-        $retval = '';
-        $anyCase == $anyCase && !ctype_digit($varName);
-        while ($frame && !$retval) {
-            if ($anyCase) {
-                // Loop through all, only picking up last one, like a template would if it supported case-insensitive names.
-                foreach (self::findAnyCaseNames($frame, $varName) as $anyCaseName) {
-                    $retval = $frame->namedArgs[$anyCaseName];
+        // If varName is entirely numeric, case doesn't matter, so skip it.
+        $anyCase &= !ctype_digit($varName);
+        $lcname = strtolower($varName);
+        $retval = false;
+        do {
+            // Try exact name first.
+            $retval = $frame->getArgument($varName);
+            if ($retval === false && $anyCase) {
+                foreach ($frame->getNamedArguments() as $key => $value) {
+                    if (strtolower($key) === $lcname) {
+                        $retval = $value;
+                    }
                 }
-            } else {
-                $retval = self::getVarDirect($frame, $varName);
             }
 
-            $frame = $checkAll ? $frame->parent : null;
-        }
+            $frame = $checkAll ? $frame->parent : false;
+        } while ($retval === false && $frame);
 
         return $retval;
     }
@@ -321,7 +346,6 @@ class MetaTemplate
      */
     public static function init()
     {
-        self::$ignoredArgs = new MagicWordArray([ParserHelper::NA_NSBASE, ParserHelper::NA_NSID]);
         ParserHelper::getInstance()->cacheMagicWords([
             self::NA_NAMESPACE,
             self::NA_NESTLEVEL,
@@ -331,21 +355,24 @@ class MetaTemplate
             MetaTemplateData::NA_SAVEMARKUP,
             MetaTemplateData::NA_SET,
         ]);
+
+        $bypassVars = [];
+        Hooks::run('MetaTemplateSetBypassVars', [&$bypassVars]);
+        self::$bypassVars = new MagicWordArray($bypassVars);
     }
 
     /**
      * Takes the provided variable and adds it to the template frame as though it had been passed in.
      *
-     * @param PPFrame_Hash $frame
+     * @param PPTemplateFrame_Hash $frame
      * @param mixed $varName
      * @param mixed $value
      *
      * @return void
      */
-    public static function setVar(Parser $parser, PPFrame_Hash $frame, $varName, $value)
+    public static function setVar(PPTemplateFrame_Hash $frame, $varName, $value)
     {
-        // RHshow($varName, '=', $frame->expand($value));
-
+        // RHshow($varName, '=>', $frame->expand($value));
         /*
             $args = Numbered/Named Args to add node value to.
             $cache = Numbered/Named Cache to add the fully expanded value to.
@@ -360,10 +387,6 @@ class MetaTemplate
         }
 
         if ($frame->getArgument($varName) !== false) {
-            // RHshow("$varName =>\n", $frame->getArgument($varName));
-            // RHshow('Warning! ' . __METHOD__ . ' encountered a re-used template parameter. This needs testing.');
-            // This may need fixing, following the idea below, or just run this task separately to delete the current
-            // argument, then run the else clause for both.
             $child = $args[$varName]->getFirstChild();
             $cache[$varName] = $value;
             if ($child) {
@@ -396,10 +419,6 @@ class MetaTemplate
      */
     private static function checkAndSetVar(Parser $parser, PPFrame_Hash $frame, array $args, $name, $override = false)
     {
-        if (count($args) < 2) {
-            return;
-        }
-
         list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
             $args,
@@ -408,46 +427,25 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
-            $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+        if (count($values) > 1 && ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+            $anyCase = !ctype_digit($name) && ParserHelper::getInstance()->checkAnyCase($magicArgs);
             $existing = self::getVar($frame, $name, $anyCase);
             $value = $values[1];
-            if (is_null($existing)) {
-                // RHshow('Existing value: ', $existing, ' => ', $value);
-                self::setVar($parser, $frame, $name, $value);
+            // RHshow('Existing: ', $existing);
+            // RHshow('Override: ', $override);
+            // RHshow('Any Case: ', $anyCase);
+            if ($existing === false) {
+                self::setVar($frame, $name, $value);
             } elseif ($override) {
-                // RHshow('Override value: ', $override, ' => ', $value);
                 self::unsetVar($frame, $name, $anyCase);
-                self::setVar($parser, $frame, $name, $value);
+                self::setVar($frame, $name, $value);
             } elseif ($anyCase) {
-                // RHshow('Any case value: : ', $anyCase, ' => ', $value);
+                // RHshow($name);
                 // Unset/reset to ensure correct case.
-                self::unsetVar($frame, $name, $anyCase);
-                self::setVar($parser, $frame, $name, $existing);
+                self::unsetVar($frame, $name, true);
+                self::setVar($frame, $name, $existing);
             }
         }
-    }
-
-    /**
-     * findAnyCaseNames
-     *
-     * @param PPFrame $frame
-     * @param mixed $varName
-     *
-     * @return string[]
-     */
-    private static function findAnyCaseNames(PPFrame $frame, $varName)
-    {
-        // Loop to find all in the event of case-variant names. We can't yield here because the caller will likely be modifying the array.
-        $lcname = strtolower($varName);
-        $retval = [];
-        foreach (array_keys($frame->getNamedArguments()) as $key) {
-            if (strtolower($key) == $lcname) {
-                $retval[] = $key;
-            }
-        }
-
-        return $retval;
     }
 
     /**
@@ -493,28 +491,6 @@ class MetaTemplate
     }
 
     /**
-     * getVarDirect
-     *
-     * @param PPFrame_Hash $frame
-     * @param mixed $varName
-     *
-     * @return string|PPNode_Hash_Tree|null
-     */
-    public static function getVarDirect(PPTemplateFrame_Hash $frame, $varName)
-    {
-        $value = null;
-        if (isset($frame->namedArgs)) {
-            $value = ParserHelper::getInstance()->arrayGet($frame->namedArgs, $varName);
-        }
-
-        if (!isset($value) && isset($frame->numberedArgs)) {
-            $value = ParserHelper::getInstance()->arrayGet($frame->numberedArgs, $varName);
-        }
-
-        return $value;
-    }
-
-    /**
      * unsetVar
      *
      * @param PPFrame_Hash $frame
@@ -555,12 +531,14 @@ class MetaTemplate
             } else {
                 unset($frame->numberedArgs[$varName], $frame->numberedExpansionCache[$varName]);
             }
-        }
-
-        // Called even if numeric to catch cases where template called using, i.e. {{template|1=first}}
-        if ($anyCase) {
-            foreach (self::findAnyCaseNames($frame, $varName) as $anyCaseName) {
-                unset($frame->namedArgs[$anyCaseName], $frame->namedExpansionCache[$anyCaseName]);
+        } elseif ($anyCase) {
+            $lcname = strtolower($varName);
+            $namedArgs = $frame->getNamedArguments();
+            foreach ($namedArgs as $key => $value) {
+                if (strtolower($key) === $lcname) {
+                    // This is safe in PHP as the array is copied.
+                    unset($namedArgs[$key]);
+                }
             }
         } else {
             unset($frame->namedArgs[$varName], $frame->namedExpansionCache[$varName]);

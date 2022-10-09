@@ -17,7 +17,7 @@ class MetaTemplateData
 	private static $saveKey = '|#save';
 	private static $setNameWidth = 50;
 
-	public static function doListSaved(Parser $parser, PPFrame_Hash $frame, array $args)
+	public static function doListSaved(Parser $parser, PPFrame $frame, array $args)
 	{
 		list($magicArgs, $values) = ParserHelper::getInstance()->getInstance()->getMagicArgs(
 			$frame,
@@ -35,19 +35,16 @@ class MetaTemplateData
 		// TODO: Incomplete! Left off here.
 	}
 
-	// IMP: Respects case=any when determining what to load.
-	// IMP: No longer auto-inherits and uses set. Functionality is now at user's discretion via traditional methods or inheritance.
-	// IMP: Load all from subset with {{#load:<page> [|subset=subset] }}
 	/**
 	 * doLoad
 	 *
 	 * @param Parser $parser
-	 * @param PPFrame_Hash $frame
+	 * @param PPFrame $frame
 	 * @param array $args
 	 *
 	 * @return void
 	 */
-	public static function doLoad(Parser $parser, PPFrame_Hash $frame, array $args)
+	public static function doLoad(Parser $parser, PPFrame $frame, array $args)
 	{
 		// RHshow('#load:', $parser->getTitle()->getFullText());
 		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
@@ -114,17 +111,16 @@ class MetaTemplateData
 		}
 	}
 
-	// IMP: No longer auto-inherits set variable. "subset" changed to "setName" ("subset" still supported for bc).
 	/**
 	 * doSave
 	 *
 	 * @param Parser $parser
-	 * @param PPFrame_Hash $frame
+	 * @param PPFrame $frame
 	 * @param array $args
 	 *
 	 * @return void
 	 */
-	public static function doSave(Parser $parser, PPFrame_Hash $frame, array $args)
+	public static function doSave(Parser $parser, PPFrame $frame, array $args)
 	{
 		$title = $parser->getTitle();
 		if (!$title->canExist()) {
@@ -209,6 +205,20 @@ class MetaTemplateData
 	public static function getPageVariables(ParserOutput $output)
 	{
 		return $output->getExtensionData(self::$saveKey);
+	}
+
+	/**
+	 * [Description for init]
+	 *
+	 * @return [type]
+	 *
+	 */
+	public static function init()
+	{
+		ParserHelper::getInstance()->cacheMagicWords([
+			self::NA_SAVEMARKUP,
+			self::NA_SET,
+		]);
 	}
 
 	public static function setPageVariables(ParserOutput $output, MetaTemplateSetCollection $value = null)

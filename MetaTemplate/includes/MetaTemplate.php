@@ -10,7 +10,6 @@ use MediaWiki\MediaWikiServices;
  */
 class MetaTemplate
 {
-    // IMP: Disallowed arguments will now be passed back to the caller rather than being ignored.
     const NA_NAMESPACE = 'metatemplate-namespace';
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
     const NA_ORDER = 'metatemplate-order';
@@ -45,7 +44,7 @@ class MetaTemplate
      *
      * @var array $bypassVars // @ var MagicWordArray
      */
-    private static $bypassVars;
+    private static $bypassVars = [];
 
     /**
      * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
@@ -60,7 +59,7 @@ class MetaTemplate
      * @return bool
      *
      */
-    public static function can($setting)
+    public static function can($setting): bool
     {
         $config = self::getConfig();
         return boolval($config->get($setting));
@@ -76,38 +75,36 @@ class MetaTemplate
 
     /**
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array $args
      *
      * @return void
      */
     public static function doDefine(Parser $parser, PPFrame $frame, array $args)
     {
-        if (!isset($args[0])) {
-            return;
-        }
-
-        $name = $frame->expand($args[0]);
-
+        // Show {{{argument names}}} if on the actual template page and not previewing, but allow ns_base and ns_id through at all times.
         if (
-            // Show {{{argument names}}} if on the actual template page and not previewing, but allow ns_base and ns_id through at all times.
-            $frame->parent ||
-            isset(self::$bypassVars[$name]) || // If re-instated as magic words, use: self::$bypassVars->matchStartToEnd($name)
-            $parser->getTitle()->getNamespace() !== NS_TEMPLATE ||
-            $parser->getOptions()->getIsPreview()
+            !$frame->parent &&
+            $parser->getTitle()->getNamespace() === NS_TEMPLATE &&
+            !$parser->getOptions()->getIsPreview()
         ) {
-            self::checkAndSetVar($parser, $frame, $args, $name);
+            // If re-instated as magic words, use: self::$bypassVars->matchStartToEnd($name)
+            if (self::$bypassVars[trim($frame->expand($args[0]))]) {
+                self::checkAndSetVar($frame, $args);
+            }
+        } else {
+            self::checkAndSetVar($frame, $args);
         }
     }
 
     /**
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array|null $args
      *
      * @return string
      */
-    public static function doFullPageNameX(Parser $parser, PPFrame_Hash $frame, array $args = null)
+    public static function doFullPageNameX(Parser $parser, PPFrame $frame, array $args = null)
     {
         $title = self::getTitleFromArgs($parser, $frame, $args);
         return is_null($title) ? '' : $title->getPrefixedText();
@@ -115,12 +112,12 @@ class MetaTemplate
 
     /**
      * @param Parser $parser
-     * @param PPTemplateFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array $args
      *
      * @return void
      */
-    public static function doInherit(Parser $parser, PPTemplateFrame_Hash $frame, array $args)
+    public static function doInherit(Parser $parser, PPFrame $frame, array $args)
     {
         $helper = ParserHelper::getInstance();
         list($magicArgs, $values) = $helper->getMagicArgs(
@@ -143,31 +140,30 @@ class MetaTemplate
         }
     }
 
-    // IMP: case=any is now respected and #local:x will override argument X or x.
     /**
      * doLocal
      *
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array $args
      *
      * @return void
      */
-    public static function doLocal(Parser $parser, PPFrame_Hash $frame, array $args)
+    public static function doLocal(Parser $parser, PPFrame $frame, array $args)
     {
-        self::checkAndSetVar($parser, $frame, $args, $frame->expand($args[0]), true);
+        self::checkAndSetVar($frame, $args, true);
     }
 
     /**
      * doNamespaceX
      *
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array|null $args
      *
      * @return string
      */
-    public static function doNamespaceX(Parser $parser, PPFrame_Hash $frame, array $args = null)
+    public static function doNamespaceX(Parser $parser, PPFrame $frame, array $args = null)
     {
         $title = self::getTitleFromArgs($parser, $frame, $args);
         $nsName = $parser->getFunctionLang()->getNsText($title->getNamespace());
@@ -177,11 +173,11 @@ class MetaTemplate
     /**
      * doNestLevel
      *
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      *
      * @return string
      */
-    public static function doNestLevel(PPFrame_Hash $frame)
+    public static function doNestLevel(PPFrame $frame)
     {
         $retval = $frame->depth;
         $args = $frame->getNamedArguments();
@@ -195,12 +191,12 @@ class MetaTemplate
 
     /**
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array|null $args
      *
      * @return string
      */
-    public static function doPageNameX(Parser $parser, PPFrame_Hash $frame, array $args = null)
+    public static function doPageNameX(Parser $parser, PPFrame $frame, array $args = null)
     {
         $title = self::getTitleFromArgs($parser, $frame, $args);
         return is_null($title) ? '' : $title->getPrefixedText();
@@ -210,18 +206,18 @@ class MetaTemplate
      * doPreview
      *
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array $args
      *
      * @return void
      */
-    public static function doPreview(Parser $parser, PPFrame_Hash $frame, array $args)
+    public static function doPreview(Parser $parser, PPFrame $frame, array $args)
     {
         if (
             $frame->depth == 0 &&
             $parser->getOptions()->getIsPreview()
         ) {
-            self::checkAndSetVar($parser, $frame, $args, $frame->expand($args[0]));
+            self::checkAndSetVar($frame, $args);
         }
     }
 
@@ -229,12 +225,12 @@ class MetaTemplate
      * doReturn
      *
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array $args
      *
      * @return void
      */
-    public static function doReturn(Parser $parser, PPFrame_Hash $frame, array $args)
+    public static function doReturn(Parser $parser, PPFrame $frame, array $args)
     {
         $parent = $frame->parent;
         if (!$parent) {
@@ -264,12 +260,12 @@ class MetaTemplate
      * doUnset
      *
      * @param Parser $parser
-     * @param PPFrame_Hash $frame
+     * @param PPFrame $frame
      * @param array $args
      *
      * @return void
      */
-    public static function doUnset(Parser $parser, PPFrame_Hash $frame, array $args)
+    public static function doUnset(Parser $parser, PPFrame $frame, array $args)
     {
         list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
@@ -318,10 +314,9 @@ class MetaTemplate
      */
     public static function getVar(PPTemplateFrame_Hash $frame, $varName, $anyCase = false, $checkAll = false)
     {
-        // If varName is entirely numeric, case doesn't matter, so skip it.
+        // If varName is entirely numeric, case doesn't matter, so skip case checking.
         $anyCase &= !ctype_digit($varName);
         $lcname = strtolower($varName);
-        $retval = false;
         do {
             // Try exact name first.
             $retval = $frame->getArgument($varName);
@@ -340,11 +335,12 @@ class MetaTemplate
     }
 
     /**
-     * init
+     * [Description for init]
      *
      * @return void
+     *
      */
-    public static function init()
+    public static function init(): void
     {
         ParserHelper::getInstance()->cacheMagicWords([
             self::NA_NAMESPACE,
@@ -352,13 +348,12 @@ class MetaTemplate
             self::NA_ORDER,
             self::NA_PAGENAME,
             self::NA_SHIFT,
-            MetaTemplateData::NA_SAVEMARKUP,
-            MetaTemplateData::NA_SET,
         ]);
 
-        $bypassVars = [];
-        Hooks::run('MetaTemplateSetBypassVars', [&$bypassVars]);
-        self::$bypassVars = new MagicWordArray($bypassVars);
+        Hooks::run('MetaTemplateSetBypassVars', [&self::$bypassVars]);
+        if (self::can('EnableData')) {
+            MetaTemplateData::init();
+        }
     }
 
     /**
@@ -369,6 +364,7 @@ class MetaTemplate
      * @param mixed $value
      *
      * @return void
+     *
      */
     public static function setVar(PPTemplateFrame_Hash $frame, $varName, $value)
     {
@@ -411,13 +407,13 @@ class MetaTemplate
     }
 
     /**
-     * @param PPFrame_Hash $frame
+     * @param PPTemplateFrame_Hash $frame
      * @param array $args
      * @param bool $override
      *
      * @return void
      */
-    private static function checkAndSetVar(Parser $parser, PPFrame_Hash $frame, array $args, $name, $override = false)
+    private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, $override = false): void
     {
         list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
@@ -427,24 +423,22 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) > 1 && ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
-            $anyCase = !ctype_digit($name) && ParserHelper::getInstance()->checkAnyCase($magicArgs);
+        if (ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+            $name = trim($values[0]);
+            $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
             $existing = self::getVar($frame, $name, $anyCase);
-            $value = $values[1];
-            // RHshow('Existing: ', $existing);
-            // RHshow('Override: ', $override);
-            // RHshow('Any Case: ', $anyCase);
             if ($existing === false) {
-                self::setVar($frame, $name, $value);
-            } elseif ($override) {
-                self::unsetVar($frame, $name, $anyCase);
-                self::setVar($frame, $name, $value);
-            } elseif ($anyCase) {
-                // RHshow($name);
-                // Unset/reset to ensure correct case.
-                self::unsetVar($frame, $name, true);
-                self::setVar($frame, $name, $existing);
+                if (count($values) > 1) {
+                    self::setVar($frame, $name, $values[1]);
+                }
+
+                return;
             }
+
+            // Unset/reset to ensure correct case.
+            self::unsetVar($frame, $name, $anyCase);
+            $value = ($override && count($values) > 1) ? $values[1] : $existing;
+            self::setVar($frame, $name, $value);
         }
     }
 
@@ -493,16 +487,17 @@ class MetaTemplate
     /**
      * unsetVar
      *
-     * @param PPFrame_Hash $frame
+     * @param PPTemplateFrame_Hash $frame
      * @param mixed $varName
      * @param mixed $anyCase
      * @param bool $shift
      *
      * @return void
      */
-    private static function unsetVar(PPFrame_Hash $frame, $varName, $anyCase, $shift = false)
+    private static function unsetVar(PPTemplateFrame_Hash $frame, $varName, $anyCase, $shift = false)
     {
-        if (is_string($varName) && ctype_digit($varName)) {
+        $numeric = is_string($varName) && ctype_digit($varName);
+        if ($numeric) {
             if (!$shift) {
                 unset($frame->numberedArgs[$varName], $frame->numberedExpansionCache[$varName]);
                 return;
@@ -534,7 +529,7 @@ class MetaTemplate
             $frame->numberedExpansionCache = $newCache;
         } elseif ($anyCase) {
             $lcname = strtolower($varName);
-            $namedArgs = $frame->getNamedArguments();
+            $namedArgs = &$frame->namedArgs;
             foreach ($namedArgs as $key => $value) {
                 if (strtolower($key) === $lcname) {
                     // This is safe in PHP as the array is copied.

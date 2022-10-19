@@ -29,9 +29,3 @@ $magicWords['en'] = [
 	MetaTemplateData::PF_LOAD => [0, 'load'],
 	MetaTemplateData::PF_SAVE => [0, 'save'],
 ];
-
-$specialPageAliases = [];
-
-$specialPageAliases['en'] = [
-	'metavarsonpage' => ['MetaTemplate', 'MetaTemplate'],
-];

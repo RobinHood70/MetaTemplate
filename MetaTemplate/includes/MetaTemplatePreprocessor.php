@@ -6,7 +6,7 @@ class MetaTemplatePreprocessor extends Preprocessor_Hash
      *
      * @return MetaTemplateFrameRoot
      */
-    function newFrame()
+    function newFrame(): MetaTemplateFrameRoot
     {
         return new MetaTemplateFrameRoot($this);
     }

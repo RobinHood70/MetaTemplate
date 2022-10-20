@@ -45,7 +45,7 @@ class MetaTemplateUpserts
             $this->newRevId = $newData->getRevId();
             if ($newSets) {
                 foreach ($newSets as $setName => $newSet) {
-                    $oldSet = $oldSets ?  ParserHelper::getInstance()->arrayGet($oldSets, $setName) : null;
+                    $oldSet = $oldSets ?  $oldSets[$setName] ?? null : null;
                     if ($oldSet) {
                         // All sets are checked for updates as long as an old set existed, since transcluded info may have changed values.
                         $this->updates[$oldData->getSetId($setName)] = [$oldSet, $newSet];

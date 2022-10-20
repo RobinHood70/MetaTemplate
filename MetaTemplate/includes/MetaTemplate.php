@@ -1,12 +1,12 @@
 <?php
-/*
-namespace MediaWiki\Extension\MetaTemplate;
-*/
 
+//namespace MediaWiki\Extension\MetaTemplate;
+
+use MediaWiki\Extension;
 use MediaWiki\MediaWikiServices;
 
 /**
- * [Description MetaTemplate]
+ * An extension to add data persistence and variable manipulation to MediaWiki.
  */
 class MetaTemplate
 {
@@ -56,7 +56,7 @@ class MetaTemplate
      *
      * @param string $setting
      *
-     * @return bool
+     * @return bool Whether MetaTemplate can/should use a particular feature.
      *
      */
     public static function can($setting): bool
@@ -66,59 +66,82 @@ class MetaTemplate
     }
 
     /**
-     * @return GlovalVarConfig
+     * @return GlovalVarConfig The global variable configuration for MetaTemplate.
      */
-    public static function configBuilder()
+    public static function configBuilder(): GlobalVarConfig
     {
         return new GlobalVarConfig('metatemplate');
     }
 
     /**
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array $args
+     * Sets the value of a variable if it has not already been set. This is most often done to provide a default value
+     * for a parameter if it was not passed in the template call.
+     *
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *         1: The variable name.
+     *         2: The variable value.
+     *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+     *            'any', along with any translations or synonyms of it.
+     *        if: A condition that must be true in order for this function to run.
+     *     ifnot: A condition that must be false in order for this function to run.
      *
      * @return void
+     *
      */
-    public static function doDefine(Parser $parser, PPFrame $frame, array $args)
+    public static function doDefine(Parser $parser, PPFrame $frame, array $args): void
     {
-        // Show {{{argument names}}} if on the actual template page and not previewing, but allow ns_base and ns_id through at all times.
+        // Show {{{parameter names}}} if on the actual template page and not previewing, but allow bypass variables
+        // (e.g., ns_base and ns_id) through at all times.
         if (
-            !$frame->parent &&
-            $parser->getTitle()->getNamespace() === NS_TEMPLATE &&
-            !$parser->getOptions()->getIsPreview()
+            $frame->parent ||
+            $parser->getTitle()->getNamespace() !== NS_TEMPLATE ||
+            $parser->getOptions()->getIsPreview() ||
+            self::$bypassVars[trim($frame->expand($args[0]))]
         ) {
-            // If re-instated as magic words, use: self::$bypassVars->matchStartToEnd($name)
-            if (self::$bypassVars[trim($frame->expand($args[0]))]) {
-                self::checkAndSetVar($frame, $args);
-            }
-        } else {
-            self::checkAndSetVar($frame, $args);
+            self::checkAndSetVar($frame, $args, false);
         }
     }
 
     /**
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array|null $args
+     * Gets the full page name at a given point in the stack.
+     *
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *     depth: The stack depth to check.
      *
      * @return string
+     *
      */
-    public static function doFullPageNameX(Parser $parser, PPFrame $frame, array $args = null)
+    public static function doFullPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
     {
-        $title = self::getTitleFromArgs($parser, $frame, $args);
+        $title = self::getTitleAtDepth($parser, $frame, $args);
         return is_null($title) ? '' : $title->getPrefixedText();
     }
 
     /**
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array $args
+     * [Description]
+     *
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *        1+: The variable(s) to unset.
+     *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+     *            'any', along with any translations or synonyms of it.
+     *        if: A condition that must be true in order for this function to run.
+     *     ifnot: A condition that must be false in order for this function to run.
      *
      * @return void
+     *
      */
-    public static function doInherit(Parser $parser, PPFrame $frame, array $args)
+    public static function doInherit(Parser $parser, PPFrame $frame, array $args): void
     {
+        if (!$frame->depth) {
+            return;
+        }
+
         $helper = ParserHelper::getInstance();
         list($magicArgs, $values) = $helper->getMagicArgs(
             $frame,
@@ -128,12 +151,18 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (!empty($values) && $helper->checkIfs($frame, $magicArgs)) {
-            $anyCase = $helper->checkAnyCase($magicArgs);
-            foreach ($values as $name) {
-                $varName = $frame->expand($name);
-                $varValue = self::getVar($frame, $varName, $anyCase, true);
+        if (empty($values) || !$helper->checkIfs($frame, $magicArgs)) {
+            return;
+        }
+
+        $anyCase = $helper->checkAnyCase($magicArgs);
+        foreach ($values as $nameNode) {
+            $varSplit = explode('=>', $frame->expand($nameNode), 2);
+            $varValue = self::getVar($frame, $varSplit[0], $anyCase, false);
+            if ($varValue === false) {
+                $varValue = self::getVar($frame->parent, $varSplit[0], $anyCase, true);
                 if ($varValue !== false) {
+                    $varName = trim(count($varSplit) == 2 ? $varSplit[1] : $varSplit[0]);
                     self::setVar($frame, $varName, $varValue);
                 }
             }
@@ -141,96 +170,131 @@ class MetaTemplate
     }
 
     /**
-     * doLocal
+     * Sets the value of a variable. This is most often used to create local variables or modify a template parameter's
+     * value. Any previous value will be overwritten.
      *
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array $args
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The template frame in use.
+     * @param array $args Function arguments:
+     *         1: The variable name.
+     *         2: The variable value.
+     *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+     *            'any', along with any translations or synonyms of it.
+     *        if: A condition that must be true in order for this function to run.
+     *     ifnot: A condition that must be false in order for this function to run.
      *
      * @return void
+     *
      */
-    public static function doLocal(Parser $parser, PPFrame $frame, array $args)
+    public static function doLocal(Parser $parser, PPFrame $frame, array $args): void
     {
         self::checkAndSetVar($frame, $args, true);
     }
 
     /**
-     * doNamespaceX
+     * Gets the namespace at a given point in the stack.
      *
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array|null $args
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *     depth: The stack depth to check.
      *
-     * @return string
+     * @return string The requested namespace.
+     *
      */
-    public static function doNamespaceX(Parser $parser, PPFrame $frame, array $args = null)
+    public static function doNamespaceX(Parser $parser, PPFrame $frame, ?array $args): string
     {
-        $title = self::getTitleFromArgs($parser, $frame, $args);
+        $title = self::getTitleAtDepth($parser, $frame, $args);
         $nsName = $parser->getFunctionLang()->getNsText($title->getNamespace());
         return is_null($title) ? '' : str_replace('_', ' ', $nsName);
     }
 
     /**
-     * doNestLevel
+     * Gets the template stack depth.
      *
-     * @param PPFrame $frame
+     * For example, if a page calls template {{A}} which in turn calls template {{B}}, then {{NESTLEVEL}} would report:
+     *     0 if used on the page itself,
+     *     1 if used in {{A}},
+     *     2 if used in {{B}}.
      *
-     * @return string
+     * @param PPFrame $frame The frame in use.
+     *
+     * @return int The frame depth.
+     *
      */
-    public static function doNestLevel(PPFrame $frame)
+    public static function doNestLevel(PPFrame $frame): string
     {
         $retval = $frame->depth;
         $args = $frame->getNamedArguments();
         if (!is_null($args)) {
             $magicArgs = ParserHelper::getInstance()->transformArgs($args);
-            $retval = $frame->expand(ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_NESTLEVEL));
+            if (isset($magicArgs[self::NA_NESTLEVEL])) {
+                $retval = $frame->expand($magicArgs[self::NA_NESTLEVEL]);
+            }
         }
 
         return $retval;
     }
 
     /**
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array|null $args
+     * Gets the page name at a given point in the stack.
      *
-     * @return string
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *     depth: The stack depth to check.
+     *
+     * @return string The requested page name.
+     *
      */
-    public static function doPageNameX(Parser $parser, PPFrame $frame, array $args = null)
+    public static function doPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
     {
-        $title = self::getTitleFromArgs($parser, $frame, $args);
+        $title = self::getTitleAtDepth($parser, $frame, $args);
         return is_null($title) ? '' : $title->getPrefixedText();
     }
 
     /**
-     * doPreview
+     * Sets the value of a variable but only in Show Preview mode. This allows values to be specified as though the
+     * template had been called with those arguments. Like #define, #preview will not override any values that are
+     * already set.
      *
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array $args
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The template frame in use.
+     * @param array $args Function arguments:
+     *     1: The variable name.
+     *     2: The variable value.
      *
      * @return void
+     *
      */
-    public static function doPreview(Parser $parser, PPFrame $frame, array $args)
+    public static function doPreview(Parser $parser, PPFrame $frame, array $args): void
     {
         if (
             $frame->depth == 0 &&
             $parser->getOptions()->getIsPreview()
         ) {
-            self::checkAndSetVar($frame, $args);
+            self::checkAndSetVar($frame, $args, false);
         }
     }
 
     /**
-     * doReturn
+     * Returns values from a child template to its immediate parent. Unlike a traditional programming language, this
+     * has no effect on program flow.
      *
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array $args
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *        1+: The variable(s) to return, optionally including an "into" specifier.
+     *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+     *            'any', along with any translations or synonyms of it. Case insensitivity only applies to the
+     *            receiving end. The variables listed in the #return statement must match exactly.
+     *        if: A condition that must be true in order for this function to run.
+     *     ifnot: A condition that must be false in order for this function to run.
      *
      * @return void
+     *
      */
-    public static function doReturn(Parser $parser, PPFrame $frame, array $args)
+    public static function doReturn(Parser $parser, PPFrame $frame, array $args): void
     {
         $parent = $frame->parent;
         if (!$parent) {
@@ -246,26 +310,38 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if ($values && $helper->checkIfs($frame, $magicArgs)) {
-            $anyCase = $helper->checkAnyCase($magicArgs);
-            foreach ($values as $value) {
-                $varName = $frame->expand($value);
-                $varValue = self::getVar($frame, $varName, $anyCase);
+        if (empty($values) || !$helper->checkIfs($frame, $magicArgs)) {
+            return;
+        }
+
+        $anyCase = $helper->checkAnyCase($magicArgs);
+        foreach ($values as $varNode) {
+            $varSplit = explode('=>', $frame->expand($varNode), 2);
+            $varValue = self::getVar($frame, $varSplit[0], false, false);
+            if ($varValue !== false) {
+                $varName = trim(count($varSplit) == 2 ? $varSplit[1] : $varSplit[0]);
+                self::unsetVar($parent, $varName, $anyCase, false);
                 self::setVar($parent, $varName, $varValue);
             }
         }
     }
 
     /**
-     * doUnset
+     * Unsets (removes) variables from the template.
      *
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array $args
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *        1+: The variable(s) to unset.
+     *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+     *            'any', along with any translations or synonyms of it.
+     *        if: A condition that must be true in order for this function to run.
+     *     ifnot: A condition that must be false in order for this function to run.
      *
      * @return void
+     *
      */
-    public static function doUnset(Parser $parser, PPFrame $frame, array $args)
+    public static function doUnset(Parser $parser, PPFrame $frame, array $args): void
     {
         list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
@@ -281,7 +357,7 @@ class MetaTemplate
         }
 
         $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
-        $shift = boolval(ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SHIFT, false));
+        $shift = boolval($magicArgs[self::NA_SHIFT] ?? false);
         foreach ($values as $value) {
             $varName = $frame->expand($value);
             self::unsetVar($frame, $varName, $anyCase, $shift);
@@ -289,11 +365,13 @@ class MetaTemplate
     }
 
     /**
-     * getConfig
+     * Gets a confiuration object, as required by modern versions of MediaWiki.
+     *
+     * @see https://www.mediawiki.org/wiki/Manual:Configuration_for_developers
      *
      * @return Config
      */
-    public static function getConfig()
+    public static function getConfig(): Config
     {
         if (is_null(self::$config)) {
             self::$config = MediaWikiServices::getInstance()->getConfigFactory()->makeConfig(strtolower(__CLASS__));
@@ -303,16 +381,16 @@ class MetaTemplate
     }
 
     /**
-     * getVar
+     * Gets a variable from the frame or, optionally, from the template stack.
      *
-     * @param PPTemplateFrame_Hash $frame
-     * @param mixed $varName
-     * @param bool $anyCase
-     * @param bool $checkAll
+     * @param PPTemplateFrame_Hash $frame The frame in use.
+     * @param string $varName The variable name.
+     * @param bool $anyCase Whether the variable's name is case-sensitive or not.
+     * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
      *
      * @return string|PPNode_Hash_Tree
      */
-    public static function getVar(PPTemplateFrame_Hash $frame, $varName, $anyCase = false, $checkAll = false)
+    public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll)
     {
         // If varName is entirely numeric, case doesn't matter, so skip case checking.
         $anyCase &= !ctype_digit($varName);
@@ -335,7 +413,7 @@ class MetaTemplate
     }
 
     /**
-     * [Description for init]
+     * Initializes magic words and bypass variables.
      *
      * @return void
      *
@@ -359,21 +437,25 @@ class MetaTemplate
     /**
      * Takes the provided variable and adds it to the template frame as though it had been passed in.
      *
-     * @param PPTemplateFrame_Hash $frame
-     * @param mixed $varName
-     * @param mixed $value
+     * @param PPTemplateFrame_Hash $frame The frame in use.
+     * @param string $varName The variable name. This should be pre-trimmed, if necessary.
+     * @param mixed $value The variable value.
      *
      * @return void
      *
      */
-    public static function setVar(PPTemplateFrame_Hash $frame, $varName, $value)
+    public static function setVar(PPTemplateFrame_Hash $frame, string $varName, $value): void
     {
         // RHshow($varName, '=>', $frame->expand($value));
+        if (!strlen($varName)) {
+            return;
+        }
+
         /*
             $args = Numbered/Named Args to add node value to.
             $cache = Numbered/Named Cache to add the fully expanded value to.
         */
-        if (is_int($varName) || (is_string($varName) && ctype_digit($varName))) {
+        if (ctype_digit($varName)) {
             $varName = intval($varName);
             $args = &$frame->numberedArgs;
             $cache = &$frame->numberedExpansionCache;
@@ -382,38 +464,35 @@ class MetaTemplate
             $cache = &$frame->namedExpansionCache;
         }
 
-        if ($frame->getArgument($varName) !== false) {
-            $child = $args[$varName]->getFirstChild();
-            $cache[$varName] = $value;
-            if ($child) {
-                $child->value = $value;
-            }
+        self::unsetVar($frame, $varName, false, false);
+        if (is_string($value)) {
+            // Value is a string, so create node and leave text as is.
+            $valueNode = new PPNode_Hash_Text([$value], 0);
+            $valueText = $value;
         } else {
-            if (is_string($value)) {
-                // Value is a string, so create node and leave text as is.
-                $valueNode = new PPNode_Hash_Text([$value], 0);
-                $valueText = $value;
-            } else {
-                // Value is a node, so leave node as it is and expand value for text.
-                $valueNode = $value;
-                $valueText = $frame->expand($value);
-            }
-
-            $args[$varName] = $valueNode;
-            $cache[$varName] = $valueText;
-            // RHshow("Args:\n", $args);
-            // RHshow("Cache:\n", $cache);
+            // Value is a node, so leave node as it is and expand value for text.
+            $valueNode = $value;
+            $valueText = $frame->expand($value);
         }
+
+        $args[$varName] = $valueNode;
+        $cache[$varName] = $valueText;
+        // RHshow("Args:\n", $args);
+        // RHshow("Cache:\n", $cache);
     }
 
     /**
-     * @param PPTemplateFrame_Hash $frame
-     * @param array $args
+     * @param PPTemplateFrame_Hash $frame The frame in use.
+     * @param array $args Function arguments:
+     *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+     *            'any', along with any translations or synonyms of it.
+     *        if: A condition that must be true in order for this function to run.
+     *     ifnot: A condition that must be false in order for this function to run.
      * @param bool $override
      *
      * @return void
      */
-    private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, $override = false): void
+    private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $override): void
     {
         list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
@@ -423,48 +502,46 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
-            $name = trim($values[0]);
-            $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
-            $existing = self::getVar($frame, $name, $anyCase);
-            if ($existing === false) {
-                if (count($values) > 1) {
-                    self::setVar($frame, $name, $values[1]);
-                }
+        if (count($values) < 2 || !ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+            return;
+        }
 
+        $name = trim($frame->expand($values[0]));
+        $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+        $existing = self::getVar($frame, $name, $anyCase, false);
+        if ($existing !== false) {
+            if (!$override) {
                 return;
             }
 
-            // Unset/reset to ensure correct case.
             self::unsetVar($frame, $name, $anyCase);
-            $value = ($override && count($values) > 1) ? $values[1] : $existing;
-            self::setVar($frame, $name, $value);
         }
+
+        self::setVar($frame, $name, $values[1]);
     }
 
     /**
-     * @param Parser $parser
-     * @param PPFrame $frame
-     * @param array|null $args
+     * Gets the title at a specific depth in the template stack.
      *
-     * @return Title|null
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $args Function arguments:
+     *     1: The depth of the title to get. Negative numbers start at the top of the template stack instead of the
+     *        current depth. Common values include:
+     *            0 = the current page
+     *            1 = the parent page
+     *           -1 = the first page
+     *
+     * @return ?Title
+     *
      */
-    private static function getTitleFromArgs(Parser $parser, PPFrame $frame, array $args = null)
+    private static function getTitleAtDepth(Parser $parser, PPFrame $frame, ?array $args): ?Title
     {
-        if (is_null($args)) {
+        if (empty($args)) {
             $level = 0;
         } else {
-            $values = ParserHelper::getInstance()->getMagicArgs($frame, $args)[1];
-            $level = intval(ParserHelper::getInstance()->arrayGet($values, 0, 0));
+            $level = intval($frame->expand($args[0]));
         }
-
-        // It should be impossible to alter the name of the current page without triggering a new parser expansion
-        // with new frames, so don't disable cache for that. Other than that, we have no easy way to know if parent
-        // pages may have affected this page, so make this volatile so we can be sure.
-        // NOTE: Disabled, as it seems unlikely that any parent page can change title during the request.
-        /* if ($level != 0) {
-            $frame->setVolatile();
-        } */
 
         $depth = $frame->depth;
         $level = ($level > 0) ? $depth - $level + 1 : -$level;
@@ -485,54 +562,66 @@ class MetaTemplate
     }
 
     /**
-     * unsetVar
+     * Unsets a numeric variable and shifts everything above it down by one.
      *
-     * @param PPTemplateFrame_Hash $frame
-     * @param mixed $varName
-     * @param mixed $anyCase
-     * @param bool $shift
+     * @param PPTemplateFrame_Hash $frame The frame in use.
+     * @param string $varName The numeric variable to unset.
+     *
+     * @return void
+     *
+     */
+    private static function unsetNumeric(PPTemplateFrame_Hash $frame, string $varName): void
+    {
+        $newArgs = [];
+        $newCache = [];
+        foreach ($frame->numberedArgs as $key => $value) {
+            if ($varName != $key) {
+                $newKey = $key > $varName ? $key - 1 : $key;
+                $newArgs[$newKey] = $value;
+                if (isset($frame->numberedCache[$key])) {
+                    $newCache[$newKey] = $frame->numberedExpansionCache[$key];
+                }
+            }
+        }
+
+        foreach ($frame->namedArgs as $key => $value) {
+            if ($varName != $key) {
+                $newKey = ctype_digit($key) && $key > $varName ? $key - 1 :  $key;
+                $newArgs[$newKey] = $value;
+                if (isset($frame->namedCache[$key])) {
+                    $newCache[$newKey] = $frame->namedExpansionCache[$key];
+                }
+            }
+        }
+
+        $frame->numberedArgs = $newArgs;
+        $frame->numberedExpansionCache = $newCache;
+    }
+
+    /**
+     * Unsets a template variable.
+     *
+     * @param PPTemplateFrame_Hash $frame The frame in use.
+     * @param string $varName The variable to unset.
+     * @param bool $anyCase Whether the variable match should be case insensitive.
+     * @param bool $shift For numeric unsets, whether to shift everything above it down by one.
      *
      * @return void
      */
-    private static function unsetVar(PPTemplateFrame_Hash $frame, $varName, $anyCase, $shift = false)
+    private static function unsetVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $shift = false): void
     {
-        $numeric = is_string($varName) && ctype_digit($varName);
-        if ($numeric) {
-            if (!$shift) {
+        if (is_string($varName) && ctype_digit($varName)) {
+            if ($shift) {
+                self::unsetNumeric($frame, $varName);
+            } else {
                 unset($frame->numberedArgs[$varName], $frame->numberedExpansionCache[$varName]);
-                return;
             }
-
-            $newArgs = [];
-            $newCache = [];
-            foreach ($frame->numberedArgs as $key => $value) {
-                if ($varName != $key) {
-                    $newKey = $key > $varName ? $key - 1 : $key;
-                    $newArgs[$newKey] = $value;
-                    if (isset($frame->numberedCache[$key])) {
-                        $newCache[$newKey] = $frame->numberedExpansionCache[$key];
-                    }
-                }
-            }
-
-            foreach ($frame->namedArgs as $key => $value) {
-                if ($varName != $key) {
-                    $newKey = ctype_digit($key) && $key > $varName ? $key - 1 :  $key;
-                    $newArgs[$newKey] = $value;
-                    if (isset($frame->namedCache[$key])) {
-                        $newCache[$newKey] = $frame->namedExpansionCache[$key];
-                    }
-                }
-            }
-
-            $frame->numberedArgs = $newArgs;
-            $frame->numberedExpansionCache = $newCache;
         } elseif ($anyCase) {
             $lcname = strtolower($varName);
             $namedArgs = &$frame->namedArgs;
-            foreach ($namedArgs as $key => $value) {
+            $keys = array_keys($namedArgs);
+            foreach ($keys as $key) {
                 if (strtolower($key) === $lcname) {
-                    // This is safe in PHP as the array is copied.
                     unset($namedArgs[$key]);
                 }
             }

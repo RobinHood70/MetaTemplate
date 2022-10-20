@@ -105,6 +105,7 @@ class MetaTemplateHooks
 	 * @param Parser $parser
 	 *
 	 * @return void
+	 *
 	 */
 	public static function onParserFirstCallInit(Parser $parser)
 	{
@@ -128,16 +129,16 @@ class MetaTemplateHooks
 	{
 		switch ($magicWordId) {
 			case MetaTemplate::VR_FULLPAGENAME0:
-				$ret = MetaTemplate::doFullPageNameX($parser, $frame);
+				$ret = MetaTemplate::doFullPageNameX($parser, $frame, null);
 				break;
 			case MetaTemplate::VR_NAMESPACE0:
-				$ret = MetaTemplate::doNamespaceX($parser, $frame);
+				$ret = MetaTemplate::doNamespaceX($parser, $frame, null);
 				break;
 			case MetaTemplate::VR_NESTLEVEL:
 				$ret = MetaTemplate::doNestLevel($frame);
 				break;
 			case MetaTemplate::VR_PAGENAME0:
-				$ret = MetaTemplate::doPageNameX($parser, $frame);
+				$ret = MetaTemplate::doPageNameX($parser, $frame, null);
 				break;
 		}
 	}

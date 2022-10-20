@@ -1,7 +1,7 @@
 <?php
 
 /**
- * [Description MetaTemplateData]
+ * Data functions of MetaTemplate (#listsaved, #load, #save).
  */
 class MetaTemplateData
 {
@@ -46,8 +46,11 @@ class MetaTemplateData
 	 */
 	public static function doLoad(Parser $parser, PPFrame $frame, array $args)
 	{
+		// TODO: Rewrite to be more modular. Incorporate '=>' code from doInherit.
+
 		// RHshow('#load:', $parser->getTitle()->getFullText());
-		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+		$helper = ParserHelper::getInstance();
+		list($magicArgs, $values) = $helper->getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -56,7 +59,7 @@ class MetaTemplateData
 			self::NA_SET
 		);
 
-		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+		if (!$helper->checkIfs($frame, $magicArgs)) {
 			return;
 		}
 
@@ -70,7 +73,7 @@ class MetaTemplateData
 		// case it's created in the future.
 		$page = WikiPage::factory($loadTitle);
 		self::trackPage($output, $page);
-		$anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+		$anyCase = $helper->checkAnyCase($magicArgs);
 		$varNames = [];
 		$varList = self::getVars($frame, $values, $anyCase);
 		if (count($varList)) {
@@ -81,32 +84,38 @@ class MetaTemplateData
 			}
 		}
 
-		$setName = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SET, '');
-		if (strlen($setName) > self::$setNameWidth) {
+		$set = $magicArgs[self::NA_SET] ?? '';
+		if (strlen($set) > self::$setNameWidth) {
 			// We check first because substr can return false with '', converting the string to a boolean unexpectedly.
-			$setName = substr($setName, 0, self::$setNameWidth);
+			$set = substr($set, 0, self::$setNameWidth);
 		}
 
-		$result = self::fetchVariables($page, $output, $setName, $varNames);
+		$result = self::fetchVariables($page, $output, $set, $varNames);
 		if (!$result && $loadTitle->isRedirect()) {
 			// If no results were returned and the page is a redirect, see if there's variables there.
 			$page = WikiPage::factory($page->getRedirectTarget());
 			self::trackPage($output, $page);
-			$result = self::fetchVariables($page, $output, $setName, $varNames);
+			$result = self::fetchVariables($page, $output, $set, $varNames);
 		}
 
 		if ($result) {
+			$anyCase = $helper->checkAnyCase($magicArgs);
 			foreach ($result as $varName => $var) {
-				if ($var->getParsed()) {
-					$value = $var->getValue();
-					// RHshow('Parsed: ', $value);
-				} else {
-					$prepro = $parser->preprocessToDom($var->getValue());
-					$value = $frame->expand($prepro);
-					// RHshow('Unparsed: ', $value);
-				}
+				$varValue = MetaTemplate::getVar($frame->parent, $varName, $anyCase, false);
+				if ($varValue === false) {
+					if ($var->getParsed()) {
+						$varValue = $var->getValue();
+						// RHshow('Parsed: ', $value);
+					} else {
+						$prepro = $parser->preprocessToDom($var->getValue());
+						$varValue = $frame->expand($prepro);
+						// RHshow('Unparsed: ', $value);
+					}
 
-				MetaTemplate::setVar($frame, $varName, $value);
+					if ($varValue !== false) {
+						MetaTemplate::setVar($frame, $varName, $varValue);
+					}
+				}
 			}
 		}
 	}
@@ -153,8 +162,8 @@ class MetaTemplateData
 		}
 
 		$anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
-		$saveMarkup = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SAVEMARKUP, false);
-		$set = ParserHelper::getInstance()->arrayGet($magicArgs, self::NA_SET, '');
+		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
+		$set = $magicArgs[self::NA_SET] ?? '';
 		$variables = [];
 		$getVars = self::getVars($frame, $values, $anyCase);
 		foreach ($getVars as $varName => $value) {
@@ -208,12 +217,12 @@ class MetaTemplateData
 	}
 
 	/**
-	 * [Description for init]
+	 * Initializes magic words.
 	 *
-	 * @return [type]
+	 * @return void
 	 *
 	 */
-	public static function init()
+	public static function init(): void
 	{
 		ParserHelper::getInstance()->cacheMagicWords([
 			self::NA_SAVEMARKUP,
@@ -221,7 +230,7 @@ class MetaTemplateData
 		]);
 	}
 
-	public static function setPageVariables(ParserOutput $output, MetaTemplateSetCollection $value = null)
+	public static function setPageVariables(ParserOutput $output, ?MetaTemplateSetCollection $value = null)
 	{
 		$output->setExtensionData(self::$saveKey, $value);
 	}
@@ -232,14 +241,14 @@ class MetaTemplateData
 	 * @param WikiPage $page
 	 * @param ParserOutput $output
 	 * @param array $variables
-	 * @param mixed $setName
+	 * @param mixed $set
 	 *
 	 * @return void
 	 */
-	private static function addVariables(WikiPage $page, ParserOutput $output, $setName, array $variables)
+	private static function addVariables(WikiPage $page, ParserOutput $output, $set, array $variables)
 	{
 		// $displayTitle = $page->getTitle()->getFullText();
-		// logFunctionText(" ($displayTitle, ParserOutput, $setName, Variables)");
+		// logFunctionText(" ($displayTitle, ParserOutput, $set, Variables)");
 		$pageId = $page->getId();
 		$revId = $page->getLatest();
 		$pageVars = self::getPageVariables($output);
@@ -248,16 +257,16 @@ class MetaTemplateData
 			self::setPageVariables($output, $pageVars);
 		}
 
-		$set = $pageVars->getOrCreateSet(0, $setName);
+		$set = $pageVars->getOrCreateSet(0, $set);
 		$set->addVariables($variables);
 	}
 
-	private static function	fetchVariables(WikiPage $page, ParserOutput $output, $setName, array $varNames)
+	private static function	fetchVariables(WikiPage $page, ParserOutput $output, $set, array $varNames)
 	{
 		$pageId = $page->getId();
-		$result = self::loadFromOutput($output, $pageId, $setName);
+		$result = self::loadFromOutput($output, $pageId, $set);
 		if (!$result) {
-			$result = MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
+			$result = MetaTemplateSql::getInstance()->loadTableVariables($pageId, $set, $varNames);
 		}
 
 		return $result;
@@ -277,9 +286,9 @@ class MetaTemplateData
 	{
 		$retval = [];
 		foreach ($values as $varNameNodes) {
-			$varName = $frame->expand($varNameNodes);
+			$varName = trim($frame->expand($varNameNodes));
 			$varName = substr($varName, 0, self::$saveArgNameWidth);
-			$value = MetaTemplate::getVar($frame, $varName, $anyCase);
+			$value = MetaTemplate::getVar($frame, $varName, $anyCase, false);
 			$retval[$varName] = $value;
 		}
 
@@ -290,22 +299,31 @@ class MetaTemplateData
 	 * loadFromOutput
 	 *
 	 * @param mixed $pageId
-	 * @param string $setName
+	 * @param string $set
 	 *
 	 * @return MetaTemplateVariable[]|false
 	 */
-	private static function loadFromOutput(ParserOutput $output, $pageId, $setName = '')
+	private static function loadFromOutput(ParserOutput $output, $pageId, $set = ''): ?array
 	{
 		$vars = self::getPageVariables($output);
 		if (!$vars) {
 			$vars = new MetaTemplateSetCollection($pageId, 0);
 		}
 
-		$set = $vars->getSet($setName);
-		return $set ? $set->getVariables() : false;
+		$set = $vars->getSet($set);
+		return $set ? $set->getVariables() : null;
 	}
 
-	private static function trackPage(ParserOutput $output, WikiPage $page)
+	/**
+	 * Adds the page to What Links Here as a transclusion.
+	 *
+	 * @param ParserOutput $output The current parer's output object.
+	 * @param WikiPage $page The page to track.
+	 *
+	 * @return void
+	 *
+	 */
+	private static function trackPage(ParserOutput $output, WikiPage $page): void
 	{
 		$output->addTemplate($page->getTitle(), $page->getId(), $page->getLatest());
 	}

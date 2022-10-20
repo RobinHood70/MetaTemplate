@@ -1,6 +1,7 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\IDatabase;
 
 /**
  * [Description MetaTemplateData]
@@ -126,7 +127,7 @@ class MetaTemplateSql
      *
      * @return MetaTemplateVariable[]|bool
      */
-    public function loadTableVariables($pageId, $setName = '', $varNames = [])
+    public function loadTableVariables($pageId, $setName = '', $varNames = []): array
     {
         $tables = [self::SET_TABLE, self::DATA_TABLE];
         $conds = [
@@ -144,11 +145,19 @@ class MetaTemplateSql
             'parsed'
         ];
 
+        $options = ['ORDER BY' => self::SET_TABLE . "revId ASC"];
+
         // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
         // ensure that we start with the lowest first, so data is overridden by the most recent values once we get
         // there, but lower values will exist if the write is incomplete.
-        $joinConds = [self::DATA_TABLE => ['LEFT JOIN', [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']]];
-        $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", [], $joinConds);
+        $joinConds = [
+            self::DATA_TABLE => [
+                'LEFT JOIN',
+                [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']
+            ]
+        ];
+
+        $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         if (!$result || !$result->numRows()) {
             return null;
         }
@@ -165,7 +174,7 @@ class MetaTemplateSql
         return $retval;
     }
 
-    public function saveVariables(Title $title, MetaTemplateSetCollection $vars = null)
+    public function saveVariables(Title $title, ?MetaTemplateSetCollection $vars = null)
     {
         // This algorithm is based on the assumption that data is rarely changed, therefore:
         // * It's best to read the existing DB data before making any DB updates/inserts.

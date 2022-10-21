@@ -153,6 +153,7 @@ class MetaVarsPager extends TablePager
                 'setName' => 'metatemplate-metavarsonpage-set',
                 'varName' => 'metatemplate-metavarsonpage-varname',
                 'varValue' => 'metatemplate-metavarsonpage-varvalue',
+                'parsed' => 'metatemplate-metavarsonpage-parsed',
             ];
 
             foreach ($headers as $key => $val) {
@@ -166,7 +167,7 @@ class MetaVarsPager extends TablePager
     function formatValue($name, $value)
     {
         switch ($name) {
-            case MetaTemplateSql::SET_TABLE . '.setName':
+            case 'setName':
                 $formatted = Html::rawElement(
                     'span',
                     [
@@ -175,6 +176,9 @@ class MetaVarsPager extends TablePager
                     ],
                     $value
                 );
+                break;
+            case 'parsed':
+                $formatted = $value ? 'Yes' : 'No';
                 break;
             default:
                 $formatted = htmlspecialchars($value);
@@ -193,6 +197,7 @@ class MetaVarsPager extends TablePager
                 MetaTemplateSql::SET_TABLE . '.setName',
                 MetaTemplateSql::DATA_TABLE . '.varName',
                 MetaTemplateSql::DATA_TABLE . '.varValue',
+                MetaTemplateSql::DATA_TABLE . '.parsed',
             ],
             'conds' => $this->conds,
             'options' => [],

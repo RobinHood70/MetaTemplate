@@ -82,6 +82,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
                 'default' => 50,
             ],
         ];
+
         $form = new HTMLForm($fields, $this->getContext());
         $form->setMethod('get');
         $form->setWrapperLegendMsg('metatemplate-metavarsonpage-legend');
@@ -119,112 +120,5 @@ class SpecialMetaVarsOnPage extends SpecialPage
     protected function getGroupName()
     {
         return 'wiki';
-    }
-}
-
-class MetaVarsPager extends TablePager
-{
-    private $conds;
-
-    /**
-     * @param $page SpecialPage
-     * @param $conds Array
-     */
-    function __construct($context, $conds, $limit)
-    {
-        $this->conds = $conds;
-        $this->mLimit = $limit;
-        $this->mDefaultDirection = false;
-
-        // TablePager doesn't handle two-key offsets and doesn't seem to support simple numerical offsets either.
-        // This seemed like an acceptable trade-off, since it offers the added benefit of always showing
-        // an entire set. The drawback is that if limit is set to less than the number of keys in the set,
-        // you'll never get anywhere.
-        $this->mIncludeOffset = true;
-        parent::__construct($context);
-    }
-
-    function getFieldNames()
-    {
-        static $headers = null;
-
-        if ($headers === null) {
-            $headers = [
-                'setName' => 'metatemplate-metavarsonpage-set',
-                'varName' => 'metatemplate-metavarsonpage-varname',
-                'varValue' => 'metatemplate-metavarsonpage-varvalue',
-                'parsed' => 'metatemplate-metavarsonpage-parsed',
-            ];
-
-            foreach ($headers as $key => $val) {
-                $headers[$key] = $this->msg($val)->text();
-            }
-        }
-
-        return $headers;
-    }
-
-    function formatValue($name, $value)
-    {
-        switch ($name) {
-            case 'setName':
-                $formatted = Html::rawElement(
-                    'span',
-                    [
-                        'class' => 'metatemplate-metavarsonpage-set',
-                        'style' => 'white-space:nowrap;'
-                    ],
-                    $value
-                );
-                break;
-            case 'parsed':
-                $formatted = $value ? 'Yes' : 'No';
-                break;
-            default:
-                $formatted = htmlspecialchars($value);
-                break;
-        }
-
-        return $formatted;
-    }
-
-    function getQueryInfo()
-    {
-        return [
-            'tables' => [MetaTemplateSql::SET_TABLE, MetaTemplateSql::DATA_TABLE],
-            'fields' => [
-                MetaTemplateSql::SET_TABLE . '.pageId',
-                MetaTemplateSql::SET_TABLE . '.setName',
-                MetaTemplateSql::DATA_TABLE . '.varName',
-                MetaTemplateSql::DATA_TABLE . '.varValue',
-                MetaTemplateSql::DATA_TABLE . '.parsed',
-            ],
-            'conds' => $this->conds,
-            'options' => [],
-            'join_conds' => [
-                // . MetaTemplateSql::DATA_TABLE . '.mt_save_id'),
-                MetaTemplateSql::DATA_TABLE => ['INNER JOIN', MetaTemplateSql::SET_TABLE . '.setId=' . MetaTemplateSql::DATA_TABLE . '.setId'],
-            ]
-        ];
-    }
-
-    public function getTableClass()
-    {
-        return 'TablePager metatemplate-metavarsonpage';
-    }
-
-    function getDefaultSort()
-    {
-        return MetaTemplateSql::SET_TABLE . '.setName';
-    }
-
-    function getExtraSortFields()
-    {
-        return [MetaTemplateSql::DATA_TABLE . '.varName'];
-    }
-
-    function isFieldSortable($name)
-    {
-        return $name !== MetaTemplateSql::DATA_TABLE . '.varValue';
     }
 }

@@ -125,9 +125,9 @@ class MetaTemplateSql
      * @param string $setName
      * @param array $varNames
      *
-     * @return MetaTemplateVariable[]|bool
+     * @return ?MetaTemplateVariable[]
      */
-    public function loadTableVariables($pageId, $setName = '', $varNames = []): array
+    public function loadTableVariables($pageId, string $setName = '', $varNames = []): array
     {
         $tables = [self::SET_TABLE, self::DATA_TABLE];
         $conds = [
@@ -240,6 +240,10 @@ class MetaTemplateSql
         // writeFile('  Updates: ', count($updates));
         if (count($updates)) {
             foreach ($updates as $setId => $setData) {
+                /**
+                 * @var MetaTemplateSet $oldSet
+                 * @var MetaTemplateSet $newSet
+                 */
                 list($oldSet, $newSet) = $setData;
                 $this->updateSetData($setId, $oldSet, $newSet);
             }

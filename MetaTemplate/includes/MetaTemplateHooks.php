@@ -98,9 +98,8 @@ class MetaTemplateHooks
 		}
 	}
 
-	// Register any render callbacks with the parser
 	/**
-	 * onParserFirstCallInit
+	 * Initialize parser and tag functions followed by MetaTemplate general initialization.
 	 *
 	 * @param Parser $parser
 	 *

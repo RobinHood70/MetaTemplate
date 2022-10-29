@@ -66,7 +66,7 @@ class MetaTemplate
     }
 
     /**
-     * @return GlovalVarConfig The global variable configuration for MetaTemplate.
+     * @return GlobalVarConfig The global variable configuration for MetaTemplate.
      */
     public static function configBuilder(): GlobalVarConfig
     {
@@ -112,7 +112,7 @@ class MetaTemplate
      * @param array $args Function arguments:
      *     depth: The stack depth to check.
      *
-     * @return string
+     * @return string The requested full page name.
      *
      */
     public static function doFullPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
@@ -413,7 +413,7 @@ class MetaTemplate
     }
 
     /**
-     * Initializes magic words and bypass variables.
+     * Initializes magic words.
      *
      * @return void
      *

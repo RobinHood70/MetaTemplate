@@ -36,15 +36,23 @@ class MetaTemplateData
 	}
 
 	/**
-	 * doLoad
+	 * Loads variable values from another page.
 	 *
-	 * @param Parser $parser
-	 * @param PPFrame $frame
-	 * @param array $args
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $args Function arguments:
+	 *         1: The page name to load from.
+	 *        2+: The variable names to load.
+	 *       set: The data set to load from.
+	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+	 *            'any', along with any translations or synonyms of it.
+	 *        if: A condition that must be true in order for this function to run.
+	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
+	 *
 	 */
-	public static function doLoad(Parser $parser, PPFrame $frame, array $args)
+	public static function doLoad(Parser $parser, PPFrame $frame, array $args): void
 	{
 		// TODO: Rewrite to be more modular. Incorporate '=>' code from doInherit.
 
@@ -137,7 +145,7 @@ class MetaTemplateData
 		}
 
 		if ($title->getNamespace() === NS_TEMPLATE) {
-			// Marker value that the template uses #save. This causes a data cleanup as part of the save.
+			// Marker value that the template uses for #save. This causes a data cleanup as part of the save.
 			$pageId = $title->getArticleID();
 			$sets = new MetaTemplateSetCollection($pageId, -1);
 			self::setPageVariables($parser->getOutput(), $sets);
@@ -145,7 +153,6 @@ class MetaTemplateData
 		}
 
 
-		// process before deciding whether to truly proceed, so that nowiki tags are previewed properly
 		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
 			$frame,
 			$args,
@@ -245,7 +252,7 @@ class MetaTemplateData
 	 *
 	 * @return void
 	 */
-	private static function addVariables(WikiPage $page, ParserOutput $output, $set, array $variables)
+	private static function addVariables(WikiPage $page, ParserOutput $output, string $setName, array $variables)
 	{
 		// $displayTitle = $page->getTitle()->getFullText();
 		// logFunctionText(" ($displayTitle, ParserOutput, $set, Variables)");
@@ -257,32 +264,28 @@ class MetaTemplateData
 			self::setPageVariables($output, $pageVars);
 		}
 
-		$set = $pageVars->getOrCreateSet(0, $set);
+		$set = $pageVars->getOrCreateSet(0, $setName);
 		$set->addVariables($variables);
 	}
 
-	private static function	fetchVariables(WikiPage $page, ParserOutput $output, $set, array $varNames)
+	private static function	fetchVariables(WikiPage $page, ParserOutput $output, string $setName, array $varNames)
 	{
 		$pageId = $page->getId();
-		$result = self::loadFromOutput($output, $pageId, $set);
-		if (!$result) {
-			$result = MetaTemplateSql::getInstance()->loadTableVariables($pageId, $set, $varNames);
-		}
-
-		return $result;
+		$result = self::loadFromOutput($output, $pageId, $setName);
+		return $result ? $result : MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
 	}
 
 	/**
-	 * [Description for getVars]
+	 * Gets variables from the datab
 	 *
 	 * @param PPFrame $frame
 	 * @param mixed $values
 	 * @param mixed $anyCase
 	 *
-	 * @return [type]
+	 * @return array The variable list.
 	 *
 	 */
-	private static function getVars(PPFrame $frame, $values, $anyCase)
+	private static function getVars(PPFrame $frame, array $values, bool $anyCase): array
 	{
 		$retval = [];
 		foreach ($values as $varNameNodes) {
@@ -296,12 +299,12 @@ class MetaTemplateData
 	}
 
 	/**
-	 * loadFromOutput
+	 * Retrieves the current set of variables already on the page as though they had been loaded from the database.
 	 *
-	 * @param mixed $pageId
-	 * @param string $set
+	 * @param mixed $pageId The current page ID. This should never be anything but.
+	 * @param string $set The set to load.
 	 *
-	 * @return MetaTemplateVariable[]|false
+	 * @return ?MetaTemplateVariable[]
 	 */
 	private static function loadFromOutput(ParserOutput $output, $pageId, $set = ''): ?array
 	{

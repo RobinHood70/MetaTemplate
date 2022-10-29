@@ -4,9 +4,9 @@
  * The inner joins enforce data consistency, as there are a number of invalid records floating around in the old tables.
  */
 
-INSERT INTO mtSaveData (setId, varName, varValue, parsed)
+INSERT INTO mtSaveData (setId, varName, varValue, parseOnLoad)
 SELECT
-    mt_save_id, mt_save_varname, mt_save_value, mt_save_parsed
+    mt_save_id, mt_save_varname, mt_save_value, !mt_save_parsed
 FROM
     mt_save_data
         INNER JOIN

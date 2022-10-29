@@ -1,8 +1,5 @@
 <?php
 
-//namespace MediaWiki\Extension\MetaTemplate;
-
-use MediaWiki\Extension;
 use MediaWiki\MediaWikiServices;
 
 /**
@@ -44,7 +41,7 @@ class MetaTemplate
      *
      * @var array $bypassVars // @ var MagicWordArray
      */
-    private static $bypassVars = [];
+    private static $bypassVars = null;
 
     /**
      * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
@@ -93,15 +90,24 @@ class MetaTemplate
     public static function doDefine(Parser $parser, PPFrame $frame, array $args): void
     {
         // Show {{{parameter names}}} if on the actual template page and not previewing, but allow bypass variables
-        // (e.g., ns_base and ns_id) through at all times.
-        if (
-            $frame->parent ||
-            $parser->getTitle()->getNamespace() !== NS_TEMPLATE ||
-            $parser->getOptions()->getIsPreview() ||
-            self::$bypassVars[trim($frame->expand($args[0]))]
-        ) {
-            self::checkAndSetVar($frame, $args, false);
+        // like ns_base/ns_id through at all times.
+        if (!$frame->parent && $parser->getTitle()->getNamespace() === NS_TEMPLATE && !$parser->getOptions()->getIsPreview()) {
+            if (is_null(self::$bypassVars)) {
+                $bypassList = [];
+                Hooks::run('MetaTemplateSetBypassVars', [&$bypassList]);
+                self::$bypassVars = [];
+                foreach ($bypassList as $bypass) {
+                    self::$bypassVars[$bypass] = true;
+                }
+            }
+
+            $varName = trim($frame->expand($args[0]));
+            if (!isset(self::$bypassVars[$varName])) {
+                return;
+            }
         }
+
+        self::checkAndSetVar($frame, $args, false);
     }
 
     /**
@@ -396,10 +402,10 @@ class MetaTemplate
         $anyCase &= !ctype_digit($varName);
         $lcname = strtolower($varName);
         do {
-            // Try exact name first.
-            $retval = $frame->getArgument($varName);
+            // Try exact name first. Direct access to avoid cache, which is expanded when we don't want it to be.
+            $retval = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? false;
             if ($retval === false && $anyCase) {
-                foreach ($frame->getNamedArguments() as $key => $value) {
+                foreach ($frame->namedArgs as $key => $value) {
                     if (strtolower($key) === $lcname) {
                         $retval = $value;
                     }
@@ -428,7 +434,6 @@ class MetaTemplate
             self::NA_SHIFT,
         ]);
 
-        Hooks::run('MetaTemplateSetBypassVars', [&self::$bypassVars]);
         if (self::can('EnableData')) {
             MetaTemplateData::init();
         }

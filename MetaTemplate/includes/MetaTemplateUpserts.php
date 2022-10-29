@@ -15,12 +15,10 @@ class MetaTemplateUpserts
 
     public function __construct(MetaTemplateSetCollection $oldData = null, MetaTemplateSetCollection $newData = null)
     {
-        /** @var MetaTemplateSet[] */
-        $oldSets = (bool)$oldData ? $oldData->getSets() : false; // new MetaTemplateSet('');
-        /** @var MetaTemplateSet[] */
-        $newSets = (bool)$newData ? $newData->getSets() : false; // new MetaTemplateSet('');
-        // RHshow("Old sets:\n", $oldSets);
-        // RHshow("New sets:\n", $newSets);
+        $oldSets = $oldData ? $oldData->getSets() : null; // new MetaTemplateSet('');
+        $newSets = $newData ? $newData->getSets() : null; // new MetaTemplateSet('');
+
+        // Do not change to identity operator - object identity is a reference compare, which will fail.
         if ($oldSets == $newSets) {
             return;
         }
@@ -37,7 +35,8 @@ class MetaTemplateUpserts
             /*
             if (count($this->deletes)) {
                 RHshow("Upsert Deletes\n", $this->deletes);
-            } */
+            }
+            */
         }
 
         if ($newData) {
@@ -45,7 +44,7 @@ class MetaTemplateUpserts
             $this->newRevId = $newData->getRevId();
             if ($newSets) {
                 foreach ($newSets as $setName => $newSet) {
-                    $oldSet = $oldSets ?  $oldSets[$setName] ?? null : null;
+                    $oldSet = $oldSets[$setName] ?? null;
                     if ($oldSet) {
                         // All sets are checked for updates as long as an old set existed, since transcluded info may have changed values.
                         $this->updates[$oldData->getSetId($setName)] = [$oldSet, $newSet];
@@ -54,6 +53,7 @@ class MetaTemplateUpserts
                     }
                 }
             }
+
             /*
             if (count($this->inserts)) {
                 RHshow("Upsert Inserts\n", $this->inserts);

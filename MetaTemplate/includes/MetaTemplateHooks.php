@@ -87,15 +87,8 @@ class MetaTemplateHooks
 
 	public static function onParserAfterTidy(Parser $parser, &$text)
 	{
-		$output = $parser->getOutput();
-		// getTimeSinceStart is a kludge to detect if this is the real page we're processing or some small part of it
-		// that we don't care about. Saving varibles here is also a kludge. While it could use some more checking,
-		// there didn't seem to be anywhere that only occurred on save that also occurred when doing a refreshLinks
-		// operation.
-		if (!$parser->getOptions()->getIsPreview() && !is_null($output->getTimeSinceStart('wall'))) {
-			$pageVars = MetaTemplateData::getPageVariables($output);
-			MetaTemplateSql::getInstance()->saveVariables($parser->getTitle(), $pageVars);
-		}
+		RHwriteFile('Saving: ', $parser->getTitle()->getFullText(), "\n", $text);
+		MetaTemplateSql::getInstance()->saveVariables($parser);
 	}
 
 	/**

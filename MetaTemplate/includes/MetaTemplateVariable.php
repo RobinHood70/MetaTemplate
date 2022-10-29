@@ -3,11 +3,11 @@
 class MetaTemplateVariable
 {
     /**
-     * $parsed
+     * Whether the value should be parsed (for templates and such) after loading.
      *
      * @var bool
      */
-    private $parsed;
+    private $parseOnLoad;
 
     /**
      * $value
@@ -16,15 +16,15 @@ class MetaTemplateVariable
      */
     private $value;
 
-    public function __construct($value, $parsed)
+    public function __construct($value, bool $parseOnLoad)
     {
-        $this->parsed = $parsed;
+        $this->parseOnLoad = $parseOnLoad;
         $this->value = $value;
     }
 
-    public function getParsed()
+    public function getParseOnLoad()
     {
-        return $this->parsed;
+        return $this->parseOnLoad;
     }
 
     public function getValue()

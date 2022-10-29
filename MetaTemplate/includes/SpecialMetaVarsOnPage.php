@@ -29,7 +29,6 @@
  */
 class SpecialMetaVarsOnPage extends SpecialPage
 {
-
     /**
      * The name of the page to look at.
      *

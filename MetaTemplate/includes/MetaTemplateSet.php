@@ -28,10 +28,10 @@ class MetaTemplateSet
         }
     }
 
-    public function addVariable($varName, $value, $parsed = true)
+    public function addVariable($varName, $value, $parseOnLoad = true)
     {
         if (!isset($this->variables[$varName])) {
-            $this->variables[$varName] = new MetaTemplateVariable($value, $parsed);
+            $this->variables[$varName] = new MetaTemplateVariable($value, $parseOnLoad);
         }
     }
 

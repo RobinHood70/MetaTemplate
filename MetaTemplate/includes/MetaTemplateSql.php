@@ -69,7 +69,7 @@ class MetaTemplateSql
                 'setId' => $setId,
                 'varName' => $key,
                 'varValue' => $var->getValue(),
-                'parsed' => $var->getParsed()
+                'parseOnLoad' => $var->getParseOnLoad()
             ];
         }
 
@@ -97,7 +97,7 @@ class MetaTemplateSql
             'setName',
             'varName',
             'varValue',
-            'parsed',
+            'parseOnLoad',
         ];
         $options = ['ORDER BY' => 'revId'];
         $joinConds = [self::DATA_TABLE => ['LEFT JOIN', [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']]];
@@ -110,7 +110,7 @@ class MetaTemplateSql
         $retval = new MetaTemplateSetCollection($pageId, $row['revId']);
         while ($row) {
             $set =  $retval->getOrCreateSet($row['setId'], $row['setName']);
-            $set->addVariable($row['varName'], $row['varValue'], $row['parsed']);
+            $set->addVariable($row['varName'], $row['varValue'], $row['parseOnLoad']);
             $row = $this->dbRead->fetchRow($result);
         }
 
@@ -142,7 +142,7 @@ class MetaTemplateSql
         $fields = [
             'varName',
             'varValue',
-            'parsed'
+            'parseOnLoad'
         ];
 
         $options = ['ORDER BY' => self::SET_TABLE . "revId ASC"];
@@ -167,14 +167,14 @@ class MetaTemplateSql
         while ($row) {
             // Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
             // will overwrite the older values.
-            $retval[$row['varName']] = new MetaTemplateVariable($row['varValue'], $row['parsed']);
+            $retval[$row['varName']] = new MetaTemplateVariable($row['varValue'], $row['parseOnLoad']);
             $row = $result->fetchRow();
         }
 
         return $retval;
     }
 
-    public function saveVariables(Title $title, ?MetaTemplateSetCollection $vars = null)
+    public function saveVariables(Parser $parser): void
     {
         // This algorithm is based on the assumption that data is rarely changed, therefore:
         // * It's best to read the existing DB data before making any DB updates/inserts.
@@ -182,24 +182,42 @@ class MetaTemplateSql
         //   once instead of individually or by set.
         // * It's best to use the read-only DB until we know we need to write.
 
+        $title = $parser->getTitle();
+        $output = $parser->getOutput();
+        $vars = MetaTemplateData::getPageVariables($output);
+        $revId = $vars ? $vars->getRevId() : 0;
+        RHwriteFile($revId, ' / ', $title->getLatestRevID());
+        if (!$revId || $revId !== $title->getLatestRevID()) {
+            return;
+        }
+
+        // MetaTemplateData::setPageVariables($output, null);
+        RHwriteFile($vars);
         if (is_null($vars) || $vars->isEmpty()) {
-            $this->deleteVariables($title);
+            RHwriteFile('Empty Vars: ', $title->getFullText());
+            // If there are no variables on the page at all, check if there were to begin with. If so, delete them.
+            if ($this->loadPageVariables($title->getArticleID())) {
+                RHwriteFile('Delete Vars: ', $title->getFullText());
+                $this->deleteVariables($title);
+            }
         } else if ($vars->getRevId() === -1) {
             // The above check will only be satisfied on Template-space pages that use #save.
+            RHwriteFile('Save Template: ', $title->getFullText());
             $this->recursiveInvalidateCache($title);
         } else {
-            // We run saveVariable even if $vars is empty, since that could mean that all #saves have been removed from the page.
             $pageId = $title->getArticleID();
 
             // Whether or not the data changed, the page has been evaluated, so add it to the list.
             self::$pagesPurged[$pageId] = true;
-            $oldData = $this->loadPageVariables($pageId);
+            $oldData = $this->loadPageVariables($title->getArticleID());
             $upserts = new MetaTemplateUpserts($oldData, $vars);
             if ($upserts->getTotal() > 0) {
                 $this->saveUpserts($upserts);
                 $this->recursiveInvalidateCache($title);
             }
         }
+
+        MetaTemplateData::setPageVariables($output, null);
     }
 
     /**
@@ -253,8 +271,14 @@ class MetaTemplateSql
             ) {
                 $this->dbWrite->update(
                     self::SET_TABLE,
-                    ['setId' => $setId],
-                    ['revId' => $newRevId]
+                    ['revId' => $newRevId],
+                    [
+                        // setId uniquely identifies the set, but setName and pageId are part of the primary key, so we
+                        // add them here for better indexing.
+                        'setName' => $oldSet->getSetName(),
+                        'pageId' => $upserts->getPageId(),
+                        'setId' => $setId
+                    ]
                 );
             }
         }
@@ -313,32 +337,34 @@ class MetaTemplateSql
 
     private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet)
     {
+        // RHshow('Update Set Data');
         $oldVars = &$oldSet->getVariables();
         $newVars = $newSet->getVariables();
         $deletes = [];
-        foreach ($oldVars as $oldName => $oldValue) {
-            if (isset($newVars[$oldName])) {
-                $newValue = $newVars[$oldName];
-                // RHwriteFile('upserts.txt',  $oldVars[$varName]);
+        foreach ($oldVars as $varName => $oldValue) {
+            if (isset($newVars[$varName])) {
+                $newValue = $newVars[$varName];
+                // RHwriteFile($oldVars[$varName]);
                 if ($oldValue != $newValue) {
+                    // RHwriteFile("Updating $varName from {$oldValue->getValue()} to {$newValue->getValue()}");
                     // Makes the assumption that most of the time, only a few columns are being updated, so does not
                     // attempt to batch the operation in any way.
                     $this->dbWrite->update(
                         self::DATA_TABLE,
                         [
                             'varValue' => $newValue->getValue(),
-                            'parsed' => $newValue->getParsed()
+                            'parseOnLoad' => $newValue->getParseOnLoad()
                         ],
                         [
                             'setId' => $setId,
-                            'varName' => $oldName
+                            'varName' => $varName
                         ]
                     );
                 }
 
-                unset($newVars[$oldName]);
+                unset($newVars[$varName]);
             } else {
-                $deletes[] = $oldName;
+                $deletes[] = $varName;
             }
         }
 

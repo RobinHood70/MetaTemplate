@@ -14,12 +14,26 @@ class MetaTemplateData
 	const PF_SAVE = 'metatemplate-save';
 
 	private static $saveArgNameWidth = 50;
-	private static $saveKey = '|#save';
+	private static $saveKey = 'mt#Save';
+	private static $saveParseOnLoad = 'mt#ParseOnLoad';
+	private static $saveMarkupFlags = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE | PPFrame::NO_TAGS;
 	private static $setNameWidth = 50;
 
+	/**
+	 * Queries the database based on the conditions provided and creates a list of templates, one for each row in the
+	 * results.
+	 *
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $args Function arguments:
+	 *
+	 * @return [type]
+	 *
+	 */
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args)
 	{
-		list($magicArgs, $values) = ParserHelper::getInstance()->getInstance()->getMagicArgs(
+		$helper = ParserHelper::getInstance();
+		list($magicArgs, $values) = $helper->getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -28,7 +42,7 @@ class MetaTemplateData
 			self::NA_ORDER
 		);
 
-		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs) || count($values) < 2) {
+		if (!$helper->checkIfs($frame, $magicArgs) || count($values) < 2) {
 			return;
 		}
 
@@ -73,7 +87,7 @@ class MetaTemplateData
 
 		$output = $parser->getOutput();
 		$loadTitle = Title::newFromText($frame->expand(array_shift($values)));
-		if (!($loadTitle && $loadTitle->canExist())) {
+		if (!$loadTitle || !$loadTitle->canExist()) {
 			return;
 		}
 
@@ -82,14 +96,11 @@ class MetaTemplateData
 		$page = WikiPage::factory($loadTitle);
 		self::trackPage($output, $page);
 		$anyCase = $helper->checkAnyCase($magicArgs);
-		$varNames = [];
-		$varList = self::getVars($frame, $values, $anyCase);
-		if (count($varList)) {
-			foreach ($varList as $varName => $value) {
-				if (is_null($value)) {
-					$varNames[] = $varName;
-				}
-			}
+		$varNames = self::getVars($frame, $values, $anyCase, false);
+
+		// If all variables to load are already defined, skip loading altogether.
+		if (!count($varNames)) {
+			return;
 		}
 
 		$set = $magicArgs[self::NA_SET] ?? '';
@@ -98,26 +109,35 @@ class MetaTemplateData
 			$set = substr($set, 0, self::$setNameWidth);
 		}
 
-		$result = self::fetchVariables($page, $output, $set, $varNames);
+		$articleId = $loadTitle->getArticleID();
+		if ($parser->getTitle()->getFullText() == $loadTitle->getFullText()) {
+			$result = self::loadFromOutput($output, $articleId, $set);
+		} else {
+			$result = self::fetchVariables($articleId, $set, $varNames);
+		}
+
 		if (!$result && $loadTitle->isRedirect()) {
 			// If no results were returned and the page is a redirect, see if there's variables there.
 			$page = WikiPage::factory($page->getRedirectTarget());
 			self::trackPage($output, $page);
-			$result = self::fetchVariables($page, $output, $set, $varNames);
+			if ($parser->getTitle()->getFullText() == $page->getTitle()->getFullText()) {
+				$result = self::loadFromOutput($output, $articleId, $set);
+			} else {
+				$result = self::fetchVariables($page->getId(), $set, $varNames);
+			}
 		}
 
 		if ($result) {
 			$anyCase = $helper->checkAnyCase($magicArgs);
 			foreach ($result as $varName => $var) {
-				$varValue = MetaTemplate::getVar($frame->parent, $varName, $anyCase, false);
+				$varValue = MetaTemplate::getVar($frame, $varName, $anyCase, false);
 				if ($varValue === false) {
-					if ($var->getParsed()) {
-						$varValue = $var->getValue();
-						// RHshow('Parsed: ', $value);
-					} else {
-						$prepro = $parser->preprocessToDom($var->getValue());
+					$varValue = $var->getValue();
+					// RHshow('Parse on load: ', $value);
+					if (!$var->getParseOnLoad()) {
+						$prepro = $parser->preprocessToDom($varValue);
 						$varValue = $frame->expand($prepro);
-						// RHshow('Unparsed: ', $value);
+						// RHshow('Parse on load: ', $value);
 					}
 
 					if ($varValue !== false) {
@@ -129,31 +149,45 @@ class MetaTemplateData
 	}
 
 	/**
-	 * doSave
+	 * Saves the specified values to the database.
 	 *
-	 * @param Parser $parser
-	 * @param PPFrame $frame
-	 * @param array $args
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $args Function arguments:
+	 *         1+: The variable names to save.
+	 *        set: The data set to save to.
+	 * savemarkup: Whether markup should be saved as is or fully expanded to text before saving. This applies to all
+	 *             variables specified in the #save command; use a separate command if you need some variables saved
+	 *             with markup and others not.
+	 *       case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+	 *             'any', along with any translations or synonyms of it.
+	 *         if: A condition that must be true in order for this function to run.
+	 *      ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
 	 */
-	public static function doSave(Parser $parser, PPFrame $frame, array $args)
+	public static function doSave(Parser $parser, PPFrame $frame, array $args): void
 	{
 		$title = $parser->getTitle();
-		if (!$title->canExist()) {
+		if (
+			!$title->canExist() ||
+			$parser->getOptions()->getIsPreview() ||
+			$title->getContentModel() !== CONTENT_MODEL_WIKITEXT
+		) {
 			return;
 		}
 
+		$output = $parser->getOutput();
 		if ($title->getNamespace() === NS_TEMPLATE) {
-			// Marker value that the template uses for #save. This causes a data cleanup as part of the save.
+			// Marker value that the template uses #save.
 			$pageId = $title->getArticleID();
 			$sets = new MetaTemplateSetCollection($pageId, -1);
-			self::setPageVariables($parser->getOutput(), $sets);
+			self::setPageVariables($output, $sets);
 			return;
 		}
 
-
-		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+		$helper = ParserHelper::getInstance();
+		list($magicArgs, $values) = $helper->getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -164,51 +198,56 @@ class MetaTemplateData
 		);
 
 		$page = WikiPage::factory($title);
-		if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs) || count($values) == 0 || $page->getContentModel() !== CONTENT_MODEL_WIKITEXT) {
+		if (!$helper->checkIfs($frame, $magicArgs) || count($values) == 0) {
 			return;
 		}
 
-		$anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+		$anyCase = $helper->checkAnyCase($magicArgs);
 		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
-		$set = $magicArgs[self::NA_SET] ?? '';
 		$variables = [];
-		$getVars = self::getVars($frame, $values, $anyCase);
-		foreach ($getVars as $varName => $value) {
-			if (!is_null($value) && $value !== false) {
-				$frame->namedArgs[self::$saveKey] = 'saving'; // This is a total hack to let the tag hook know that we're saving now.
-				$value = $frame->expand($value, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
-				// show(htmlspecialchars($value));
-				if ($frame->namedArgs[self::$saveKey] != 'saving') {
-					$value = $parser->mStripState->unstripGeneral($value);
-				}
+		$vars = self::getVars($frame, $values, $anyCase, true);
+		// RHshow('Vars to Save: ', array_keys($vars), "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
 
-				$value = $parser->preprocessToDom($value, Parser::PTD_FOR_INCLUSION);
-				$value = $frame->expand($value, PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS);
-				// show(htmlspecialchars($value));
-				$parsed = $saveMarkup ? false : $frame->namedArgs[self::$saveKey] === 'saving';
-
-				// show('Final Output (', $parsed ? 'parsed ' : 'unparsed ', '): ', $set, '->', $varName, '=', htmlspecialchars($value));
-				$variables[$varName] = new MetaTemplateVariable($value, $parsed);
-				unset($frame->namedArgs[self::$saveKey]);
+		/** @var PP_Node $value */
+		foreach ($vars as $varName => $value) {
+			$output->setExtensionData(self::$saveParseOnLoad, null);
+			$value = $frame->expand($value, $saveMarkup ? self::$saveMarkupFlags : 0); // Was templates only; changed to standard flags
+			if ($output->getExtensionData(self::$saveParseOnLoad)) {
+				// The value of saveParseOnLoad changed, meaning that there are <savemarkup> tags present.
+				$parseOnLoad = true;
+				$value = $helper->getStripState($parser)->unstripGeneral($value);
+			} else {
+				$parseOnLoad = $saveMarkup;
 			}
+
+			// Double-check whether the value actually needs to be parsed. If the value is a single text node with no
+			// siblings (i.e., plain text), it needs no further parsing. For anything else, parse it at the #load end.
+			if ($parseOnLoad) {
+				$parseCheck = $parser->preprocessToDom($value);
+				$first = $parseCheck->getFirstChild();
+				$parseOnLoad = $first instanceof PPNode_Hash_Text
+					? $first->getNextSibling() !== false
+					: false;
+			}
+
+			// RHshow('Final Output (', $parseOnLoad ? 'parse on load' : 'don't parse', '): ', $set, '->', $varName, '=', $value);
+			$variables[$varName] = new MetaTemplateVariable($value, $parseOnLoad);
+			$output->setExtensionData(self::$saveParseOnLoad, null);
 		}
 
-		self::addVariables($page, $parser->getOutput(), $set, $variables);
+		self::addVariables($page, $output, $magicArgs[self::NA_SET] ?? '', $variables);
 	}
 
 	public static function doSaveMarkupTag($value, array $attributes, Parser $parser, PPFrame $frame)
 	{
-		// We don't care what the value of the argument is here, only that it exists. It could be 'saving', or it oculd be 'unparsed' if multiple tags are used.
-		if ($frame->getArgument(self::$saveKey)) {
-			$frame->namedArgs[self::$saveKey] = 'unparsed';
+		if (!$parser->getOutput()->getExtensionData(self::$saveParseOnLoad)) {
+			$parser->getOutput()->setExtensionData(self::$saveParseOnLoad, true);
 			$value = $parser->preprocessToDom($value, Parser::PTD_FOR_INCLUSION);
-			$value = $frame->expand($value, PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE | PPFrame::NO_TAGS);
+			$value = $frame->expand($value, self::$saveMarkupFlags);
 			return $value;
 		}
 
-		// This tag is a marker for the doSave function, so we don't need to do anything beyond normal frame expansion.
-		$value = $parser->recursiveTagParse($value, $frame);
-		return $value;
+		return $parser->recursiveTagParse($value, $frame);
 	}
 
 	/**
@@ -248,14 +287,16 @@ class MetaTemplateData
 	 * @param WikiPage $page
 	 * @param ParserOutput $output
 	 * @param array $variables
-	 * @param mixed $set
+	 * @param string $set
 	 *
 	 * @return void
 	 */
-	private static function addVariables(WikiPage $page, ParserOutput $output, string $setName, array $variables)
+	private static function addVariables(WikiPage $page, ParserOutput $output, string $setName, array $variables): void
 	{
-		// $displayTitle = $page->getTitle()->getFullText();
-		// logFunctionText(" ($displayTitle, ParserOutput, $set, Variables)");
+		if (!count($variables)) {
+			return;
+		}
+
 		$pageId = $page->getId();
 		$revId = $page->getLatest();
 		$pageVars = self::getPageVariables($output);
@@ -268,31 +309,37 @@ class MetaTemplateData
 		$set->addVariables($variables);
 	}
 
-	private static function	fetchVariables(WikiPage $page, ParserOutput $output, string $setName, array $varNames)
+	private static function	fetchVariables(int $pageId, string $setName, array $varNames): ?array
 	{
-		$pageId = $page->getId();
-		$result = self::loadFromOutput($output, $pageId, $setName);
-		return $result ? $result : MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
+		if ($pageId > 0) {
+			return MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
+		}
 	}
 
 	/**
-	 * Gets variables from the datab
+	 * Gets the variables
 	 *
-	 * @param PPFrame $frame
-	 * @param mixed $values
-	 * @param mixed $anyCase
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $values The list of variables to retrieve.
+	 * @param bool $anyCase Whether the key match should be case insensitive.
+	 * @param bool $exists Whether to extract only variables that do exit (#save) or only those that don't (#load).
 	 *
 	 * @return array The variable list.
 	 *
 	 */
-	private static function getVars(PPFrame $frame, array $values, bool $anyCase): array
+	private static function getVars(PPFrame $frame, array $values, bool $anyCase, bool $exists): array
 	{
 		$retval = [];
 		foreach ($values as $varNameNodes) {
 			$varName = trim($frame->expand($varNameNodes));
 			$varName = substr($varName, 0, self::$saveArgNameWidth);
 			$value = MetaTemplate::getVar($frame, $varName, $anyCase, false);
-			$retval[$varName] = $value;
+			if (!$exists && $value === false) {
+				// ), since $value can never be true.
+				$retval[] = $varName;
+			} elseif ($exists && $value !== false) {
+				$retval[$varName] = $value;
+			}
 		}
 
 		return $retval;

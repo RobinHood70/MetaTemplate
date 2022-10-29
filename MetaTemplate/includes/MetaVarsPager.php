@@ -31,7 +31,7 @@ class MetaVarsPager extends TablePager
                 'setName' => 'metatemplate-metavarsonpage-set',
                 'varName' => 'metatemplate-metavarsonpage-varname',
                 'varValue' => 'metatemplate-metavarsonpage-varvalue',
-                'parsed' => 'metatemplate-metavarsonpage-parsed',
+                'parseOnLoad' => 'metatemplate-metavarsonpage-parseonload',
             ];
 
             foreach ($this->headers as $key => $val) {
@@ -54,8 +54,8 @@ class MetaVarsPager extends TablePager
                     ],
                     $value
                 );
-            case 'parsed':
-                return $value ? '' : 'No';
+            case 'parseOnLoad':
+                return $value ? 'Yes' : '';
             default:
                 return htmlspecialchars($value);
         }
@@ -69,7 +69,7 @@ class MetaVarsPager extends TablePager
                 'setName',
                 'varName',
                 'varValue',
-                'parsed',
+                'parseOnLoad',
             ],
             'conds' => $this->conds,
             'join_conds' => [

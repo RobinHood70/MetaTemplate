@@ -87,7 +87,8 @@ class MetaTemplateHooks
 
 	public static function onParserAfterTidy(Parser $parser, &$text)
 	{
-		RHwriteFile('Saving: ', $parser->getTitle()->getFullText(), "\n", $text);
+		// RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
+		// RHwriteFile(substr($text, 0, 30) . "\n");
 		MetaTemplateSql::getInstance()->saveVariables($parser);
 	}
 

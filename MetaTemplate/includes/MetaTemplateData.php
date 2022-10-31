@@ -13,10 +13,11 @@ class MetaTemplateData
 	const PF_LOAD = 'metatemplate-load';
 	const PF_SAVE = 'metatemplate-save';
 
+	private const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
+
 	private static $saveArgNameWidth = 50;
 	private static $saveKey = 'mt#Save';
 	private static $saveParseOnLoad = 'mt#ParseOnLoad';
-	private static $saveMarkupFlags = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE | PPFrame::NO_TAGS;
 	private static $setNameWidth = 50;
 
 	/**
@@ -113,7 +114,7 @@ class MetaTemplateData
 		if ($parser->getTitle()->getFullText() == $loadTitle->getFullText()) {
 			$result = self::loadFromOutput($output, $articleId, $set);
 		} else {
-			$result = self::fetchVariables($articleId, $set, $varNames);
+			$result = self::loadFromDatabase($articleId, $set, $varNames);
 		}
 
 		if (!$result && $loadTitle->isRedirect()) {
@@ -123,7 +124,7 @@ class MetaTemplateData
 			if ($parser->getTitle()->getFullText() == $page->getTitle()->getFullText()) {
 				$result = self::loadFromOutput($output, $articleId, $set);
 			} else {
-				$result = self::fetchVariables($page->getId(), $set, $varNames);
+				$result = self::loadFromDatabase($page->getId(), $set, $varNames);
 			}
 		}
 
@@ -165,24 +166,17 @@ class MetaTemplateData
 	 *      ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
+	 *
 	 */
 	public static function doSave(Parser $parser, PPFrame $frame, array $args): void
 	{
 		$title = $parser->getTitle();
 		if (
-			!$title->canExist() ||
 			$parser->getOptions()->getIsPreview() ||
+			$title->getNamespace() === NS_TEMPLATE ||
+			!$title->canExist() ||
 			$title->getContentModel() !== CONTENT_MODEL_WIKITEXT
 		) {
-			return;
-		}
-
-		$output = $parser->getOutput();
-		if ($title->getNamespace() === NS_TEMPLATE) {
-			// Marker value that the template uses #save.
-			$pageId = $title->getArticleID();
-			$sets = new MetaTemplateSetCollection($pageId, -1);
-			self::setPageVariables($output, $sets);
 			return;
 		}
 
@@ -197,7 +191,6 @@ class MetaTemplateData
 			self::NA_SAVEMARKUP
 		);
 
-		$page = WikiPage::factory($title);
 		if (!$helper->checkIfs($frame, $magicArgs) || count($values) == 0) {
 			return;
 		}
@@ -208,12 +201,14 @@ class MetaTemplateData
 		$vars = self::getVars($frame, $values, $anyCase, true);
 		// RHshow('Vars to Save: ', array_keys($vars), "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
 
+		$output = $parser->getOutput();
 		/** @var PP_Node $value */
 		foreach ($vars as $varName => $value) {
 			$output->setExtensionData(self::$saveParseOnLoad, null);
-			$value = $frame->expand($value, $saveMarkup ? self::$saveMarkupFlags : 0); // Was templates only; changed to standard flags
+			$value = $frame->expand($value, $saveMarkup ? self::SAVE_MARKUP_FLAGS : 0);
 			if ($output->getExtensionData(self::$saveParseOnLoad)) {
-				// The value of saveParseOnLoad changed, meaning that there are <savemarkup> tags present.
+				// The value of saveParseOnLoad changed during expansion, meaning that there are <savemarkup> tags
+				// present.
 				$parseOnLoad = true;
 				$value = $helper->getStripState($parser)->unstripGeneral($value);
 			} else {
@@ -222,6 +217,8 @@ class MetaTemplateData
 
 			// Double-check whether the value actually needs to be parsed. If the value is a single text node with no
 			// siblings (i.e., plain text), it needs no further parsing. For anything else, parse it at the #load end.
+			// We dont use self::$SAVE_MARKUP_FLAGS because at this point, anything that's left other than text should
+			// be parsed.
 			if ($parseOnLoad) {
 				$parseCheck = $parser->preprocessToDom($value);
 				$first = $parseCheck->getFirstChild();
@@ -232,18 +229,29 @@ class MetaTemplateData
 
 			// RHshow('Final Output (', $parseOnLoad ? 'parse on load' : 'don't parse', '): ', $set, '->', $varName, '=', $value);
 			$variables[$varName] = new MetaTemplateVariable($value, $parseOnLoad);
-			$output->setExtensionData(self::$saveParseOnLoad, null);
 		}
 
-		self::addVariables($page, $output, $magicArgs[self::NA_SET] ?? '', $variables);
+		$output->setExtensionData(self::$saveParseOnLoad, null);
+		self::addVariables(WikiPage::factory($title), $output, $magicArgs[self::NA_SET] ?? '', $variables);
 	}
 
-	public static function doSaveMarkupTag($value, array $attributes, Parser $parser, PPFrame $frame)
+	/**
+	 * Handles the <savemarkup> tag.
+	 *
+	 * @param mixed $value The value inside the tags (the markup text).
+	 * @param array $attributes Ignored - there are no attributes for this tag.
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The template frame in use.
+	 *
+	 * @return string The value text with templates and tags left unparsed.
+	 *
+	 */
+	public static function doSaveMarkupTag($value, array $attributes, Parser $parser, PPFrame $frame): string
 	{
 		if (!$parser->getOutput()->getExtensionData(self::$saveParseOnLoad)) {
 			$parser->getOutput()->setExtensionData(self::$saveParseOnLoad, true);
 			$value = $parser->preprocessToDom($value, Parser::PTD_FOR_INCLUSION);
-			$value = $frame->expand($value, self::$saveMarkupFlags);
+			$value = $frame->expand($value, self::SAVE_MARKUP_FLAGS);
 			return $value;
 		}
 
@@ -251,13 +259,14 @@ class MetaTemplateData
 	}
 
 	/**
-	 * getPageVariables
+	 * Gets the accumulated variables that have been #saved throughout the entire page.
 	 *
-	 * @param ParserOutput $output
+	 * @param ParserOutput $output The current parser's output object.
 	 *
-	 * @return MetaTemplateSetCollection|null
+	 * @return ?MetaTemplateSetCollection
+	 *
 	 */
-	public static function getPageVariables(ParserOutput $output)
+	public static function getPageVariables(ParserOutput $output): ?MetaTemplateSetCollection
 	{
 		return $output->getExtensionData(self::$saveKey);
 	}
@@ -276,16 +285,25 @@ class MetaTemplateData
 		]);
 	}
 
-	public static function setPageVariables(ParserOutput $output, ?MetaTemplateSetCollection $value = null)
+	/**
+	 * Sets the variables in the collection for the current page.
+	 *
+	 * @param ParserOutput $output The current parser's output object.
+	 * @param ?MetaTemplateSetCollection $value
+	 *
+	 * @return void
+	 *
+	 */
+	public static function setPageVariables(ParserOutput $output, ?MetaTemplateSetCollection $value = null): void
 	{
 		$output->setExtensionData(self::$saveKey, $value);
 	}
 
 	/**
-	 * add
+	 * Adds the provided list of variables to the set provided and to the parser output.
 	 *
-	 * @param WikiPage $page
-	 * @param ParserOutput $output
+	 * @param WikiPage $page The page the variables should be added to.
+	 * @param ParserOutput $output The current parser's output.
 	 * @param array $variables
 	 * @param string $set
 	 *
@@ -309,22 +327,15 @@ class MetaTemplateData
 		$set->addVariables($variables);
 	}
 
-	private static function	fetchVariables(int $pageId, string $setName, array $varNames): ?array
-	{
-		if ($pageId > 0) {
-			return MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
-		}
-	}
-
 	/**
-	 * Gets the variables
+	 * Gets a list of variables from the frame.
 	 *
 	 * @param PPFrame $frame The frame in use.
 	 * @param array $values The list of variables to retrieve.
 	 * @param bool $anyCase Whether the key match should be case insensitive.
 	 * @param bool $exists Whether to extract only variables that do exit (#save) or only those that don't (#load).
 	 *
-	 * @return array The variable list.
+	 * @return array The variable values.
 	 *
 	 */
 	private static function getVars(PPFrame $frame, array $values, bool $anyCase, bool $exists): array
@@ -346,21 +357,40 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Retrieves the current set of variables already on the page as though they had been loaded from the database.
+	 * Retrieves the requested set of variables from the database.
 	 *
-	 * @param mixed $pageId The current page ID. This should never be anything but.
-	 * @param string $set The set to load.
+	 * @param int $pageId The current page ID.
+	 * @param string $setName The set to load.
+	 * @param array $varNames
+	 *
+	 * @return array|null
+	 *
+	 */
+	private static function	loadFromDatabase(int $pageId, string $setName, array $varNames): ?array
+	{
+		if ($pageId > 0) {
+			return MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
+		}
+	}
+
+	/**
+	 * Retrieves the requested set of variables already on the page as though they had been loaded from the database.
+	 *
+	 * @param ParserOutput $output The current ParserOutput object.
+	 * @param int $pageId The current page ID.
+	 * @param string $setName The set to load.
 	 *
 	 * @return ?MetaTemplateVariable[]
+	 *
 	 */
-	private static function loadFromOutput(ParserOutput $output, $pageId, $set = ''): ?array
+	private static function loadFromOutput(ParserOutput $output, int $pageId, string $setName): ?array
 	{
 		$vars = self::getPageVariables($output);
 		if (!$vars) {
 			$vars = new MetaTemplateSetCollection($pageId, 0);
 		}
 
-		$set = $vars->getSet($set);
+		$set = $vars->getSet($setName);
 		return $set ? $set->getVariables() : null;
 	}
 

@@ -145,7 +145,7 @@ class MetaTemplateSql
             'parseOnLoad'
         ];
 
-        $options = ['ORDER BY' => self::SET_TABLE . "revId ASC"];
+        $options = ['ORDER BY' => 'revId ASC'];
 
         // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
         // ensure that we start with the lowest first, so data is overridden by the most recent values once we get
@@ -174,6 +174,14 @@ class MetaTemplateSql
         return $retval;
     }
 
+    /**
+     * Saves variables to the database.
+     *
+     * @param Parser $parser The parser in use.
+     *
+     * @return void
+     *
+     */
     public function saveVariables(Parser $parser): void
     {
         // This algorithm is based on the assumption that data is rarely changed, therefore:
@@ -186,23 +194,23 @@ class MetaTemplateSql
         $output = $parser->getOutput();
         $vars = MetaTemplateData::getPageVariables($output);
         $revId = $vars ? $vars->getRevId() : 0;
-        RHwriteFile($revId, ' / ', $title->getLatestRevID());
-        if (!$revId || $revId !== $title->getLatestRevID()) {
+        // RHwriteFile('Save page: ', $title->getFullText(), ' - ', $revId, ' / ', $parser->getRevisionId());
+        if (!$parser->getRevisionId()) {
             return;
         }
 
+        // RHwriteFile("Saving:\n", $vars);
         // MetaTemplateData::setPageVariables($output, null);
-        RHwriteFile($vars);
         if (is_null($vars) || $vars->isEmpty()) {
-            RHwriteFile('Empty Vars: ', $title->getFullText());
+            // RHwriteFile('Empty Vars: ', $title->getFullText());
             // If there are no variables on the page at all, check if there were to begin with. If so, delete them.
             if ($this->loadPageVariables($title->getArticleID())) {
-                RHwriteFile('Delete Vars: ', $title->getFullText());
+                // RHwriteFile('Delete Vars: ', $title->getFullText());
                 $this->deleteVariables($title);
             }
         } else if ($vars->getRevId() === -1) {
             // The above check will only be satisfied on Template-space pages that use #save.
-            RHwriteFile('Save Template: ', $title->getFullText());
+            // RHwriteFile('Save Template: ', $title->getFullText());
             $this->recursiveInvalidateCache($title);
         } else {
             $pageId = $title->getArticleID();
@@ -212,6 +220,7 @@ class MetaTemplateSql
             $oldData = $this->loadPageVariables($title->getArticleID());
             $upserts = new MetaTemplateUpserts($oldData, $vars);
             if ($upserts->getTotal() > 0) {
+                // RHwriteFile('Normal Save: ', $title->getFullText());
                 $this->saveUpserts($upserts);
                 $this->recursiveInvalidateCache($title);
             }
@@ -286,9 +295,12 @@ class MetaTemplateSql
 
     private function recursiveInvalidateCache(Title $title)
     {
-        // Note: this is recursive only in the sense that it will cause page re-evaluation, which will instantiate
-        // other parsers. This should not be left in-place in the final product, as it's very server-intensive.
-        // Instead, call the cache's enqueue jobs method to put things on the queue.
+        // Note: this is recursive only in the sense that it will cause page re-evaluation, which will, in turn, cause
+        // their dependents to be re-evaluated. This should not be left in-place in the final product, as it's very
+        // server-intensive. (Is it, though? Test on large job on dev.) Instead, call the cache's enqueue jobs method
+        // to put things on the queue or possibly just send this page to be purged with forcerecursivelinksupdate.
+
+        // RHwriteFile('Recursive Invalidate');
         $templateLinks = 'templatelinks';
         $linkIds = [];
         foreach ($title->getBacklinkCache()->getLinks($templateLinks) as $link) {
@@ -333,6 +345,8 @@ class MetaTemplateSql
                 }
             }
         }
+
+        // RHwriteFile('End Recursive Update');
     }
 
     private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet)

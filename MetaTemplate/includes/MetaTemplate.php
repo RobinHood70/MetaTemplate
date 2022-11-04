@@ -162,7 +162,7 @@ class MetaTemplate
             if (self::getVar($frame, $destName, $anyCase, false) === false && isset($frame->parent)) {
                 $varValue = self::getVar($frame->parent, $srcName, $anyCase, true);
                 if ($varValue !== false) {
-                    self::setVar($frame, $destName, $varValue);
+                    self::setVar($frame, $destName, $varValue, $anyCase);
                 }
             }
         }
@@ -318,11 +318,7 @@ class MetaTemplate
         foreach ($translations as $srcName => $destName) {
             $varValue = self::getVar($frame, $srcName, false, false);
             if ($varValue !== false) {
-                if ($anyCase) {
-                    self::unsetVar($parent, $destName, true, false);
-                }
-
-                self::setVar($parent, $destName, $varValue);
+                self::setVar($parent, $destName, $varValue, $anyCase);
             }
         }
     }
@@ -427,14 +423,21 @@ class MetaTemplate
     public static function getVariableTranslations(PPFrame $frame, array $variables, ?int $trimLength = null): array
     {
         $retval = [];
-        foreach ($variables as $varName) {
-            $varName = $frame->expand($varName);
-            $varSplit = explode('=>', $varName, 2);
-            $varName = trim($varSplit[0]); // In PHP 8, this can be reduced to just substr(trim...)).
-            $varName = $trimLength ? substr($varName, 0, $trimLength) : $varName;
-            $retval[$varName] = count($varSplit) === 2
-                ? substr(trim($varSplit[1]), 0, $trimLength)
-                : $varName;
+        foreach ($variables as $srcName) {
+            $srcName = $frame->expand($srcName);
+            $varSplit = explode('->', $srcName, 2);
+            $srcName = trim($varSplit[0]); // In PHP 8, this can be reduced to just substr(trim...)).
+            $srcName = $trimLength ? substr($srcName, 0, $trimLength) : $srcName;
+            if (count($varSplit) === 2) {
+                $destName = trim($varSplit[1]);
+                $destName = $trimLength ? substr($destName, 0, $trimLength) : $destName;
+            } else {
+                $destName = $srcName;
+            }
+
+            if (strlen($srcName) && strlen($srcName)) {
+                $retval[$srcName] = $destName;
+            }
         }
 
         return $retval;
@@ -462,7 +465,9 @@ class MetaTemplate
     }
 
     /**
-     * Takes the provided variable and adds it to the template frame as though it had been passed in.
+     * Takes the provided variable and adds it to the template frame as though it had been passed in. Automatically
+     * unsets any previous values, including case-variant values if $anyCase is true. This also shifts any numeric-
+     * named arguments it touches from named to numeric.
      *
      * @param PPTemplateFrame_Hash $frame The frame in use.
      * @param string $varName The variable name. This should be pre-trimmed, if necessary.
@@ -471,12 +476,8 @@ class MetaTemplate
      * @return void
      *
      */
-    public static function setVar(PPTemplateFrame_Hash $frame, string $varName, $value): void
+    public static function setVar(PPTemplateFrame_Hash $frame, string $varName, $value, $anyCase = false): void
     {
-        // TODO: Review all setVar and unsetVar methods to make sure they're efficient and working correctly. Overlap
-        // and possible bad handling of numbered vs. named seems to have crept in at some point. Consider only having
-        // setVar with setVar = null meaning unset.
-
         if (!strlen($varName)) {
             return;
         }
@@ -494,7 +495,7 @@ class MetaTemplate
             $cache = &$frame->namedExpansionCache;
         }
 
-        self::unsetVar($frame, $varName, false, false);
+        self::unsetVar($frame, $varName, $anyCase, false);
         if (is_string($value)) {
             // Value is a string, so create node and leave text as is.
             $valueNode = new PPNode_Hash_Text([$value], 0);
@@ -545,16 +546,14 @@ class MetaTemplate
             $existing = self::getVar($frame, $name, $anyCase, false);
             if ($existing !== false) {
                 // RHshow('Override case');
-                self::unsetVar($frame, $name, $anyCase);
-                self::setVar($frame, $name, $existing);
+                self::setVar($frame, $name, $existing, $anyCase);
             }
         } elseif ($override) {
             // RHshow('Set/Override');
-            self::unsetVar($frame, $name, $anyCase);
-            self::setVar($frame, $name, $values[1]);
+            self::setVar($frame, $name, $values[1], $anyCase);
         } elseif (self::getVar($frame, $name, $anyCase, false) === false) {
             // RHshow('Set');
-            self::setVar($frame, $name, $values[1]);
+            self::setVar($frame, $name, $values[1], $anyCase);
         } // else variable is already defined and should not be overridden.
     }
 
@@ -616,13 +615,13 @@ class MetaTemplate
      * @return void
      *
      */
-    private static function unsetNumeric(PPTemplateFrame_Hash $frame, string $varName): void
+    private static function unsetWithShift(PPTemplateFrame_Hash $frame, string $varName): void
     {
         $newArgs = [];
         $newCache = [];
         foreach ($frame->numberedArgs as $key => $value) {
             if ($varName != $key) {
-                $newKey = $key > $varName ? $key - 1 : $key;
+                $newKey = ($key > $varName) ? $key - 1 : $key;
                 $newArgs[$newKey] = $value;
                 if (isset($frame->numberedCache[$key])) {
                     $newCache[$newKey] = $frame->numberedExpansionCache[$key];
@@ -654,12 +653,13 @@ class MetaTemplate
      *
      * @return void
      */
-    private static function unsetVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $shift = false): void
+    private static function unsetVar(PPTemplateFrame_Hash $frame, $varName, bool $anyCase, bool $shift = false): void
     {
-        if (is_string($varName) && ctype_digit($varName)) {
+        if (is_int($varName) || ctype_digit($varName)) {
             if ($shift) {
-                self::unsetNumeric($frame, $varName);
+                self::unsetWithShift($frame, $varName);
             } else {
+                unset($frame->namedArgs[$varName], $frame->namedExpansionCache[$varName]);
                 unset($frame->numberedArgs[$varName], $frame->numberedExpansionCache[$varName]);
             }
         } elseif ($anyCase) {

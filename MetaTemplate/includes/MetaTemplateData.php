@@ -110,14 +110,14 @@ class MetaTemplateData
 			return;
 		}
 
-		RHshow('Vars to load: ', $varsToLoad);
+		// RHshow('Vars to load: ', $varsToLoad);
 		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::$setNameWidth);
 		$articleId = $loadTitle->getArticleID();
 		// Compare on title since an empty page won't have an ID.
 		$result = $parser->getTitle()->getFullText() === $loadTitle->getFullText()
 			? self::loadFromOutput($output, $set, $varsToLoad)
 			: self::loadFromDatabase($articleId, $set, $varsToLoad);
-		RHshow('Result Main: ', $result);
+		// RHshow('Result Main: ', $result);
 
 		// If no results were returned and the page is a redirect, see if there are variables there.
 		if (!$result && $loadTitle->isRedirect()) {
@@ -126,7 +126,7 @@ class MetaTemplateData
 			$result = $parser->getTitle()->getFullText() === $loadTitle->getFullText()
 				? self::loadFromOutput($output, $set, $varsToLoad)
 				: self::loadFromDatabase($articleId, $set, $varsToLoad);
-			RHshow('Result Redirect: ', $result);
+			// RHshow('Result Redirect: ', $result);
 		}
 
 		if ($result) {
@@ -139,7 +139,7 @@ class MetaTemplateData
 				}
 
 				if ($varValue !== false) {
-					MetaTemplate::setVar($frame, $translations[$varName], $varValue);
+					MetaTemplate::setVar($frame, $translations[$varName], $varValue, $anyCase);
 				}
 			}
 		}
@@ -200,6 +200,10 @@ class MetaTemplateData
 		foreach ($translations as $srcName => $destName) {
 			$output->setExtensionData(self::$saveParseOnLoad, true);
 			$varValue = MetaTemplate::getVar($frame, $srcName, $anyCase, false);
+			if ($varValue === false) {
+				continue;
+			}
+
 			$varValue = $frame->expand($varValue, $saveMarkup ? self::SAVE_MARKUP_FLAGS : 0);
 			if (!$output->getExtensionData(self::$saveParseOnLoad)) {
 				// The value of saveParseOnLoad changed during expansion, meaning that there are <savemarkup> tags
@@ -222,15 +226,12 @@ class MetaTemplateData
 					: false;
 			}
 
-			// RHshow($srcName, ' = ', $varValue);
-			if ($varValue !== false) {
-				$varsToSave[$destName] = new MetaTemplateVariable($varValue, $parseOnLoad);
-			}
+			$varsToSave[$destName] = new MetaTemplateVariable($varValue, $parseOnLoad);
 		}
 
 		// RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
 		$output->setExtensionData(self::$saveParseOnLoad, false); // Probably not necessary, but just in case...
-		self::addVariables(WikiPage::factory($title), $output, $magicArgs[self::NA_SET] ?? '', $varsToSave);
+		self::addPageVariables(WikiPage::factory($title), $output, $magicArgs[self::NA_SET] ?? '', $varsToSave);
 	}
 
 	/**
@@ -309,7 +310,7 @@ class MetaTemplateData
 	 *
 	 * @return void
 	 */
-	private static function addVariables(WikiPage $page, ParserOutput $output, string $setName, array $variables): void
+	private static function addPageVariables(WikiPage $page, ParserOutput $output, string $setName, array $variables): void
 	{
 		// RHshow('addVars: ', $variables);
 		if (!count($variables)) {
@@ -362,13 +363,13 @@ class MetaTemplateData
 			return null; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
 		}
 
-		RHshow('Page Variables: ', $pageVars);
+		// RHshow('Page Variables: ', $pageVars);
 		$set = $pageVars->getSet($setName);
 		if (!$set) {
 			return null;
 		}
 
-		RHshow('Set: ', $set);
+		// RHshow('Set: ', $set);
 		$vars = $set->getVariables();
 		$retval = [];
 		if ($vars) {
@@ -377,7 +378,7 @@ class MetaTemplateData
 			}
 		}
 
-		RHshow('Output Variables: ', $vars);
+		// RHshow('Output Variables: ', $vars);
 		return $vars;
 	}
 

@@ -92,13 +92,8 @@ class MetaTemplate
         // Show {{{parameter names}}} if on the actual template page and not previewing, but allow bypass variables
         // like ns_base/ns_id through at all times.
         if (!$frame->parent && $parser->getTitle()->getNamespace() === NS_TEMPLATE && !$parser->getOptions()->getIsPreview()) {
-            if (is_null(self::$bypassVars)) {
-                $bypassList = [];
-                Hooks::run('MetaTemplateSetBypassVars', [&$bypassList]);
-                self::$bypassVars = [];
-                foreach ($bypassList as $bypass) {
-                    self::$bypassVars[$bypass] = true;
-                }
+            if (!isset(self::$bypassVars)) {
+                self::getBypassVariables();
             }
 
             $varName = trim($frame->expand($args[0]));
@@ -128,7 +123,7 @@ class MetaTemplate
     }
 
     /**
-     * [Description]
+     * Inherit variables from the calling template(s).
      *
      * @param Parser $parser The parser in use.
      * @param PPFrame $frame The frame in use.
@@ -157,19 +152,17 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (empty($values) || !$helper->checkIfs($frame, $magicArgs)) {
+        if (!$values || !$helper->checkIfs($frame, $magicArgs)) {
             return;
         }
 
         $anyCase = $helper->checkAnyCase($magicArgs);
-        foreach ($values as $nameNode) {
-            $varSplit = explode('=>', $frame->expand($nameNode), 2);
-            $varValue = self::getVar($frame, $varSplit[0], $anyCase, false);
-            if ($varValue === false) {
-                $varValue = self::getVar($frame->parent, $varSplit[0], $anyCase, true);
+        $translations = self::getVariableTranslations($frame, $values);
+        foreach ($translations as $srcName => $destName) {
+            if (self::getVar($frame, $destName, $anyCase, false) === false && isset($frame->parent)) {
+                $varValue = self::getVar($frame->parent, $srcName, $anyCase, true);
                 if ($varValue !== false) {
-                    $varName = trim(count($varSplit) == 2 ? $varSplit[1] : $varSplit[0]);
-                    self::setVar($frame, $varName, $varValue);
+                    self::setVar($frame, $destName, $varValue);
                 }
             }
         }
@@ -316,18 +309,20 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (empty($values) || !$helper->checkIfs($frame, $magicArgs)) {
+        if (!$values || !$helper->checkIfs($frame, $magicArgs)) {
             return;
         }
 
         $anyCase = $helper->checkAnyCase($magicArgs);
-        foreach ($values as $varNode) {
-            $varSplit = explode('=>', $frame->expand($varNode), 2);
-            $varValue = self::getVar($frame, $varSplit[0], false, false);
+        $translations = self::getVariableTranslations($frame, $values);
+        foreach ($translations as $srcName => $destName) {
+            $varValue = self::getVar($frame, $srcName, false, false);
             if ($varValue !== false) {
-                $varName = trim(count($varSplit) == 2 ? $varSplit[1] : $varSplit[0]);
-                self::unsetVar($parent, $varName, $anyCase, false);
-                self::setVar($parent, $varName, $varValue);
+                if ($anyCase) {
+                    self::unsetVar($parent, $destName, true, false);
+                }
+
+                self::setVar($parent, $destName, $varValue);
             }
         }
     }
@@ -394,7 +389,9 @@ class MetaTemplate
      * @param bool $anyCase Whether the variable's name is case-sensitive or not.
      * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
      *
-     * @return string|PPNode_Hash_Tree
+     * @return mixed The variable value. If found, this will be the string or PPNode_Hash_Tree from the original
+     *               arguments; otherwise, it will be false.
+     *
      */
     public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll)
     {
@@ -414,6 +411,31 @@ class MetaTemplate
 
             $frame = $checkAll ? $frame->parent : false;
         } while ($retval === false && $frame);
+
+        return $retval;
+    }
+
+    /**
+     * Splits a variable list of the form 'x=>xPrime' to a proper associative array.
+     *
+     * @param PPFrame $frame The frame in use.
+     * @param array $variables The list of variables to work on.
+     *
+     * @return array
+     *
+     */
+    public static function getVariableTranslations(PPFrame $frame, array $variables, ?int $trimLength = null): array
+    {
+        $retval = [];
+        foreach ($variables as $varName) {
+            $varName = $frame->expand($varName);
+            $varSplit = explode('=>', $varName, 2);
+            $varName = trim($varSplit[0]); // In PHP 8, this can be reduced to just substr(trim...)).
+            $varName = $trimLength ? substr($varName, 0, $trimLength) : $varName;
+            $retval[$varName] = count($varSplit) === 2
+                ? substr(trim($varSplit[1]), 0, $trimLength)
+                : $varName;
+        }
 
         return $retval;
     }
@@ -451,7 +473,10 @@ class MetaTemplate
      */
     public static function setVar(PPTemplateFrame_Hash $frame, string $varName, $value): void
     {
-        // RHshow($varName, '=>', $frame->expand($value));
+        // TODO: Review all setVar and unsetVar methods to make sure they're efficient and working correctly. Overlap
+        // and possible bad handling of numbered vs. named seems to have crept in at some point. Consider only having
+        // setVar with setVar = null meaning unset.
+
         if (!strlen($varName)) {
             return;
         }
@@ -507,22 +532,40 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (count($values) < 2 || !ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+        if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
             return;
         }
 
         $name = trim($frame->expand($values[0]));
         $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
-        $existing = self::getVar($frame, $name, $anyCase, false);
-        if ($existing !== false) {
-            if (!$override) {
-                return;
+
+        // Since assignments are typically numerous, try to take the most efficient route possible. Only non-optimal
+        // route is if a value exists with the same case, it will be unset/reset despite not needing it.
+        if (count($values) < 2) {
+            $existing = self::getVar($frame, $name, $anyCase, false);
+            if ($existing !== false) {
+                // RHshow('Override case');
+                self::unsetVar($frame, $name, $anyCase);
+                self::setVar($frame, $name, $existing);
             }
-
+        } elseif ($override) {
+            // RHshow('Set/Override');
             self::unsetVar($frame, $name, $anyCase);
-        }
+            self::setVar($frame, $name, $values[1]);
+        } elseif (self::getVar($frame, $name, $anyCase, false) === false) {
+            // RHshow('Set');
+            self::setVar($frame, $name, $values[1]);
+        } // else variable is already defined and should not be overridden.
+    }
 
-        self::setVar($frame, $name, $values[1]);
+    private static function getBypassVariables()
+    {
+        $bypassList = [];
+        Hooks::run('MetaTemplateSetBypassVars', [&$bypassList]);
+        self::$bypassVars = [];
+        foreach ($bypassList as $bypass) {
+            self::$bypassVars[$bypass] = true;
+        }
     }
 
     /**
@@ -542,10 +585,10 @@ class MetaTemplate
      */
     private static function getTitleAtDepth(Parser $parser, PPFrame $frame, ?array $args): ?Title
     {
-        if (empty($args)) {
-            $level = 0;
-        } else {
+        if ($args) {
             $level = intval($frame->expand($args[0]));
+        } else {
+            $level = 0;
         }
 
         $depth = $frame->depth;
@@ -559,11 +602,9 @@ class MetaTemplate
             return isset($frame) ? $frame->title : null;
         }
 
-        if ($level == $depth) {
-            return $parser->getTitle();
-        }
-
-        return null;
+        return $level === $depth
+            ? $parser->getTitle()
+            : null;
     }
 
     /**
@@ -623,11 +664,10 @@ class MetaTemplate
             }
         } elseif ($anyCase) {
             $lcname = strtolower($varName);
-            $namedArgs = &$frame->namedArgs;
-            $keys = array_keys($namedArgs);
+            $keys = array_keys($frame->namedArgs);
             foreach ($keys as $key) {
                 if (strtolower($key) === $lcname) {
-                    unset($namedArgs[$key]);
+                    unset($frame->namedArgs[$key], $frame->namedExpansionCache[$key]);
                 }
             }
         } else {

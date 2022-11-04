@@ -51,7 +51,7 @@ class MetaTemplateSetCollection
      */
     public function isEmpty(): bool
     {
-        return empty($this->sets);
+        return !$this->sets;
     }
 
     /**

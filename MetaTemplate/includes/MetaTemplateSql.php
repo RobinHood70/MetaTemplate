@@ -127,7 +127,7 @@ class MetaTemplateSql
      *
      * @return ?MetaTemplateVariable[]
      */
-    public function loadTableVariables($pageId, string $setName = '', $varNames = []): array
+    public function loadTableVariables($pageId, string $setName = '', $varNames = []): ?array
     {
         $tables = [self::SET_TABLE, self::DATA_TABLE];
         $conds = [
@@ -201,7 +201,7 @@ class MetaTemplateSql
 
         // RHwriteFile("Saving:\n", $vars);
         // MetaTemplateData::setPageVariables($output, null);
-        if (is_null($vars) || $vars->isEmpty()) {
+        if (!$vars || $vars->isEmpty()) {
             // RHwriteFile('Empty Vars: ', $title->getFullText());
             // If there are no variables on the page at all, check if there were to begin with. If so, delete them.
             if ($this->loadPageVariables($title->getArticleID())) {

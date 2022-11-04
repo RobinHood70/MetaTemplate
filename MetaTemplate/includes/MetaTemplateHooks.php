@@ -8,7 +8,16 @@ class MetaTemplateHooks
 	const OLDSET_TABLE = 'mt_save_set';
 	const OLDDATA_TABLE = 'mt_save_data';
 
-	public static function migrateDataTable(DatabaseUpdater $updater, $dir)
+	/**
+	 * Migrates the MetaTemplate 1.0 data table to the current version.
+	 *
+	 * @param DatabaseUpdater $updater
+	 * @param string $dir
+	 *
+	 * @return void
+	 *
+	 */
+	public static function migrateDataTable(DatabaseUpdater $updater, string $dir): void
 	{
 		$db = $updater->getDB();
 		if (!$db->tableExists(self::OLDDATA_TABLE)) {
@@ -17,7 +26,16 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function migrateSetTable(DatabaseUpdater $updater, $dir)
+	/**
+	 * Migrates the MetaTemplate 1.0 set table to the current version.
+	 *
+	 * @param DatabaseUpdater $updater
+	 * @param string $dir
+	 *
+	 * @return void
+	 *
+	 */
+	public static function migrateSetTable(DatabaseUpdater $updater, string $dir): void
 	{
 		$db = $updater->getDB();
 		if (!$db->tableExists(self::OLDSET_TABLE)) {
@@ -41,6 +59,7 @@ class MetaTemplateHooks
 	 */
 	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater)
 	{
+		/** @var string $dir  */
 		$dir = dirname(__DIR__);
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 			$db = $updater->getDB();

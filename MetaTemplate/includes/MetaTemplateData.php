@@ -170,8 +170,7 @@ class MetaTemplateData
 		if (
 			$parser->getOptions()->getIsPreview() ||
 			$title->getNamespace() === NS_TEMPLATE ||
-			!$title->canExist() ||
-			$title->getContentModel() !== CONTENT_MODEL_WIKITEXT
+			!$title->canExist()
 		) {
 			return;
 		}

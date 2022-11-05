@@ -6,10 +6,14 @@ class MetaVarsPager extends TablePager
     private $headers;
 
     /**
-     * @param $page SpecialPage
-     * @param $conds Array
+     * Creates a new instance of the MetaVarsPager class.
+     *
+     * @param IContextSource $context The MediaWiki context.
+     * @param mixed $conds Conditions to be applied to the results.
+     * @param mixed $limit The number of results to list.
+     *
      */
-    function __construct($context, $conds, $limit)
+    public function __construct(IContextSource $context, $conds, $limit)
     {
         $this->conds = $conds;
         $this->mLimit = $limit;
@@ -23,7 +27,7 @@ class MetaVarsPager extends TablePager
         parent::__construct($context);
     }
 
-    function getFieldNames()
+    public function getFieldNames(): array
     {
 
         if (is_null($this->headers)) {
@@ -42,7 +46,7 @@ class MetaVarsPager extends TablePager
         return $this->headers;
     }
 
-    function formatValue($name, $value)
+    function formatValue($name, $value): string
     {
         switch ($name) {
             case 'setName':
@@ -61,7 +65,7 @@ class MetaVarsPager extends TablePager
         }
     }
 
-    function getQueryInfo()
+    function getQueryInfo(): array
     {
         return [
             'tables' => [MetaTemplateSql::SET_TABLE, MetaTemplateSql::DATA_TABLE],
@@ -78,22 +82,22 @@ class MetaVarsPager extends TablePager
         ];
     }
 
-    public function getTableClass()
+    public function getTableClass(): string
     {
         return 'TablePager metatemplate-metavarsonpage';
     }
 
-    function getDefaultSort()
+    public function getDefaultSort(): string
     {
         return MetaTemplateSql::SET_TABLE . '.setName';
     }
 
-    function getExtraSortFields()
+    public function getExtraSortFields(): array
     {
         return [MetaTemplateSql::DATA_TABLE . '.varName'];
     }
 
-    function isFieldSortable($name)
+    public function isFieldSortable($name): bool
     {
         return $name !== MetaTemplateSql::DATA_TABLE . '.varValue';
     }

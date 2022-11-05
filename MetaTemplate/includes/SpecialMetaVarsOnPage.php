@@ -43,12 +43,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
         parent::__construct('MetaVarsOnPage');
     }
 
-    /**
-     * Main execution point
-     *
-     * @param string $par title fragment
-     */
-    public function execute($par)
+    public function execute($subPage): void
     {
         $this->setHeaders();
         $this->outputHeader();
@@ -57,7 +52,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $out->addModuleStyles('mediawiki.special');
 
         $request = $this->getRequest();
-        $this->pageName = $request->getVal('page', $par);
+        $this->pageName = $request->getVal('page', $subPage);
         $this->limit = intval($request->getVal('limit', 50));
 
         $fields = [
@@ -92,7 +87,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $this->showList();
     }
 
-    function showList()
+    public function showList(): void
     {
         if (!$this->pageName) {
             return;
@@ -116,7 +111,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
         }
     }
 
-    protected function getGroupName()
+    protected function getGroupName(): string
     {
         return 'wiki';
     }

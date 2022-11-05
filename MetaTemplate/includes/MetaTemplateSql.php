@@ -4,7 +4,7 @@ use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
 
 /**
- * [Description MetaTemplateData]
+ * Handles all SQL-related functions for MetaTemplate.
  */
 class MetaTemplateSql
 {
@@ -24,9 +24,14 @@ class MetaTemplateSql
      * A list of all the pages purged during this session to avoid looping.
      *
      * @var array
+     *
      */
     private static $pagesPurged = [];
 
+    /**
+     * Creates an instance of the MetaTemplateSql class.
+     *
+     */
     private function __construct()
     {
         $dbWriteConst = defined('DB_PRIMARY') ? 'DB_PRIMARY' : 'DB_MASTER';
@@ -38,11 +43,11 @@ class MetaTemplateSql
     }
 
     /**
-     * getInstance
+     * Gets the global singleton instance of the class.
      *
      * @return MetaTemplateSql
      */
-    public static function getInstance()
+    public static function getInstance(): MetaTemplateSql
     {
         if (!isset(self::$instance)) {
             self::$instance = new self;
@@ -51,7 +56,15 @@ class MetaTemplateSql
         return self::$instance;
     }
 
-    public function deleteVariables(Title $title)
+    /**
+     * Handles data to be deleted.
+     *
+     * @param Title $title The title of the page to delete from.
+     *
+     * @return void
+     *
+     */
+    public function deleteVariables(Title $title): void
     {
         $pageId = $title->getArticleID();
 
@@ -61,7 +74,16 @@ class MetaTemplateSql
         $this->recursiveInvalidateCache($title);
     }
 
-    public function insertData($setId, MetaTemplateSet $newSet)
+    /**
+     * Handles data to be inserted.
+     *
+     * @param mixed $setId The set ID to insert.
+     * @param MetaTemplateSet $newSet The set to insert.
+     *
+     * @return void
+     *
+     */
+    public function insertData($setId, MetaTemplateSet $newSet): void
     {
         $data = [];
         foreach ($newSet->getVariables() as $key => $var) {
@@ -77,13 +99,13 @@ class MetaTemplateSql
     }
 
     /**
-     * loadExisting
+     * Loads variables for a specific page.
      *
-     * @param mixed $pageId
+     * @param mixed $pageId The page ID to load.
      *
      * @return MetaTemplateSetCollection
      */
-    public function loadPageVariables($pageId)
+    public function loadPageVariables($pageId): MetaTemplateSetCollection
     {
         // Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
         // data is tracked with $deleteIds.
@@ -118,12 +140,12 @@ class MetaTemplateSql
     }
 
     /**
-     * loadTableVariables
+     * Loads variables from the database.
      *
-     * @param mixed $pageId
-     * @param mixed $revId
-     * @param string $setName
-     * @param array $varNames
+     * @param mixed $pageId The page ID to load.
+     * @param mixed $revId The minimum revision ID to load.
+     * @param string $setName The set name to load.
+     * @param array $varNames A filter of which variable names should be returned.
      *
      * @return ?MetaTemplateVariable[]
      */
@@ -230,18 +252,26 @@ class MetaTemplateSql
     }
 
     /**
-     * tablesExist
+     * Indicates whether the tables needed for MetaTemplate's data features exist.
      *
-     * @return bool
+     * @return bool Whether both tables exist.
      */
-    public function tablesExist()
+    public function tablesExist(): bool
     {
         return
             $this->dbRead->tableExists(self::SET_TABLE) &&
             $this->dbRead->tableExists(self::DATA_TABLE);
     }
 
-    private function saveUpserts(MetaTemplateUpserts $upserts)
+    /**
+     * Alters the database in whatever ways are necessary to update one revision's variables to the next.
+     *
+     * @param MetaTemplateUpserts $upserts
+     *
+     * @return void
+     *
+     */
+    private function saveUpserts(MetaTemplateUpserts $upserts): void
     {
         $deletes = $upserts->getDeletes();
         // writeFile('  Deletes: ', count($deletes));
@@ -293,7 +323,15 @@ class MetaTemplateSql
         }
     }
 
-    private function recursiveInvalidateCache(Title $title)
+    /**
+     * Does a simple purge on all direct backlinks from a page. Needs tested to see if this should be used in the long run. Might be too server intensive, but
+     *
+     * @param Title $title
+     *
+     * @return void
+     *
+     */
+    private function recursiveInvalidateCache(Title $title): void
     {
         // Note: this is recursive only in the sense that it will cause page re-evaluation, which will, in turn, cause
         // their dependents to be re-evaluated. This should not be left in-place in the final product, as it's very
@@ -349,7 +387,17 @@ class MetaTemplateSql
         // RHwriteFile('End Recursive Update');
     }
 
-    private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet)
+    /**
+     * Alters the database in whatever ways are necessary to update one revision's sets to the next.
+     *
+     * @param mixed $setId The set ID # from the mtSaveSet table.
+     * @param MetaTemplateSet $oldSet The previous revision's set data.
+     * @param MetaTemplateSet $newSet The current revision's set data.
+     *
+     * @return void
+     *
+     */
+    private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet): void
     {
         // RHshow('Update Set Data');
         $oldVars = &$oldSet->getVariables();

@@ -7,16 +7,24 @@ class MetaTemplateUpserts
     /** @var MetaTemplateSet[] */
     private $inserts = [];
 
+    /** @var array */ // [int setId, [MetaTemplateSet oldSet, MetaTemplateSet newSet]]
+    private $updates = [];
+
     private $newRevId;
     private $oldRevId;
     private $pageId;
 
-    private $updates = [];
-
-    public function __construct(MetaTemplateSetCollection $oldData = null, MetaTemplateSetCollection $newData = null)
+    /**
+     * Creates a new instance of the MetaTemplateUpserts class.
+     *
+     * @param ?MetaTemplateSetCollection $oldData
+     * @param ?MetaTemplateSetCollection $newData
+     *
+     */
+    public function __construct(?MetaTemplateSetCollection $oldData, ?MetaTemplateSetCollection $newData)
     {
-        $oldSets = $oldData ? $oldData->getSets() : null; // new MetaTemplateSet('');
-        $newSets = $newData ? $newData->getSets() : null; // new MetaTemplateSet('');
+        $oldSets = $oldData ? $oldData->getSets() : null;
+        $newSets = $newData ? $newData->getSets() : null;
 
         // Do not change to identity operator - object identity is a reference compare, which will fail.
         if ($oldSets == $newSets) {
@@ -65,36 +73,78 @@ class MetaTemplateUpserts
         }
     }
 
-    public function getDeletes()
+    /**
+     * Gets the deletions that need to be made.
+     *
+     * @return array The insertions that need to be made.
+     *
+     */
+    public function getDeletes(): array
     {
         return $this->deletes;
     }
 
-    public function getInserts()
+    /**
+     * Gets the insertions that need to be made.
+     *
+     * @return array The insertions that need to be made.
+     *
+     */
+    public function getInserts(): array
     {
         return $this->inserts;
     }
 
-    public function getNewRevId()
+    /**
+     * Gets the new revision ID.
+     *
+     * @return int The new revision ID.
+     *
+     */
+    public function getNewRevId(): int
     {
         return $this->newRevId;
     }
 
-    public function getOldRevId()
+    /**
+     * Gets the previous revision's ID.
+     *
+     * @return int The previous revision's ID.
+     *
+     */
+    public function getOldRevId(): int
     {
         return $this->oldRevId;
     }
 
-    public function getPageId()
+    /**
+     * Gets the page ID.
+     *
+     * @return int The page ID.
+     *
+     */
+    public function getPageId(): int
     {
         return $this->pageId;
     }
 
+    /**
+     * Gets the total number of operations for this upsert.
+     *
+     * @return int The total number of operations for this upsert.
+     *
+     */
     public function getTotal()
     {
         return count($this->deletes) + count($this->inserts) + count($this->updates);
     }
 
+    /**
+     * Gets the updates that need to be made.
+     *
+     * @return array
+     *
+     */
     public function getUpdates()
     {
         return $this->updates;

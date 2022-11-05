@@ -44,20 +44,36 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount)
+	/**
+	 * Deletes all set-related data when a page is deleted.
+	 *
+	 * @param WikiPage $article The article that was deleted.
+	 * @param User $user The user that deleted the article
+	 * @param mixed $reason The reason the article was deleted.
+	 * @param mixed $id The ID of the article that was deleted.
+	 * @param mixed $content The content of the deleted article, or null in case of an error.
+	 * @param LogEntry $logEntry The log entry used to record the deletion.
+	 * @param mixed $archivedRevisionCount The number of revisions archived during the page delete.
+	 *
+	 * @return void
+	 *
+	 */
+	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount): void
 	{
 		MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 	}
 
 	// Initial table setup/modifications from v1.
 	/**
-	 * onLoadExtensionSchemaUpdates
+	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
+	 * have been altered and the datestamp removed.
 	 *
 	 * @param DatabaseUpdater $updater
 	 *
 	 * @return void
+	 *
 	 */
-	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater)
+	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
 	{
 		/** @var string $dir  */
 		$dir = dirname(__DIR__);
@@ -77,16 +93,15 @@ class MetaTemplateHooks
 		}
 	}
 
-	// This is the best place to disable individual magic words;
-	// To disable all magic words, disable the hook that calls this function
 	/**
-	 * onMagicWordwgVariableIDs
+	 * Enables MetaTemplate's variables.
 	 *
-	 * @param array $aCustomVariableIds
+	 * @param array $aCustomVariableIds The list of custom variables to add to.
 	 *
 	 * @return void
+	 *
 	 */
-	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds)
+	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds): void
 	{
 		$aCustomVariableIds[] = MetaTemplate::VR_FULLPAGENAME0;
 		$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
@@ -94,7 +109,16 @@ class MetaTemplateHooks
 		$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
 	}
 
-	public static function onMetaTemplateSetBypassVars(array &$bypassVars)
+	/**
+	 * Adds ns_base and ns_id to the list of parameters that bypass the normal limitations on parameter evaluation when
+	 * viewing a template on its native page.
+	 *
+	 * @param array $bypassVars The active list of variable names to bypass.
+	 *
+	 * @return void
+	 *
+	 */
+	public static function onMetaTemplateSetBypassVars(array &$bypassVars): void
 	{
 		// TODO: This function is a placeholder until UespCustomCode is rewritten, at which point this can be
 		// transferred there.
@@ -104,7 +128,16 @@ class MetaTemplateHooks
 		$bypassVars[] = 'ns_id';
 	}
 
-	public static function onParserAfterTidy(Parser $parser, &$text)
+	/**
+	 * Writes all #saved data to the database.
+	 *
+	 * @param Parser $parser The parser in use.
+	 * @param mixed $text The text of the article.
+	 *
+	 * @return void
+	 *
+	 */
+	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
 		// RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
 		// RHwriteFile(substr($text, 0, 30) . "\n");
@@ -114,7 +147,7 @@ class MetaTemplateHooks
 	/**
 	 * Initialize parser and tag functions followed by MetaTemplate general initialization.
 	 *
-	 * @param Parser $parser
+	 * @param Parser $parser The parser in use.
 	 *
 	 * @return void
 	 *
@@ -127,17 +160,18 @@ class MetaTemplateHooks
 	}
 
 	/**
-	 * onParserGetVariableValueSwitch
+	 * Gets the value of the specified variable.
 	 *
-	 * @param Parser $parser
-	 * @param array $variableCache
-	 * @param mixed $magicWordId
-	 * @param mixed $ret
-	 * @param PPFrame $frame
+	 * @param Parser $parser The parser in use.
+	 * @param array $variableCache The variable cache. Can be used to store values for faster evaluation in subsequent calls.
+	 * @param mixed $magicWordId The magic word ID to evaluate.
+	 * @param mixed $ret The return value.
+	 * @param PPFrame $frame The frame in use.
 	 *
-	 * @return string
+	 * @return bool Always true
+	 *
 	 */
-	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame)
+	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame): bool
 	{
 		switch ($magicWordId) {
 			case MetaTemplate::VR_FULLPAGENAME0:
@@ -153,20 +187,17 @@ class MetaTemplateHooks
 				$ret = MetaTemplate::doPageNameX($parser, $frame, null);
 				break;
 		}
-	}
 
-	public static function onParserTestTables(array &$tables)
-	{
-		$tables[] = MetaTemplateSql::SET_TABLE;
-		$tables[] = MetaTemplateSql::DATA_TABLE;
+		return true;
 	}
 
 	/**
-	 * onRegister
+	 * Register's the pre-processor. Note: this will fail in MediaWiki 1.35+.
 	 *
 	 * @return void
+	 *
 	 */
-	public static function onRegister()
+	public static function onRegister(): void
 	{
 		// TODO: Investigate why preprocessor always running in <noinclude> mode on template save.
 
@@ -178,13 +209,13 @@ class MetaTemplateHooks
 	}
 
 	/**
-	 * initParserFunctions
+	 * Initialize parser functions.
 	 *
-	 * @param Parser $parser
+	 * @param Parser $parser The parser in use.
 	 *
 	 * @return void
 	 */
-	private static function initParserFunctions(Parser $parser)
+	private static function initParserFunctions(Parser $parser): void
 	{
 		$parser->setFunctionHook(MetaTemplate::PF_DEFINE, 'MetaTemplate::doDefine', SFH_OBJECT_ARGS);
 		$parser->setFunctionHook(MetaTemplate::PF_FULLPAGENAMEx, 'MetaTemplate::doFullPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH);
@@ -204,9 +235,9 @@ class MetaTemplateHooks
 	}
 
 	/**
-	 * initTagFunctions
+	 * Initialize tag functions.
 	 *
-	 * @param Parser $parser
+	 * @param Parser $parser The parser in use.
 	 *
 	 * @return void
 	 */

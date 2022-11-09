@@ -29,6 +29,13 @@ class MetaTemplateData
 	 * @param Parser $parser The parser in use.
 	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
+	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
+	 *            'any', along with any translations or synonyms of it.
+	 *     debug: Set to PHP true to show the cleaned code on-screen during Show Preview. Set to 'always' to show
+	 *            even when saved.
+	 *        if: A condition that must be true in order for this function to run.
+	 *     ifnot: A condition that must be false in order for this function to run.
+	 *     order: A comma-separated list of fields to sort by.
 	 *
 	 * @return array The text of the templates to be called to make the list as well as the appropriate noparse value
 	 *               depending whether it was an error message or a successful call.
@@ -322,8 +329,8 @@ class MetaTemplateData
 	 *
 	 * @param WikiPage $page The page the variables should be added to.
 	 * @param ParserOutput $output The current parser's output.
-	 * @param array $variables
-	 * @param string $set
+	 * @param array $variables The variables to add.
+	 * @param string $set The set to be added to.
 	 *
 	 * @return void
 	 */
@@ -486,25 +493,28 @@ class MetaTemplateData
 	/**
 	 * Sorts the results according to user-specified order (if any), then page name, and finally set.
 	 *
-	 * @param array $arr
-	 * @param array $sortOrder
+	 * @param array $arr The array to sort.
+	 * @param array $sortOrder A list of field names to sort by. In the event of duplication, only the first instance
+	 *                         counts.
 	 *
-	 * @return array
+	 * @return array The sorted array.
 	 *
 	 */
 	private static function listSavedSort(array $arr, array $sortOrder): array
 	{
 		$used = [];
 		$newOrder = [];
-		foreach ($sortOrder as $index => $field) {
-			$col = [];
-			foreach ($arr as $key => $row) {
-				$col[$key] = $row[$field];
-			}
+		foreach ($sortOrder as $field) {
+			if (!in_array($field, $used, true)) {
+				$col = [];
+				foreach ($arr as $key => $row) {
+					$col[$key] = $row[$field];
+				}
 
-			$newIndex = $index * 2;
-			$newOrder[$newIndex] = $col;
-			$newOrder[$newIndex + 1] = SORT_NATURAL;
+				$newOrder[] = $col;
+				$newOrder[] = SORT_NATURAL;
+				$used[] = $field;
+			}
 		}
 
 		$sortOrder[] = &$arr;
@@ -517,7 +527,7 @@ class MetaTemplateData
 	 *
 	 * @param int $pageId The current page ID.
 	 * @param string $setName The set to load.
-	 * @param array $varNames
+	 * @param array $varNames The variables to load.
 	 *
 	 * @return ?MetaTemplateVariable[]
 	 *

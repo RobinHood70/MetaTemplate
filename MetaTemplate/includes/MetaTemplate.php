@@ -513,11 +513,11 @@ class MetaTemplate
      *            'any', along with any translations or synonyms of it.
      *        if: A condition that must be true in order for this function to run.
      *     ifnot: A condition that must be false in order for this function to run.
-     * @param bool $override
+     * @param bool $overwrite Whether the incoming variable is allowed to overwrite any existing one.
      *
      * @return void
      */
-    private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $override): void
+    private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
     {
         list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
             $frame,
@@ -542,8 +542,8 @@ class MetaTemplate
                 // RHshow('Override case');
                 self::setVar($frame, $name, $existing, $anyCase);
             }
-        } elseif ($override) {
-            // RHshow('Set/Override');
+        } elseif ($overwrite) {
+            // RHshow('Set/Overwrite');
             self::setVar($frame, $name, $values[1], $anyCase);
         } elseif (self::getVar($frame, $name, $anyCase, false) === false) {
             // RHshow('Set');

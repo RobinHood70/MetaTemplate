@@ -7,10 +7,7 @@ use MediaWiki\MediaWikiServices;
  */
 class MetaTemplate
 {
-    const NA_NAMESPACE = 'metatemplate-namespace';
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
-    const NA_ORDER = 'metatemplate-order';
-    const NA_PAGENAME = 'metatemplate-pagename';
     const NA_SHIFT = 'metatemplate-shift';
 
     const PF_DEFINE = 'metatemplate-define';
@@ -452,10 +449,7 @@ class MetaTemplate
     public static function init(): void
     {
         ParserHelper::getInstance()->cacheMagicWords([
-            self::NA_NAMESPACE,
             self::NA_NESTLEVEL,
-            self::NA_ORDER,
-            self::NA_PAGENAME,
             self::NA_SHIFT,
         ]);
 

@@ -5,7 +5,9 @@
  */
 class MetaTemplateData
 {
+	const NA_NAMESPACE = 'metatemplate-namespace';
 	const NA_ORDER = 'metatemplate-order';
+	const NA_PAGENAME = 'metatemplate-pagename';
 	const NA_SAVEMARKUP = 'metatemplate-savemarkup';
 	const NA_SET = 'metatemplate-set';
 
@@ -28,26 +30,40 @@ class MetaTemplateData
 	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *
-	 * @return [type]
+	 * @return array The text of the templates to be called to make the list as well as the appropriate noparse value
+	 *               depending whether it was an error message or a successful call.
 	 *
 	 */
-	public static function doListSaved(Parser $parser, PPFrame $frame, array $args)
+	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
 	{
-		$helper = ParserHelper::getInstance();
-		list($magicArgs, $values) = $helper->getMagicArgs(
-			$frame,
-			$args,
-			ParserHelper::NA_CASE,
-			ParserHelper::NA_IF,
-			ParserHelper::NA_IFNOT,
-			self::NA_ORDER
-		);
-
-		if (!$helper->checkIfs($frame, $magicArgs) || count($values) < 2) {
-			return;
+		$setup = self::listSavedSetup($frame, $args);
+		if (is_string($setup)) {
+			return ['text' => $setup, 'noparse' => true];
 		}
 
-		// TODO: Incomplete! Left off here.
+		/**
+		 * @var string $templateName
+		 * @var array $magicArgs
+		 * @var array $named
+		 * @var array $unnamed
+		 */
+		list($templateName, $magicArgs, $named, $unnamed) = $setup;
+		$language = $parser->getConverterLanguage();
+		$namespace = $magicArgs[self::NA_NAMESPACE] ?? null;
+		$namespace = is_null($namespace) ? -1 : $language->getNsIndex($namespace);
+
+		$items = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $named, $unnamed);
+
+		$orderNames = $magicArgs[self::NA_ORDER] ?? null;
+		$orderNames = $orderNames ? explode(',', $orderNames) : [];
+		$orderNames[] = 'pagename';
+		$orderNames[] = 'set';
+
+		$data = self::listSavedSort($items, $orderNames);
+		$templates = self::createTemplates($language, $templateName, $data);
+		$retval = ParserHelper::getInstance()->formatPFForDebug($templates, $magicArgs[ParserHelper::NA_DEBUG] ?? false);
+
+		return ['text' => $retval, 'noparse' => false];
 	}
 
 	/**
@@ -270,7 +286,6 @@ class MetaTemplateData
 		return $output->getExtensionData(self::$saveKey);
 	}
 
-
 	/**
 	 * Initializes magic words.
 	 *
@@ -280,6 +295,9 @@ class MetaTemplateData
 	public static function init(): void
 	{
 		ParserHelper::getInstance()->cacheMagicWords([
+			self::NA_NAMESPACE,
+			self::NA_ORDER,
+			self::NA_PAGENAME,
 			self::NA_SAVEMARKUP,
 			self::NA_SET,
 		]);
@@ -329,20 +347,186 @@ class MetaTemplateData
 	}
 
 	/**
+	 * Converts the results of loadListSavedData() to the text of the templates to execute.
+	 *
+	 * @param Language $language The language to use for namespace text.
+	 * @param string $templateName The template's name. Like with wikitext template calls, this is assumed to be in
+	 *                             Template space unless otherwise specified.
+	 * @param array $params The parameters to pass to each of the template calls.
+	 *
+	 * @return string The text of the template calls.
+	 *
+	 */
+	private static function createTemplates(Language $language, string $templateName, array $params): string
+	{
+		$retval = '';
+		foreach ($params as $fields) {
+			// RHshow($fields);
+			$namespace = '';
+			$pageName = '';
+			$set = '';
+			$vars = [];
+			foreach ($fields as $key => $value) {
+				switch ($key) {
+					case 'namespace':
+						$namespace = "|$key=" . $language->getNsText($value);
+						break;
+					case 'pagename':
+						$pageName = "|$key=" . strtr($value, '_', ' ');
+						break;
+					case 'set':
+						if ($value !== '') {
+							$set = "|$key=$value";
+						}
+
+						break;
+					default:
+						$vars[$key] = $value;
+						break;
+				}
+			}
+
+			ksort($vars, SORT_NATURAL);
+			$params = '';
+			foreach ($vars as $key => $value) {
+				$params .= "|$key=$value";
+			}
+
+			$retval .= '{{' . $templateName . $params . $namespace . $pageName . $set . '}}';
+		}
+
+		return $retval;
+	}
+
+	/**
+	 * Handles all of the setup and data validation for doListSaved().
+	 *
+	 * @param PPFrame $frame THe frame in use.
+	 * @param array $args Function arguments (see doListSaved for details).
+	 *
+	 * @return array An array of values to pass back to doListSaved: the template name, magicArgs, query parameters,
+	 *               and the list of variables to include in the results.
+	 *
+	 */
+	private static function listSavedSetup(PPFrame $frame, array $args)
+	{
+		$helper = ParserHelper::getInstance();
+		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+			$frame,
+			$args,
+			ParserHelper::NA_CASE,
+			ParserHelper::NA_IF,
+			ParserHelper::NA_IFNOT,
+			ParserHelper::NA_DEBUG,
+			self::NA_NAMESPACE,
+			self::NA_ORDER
+		);
+
+		if (!$helper->checkIfs($frame, $magicArgs)) {
+			return '';
+		}
+
+		$template = array_shift($values);
+		if (is_null($template)) { // Should be impossible, but better safe than crashy.
+			return $helper->error('metatemplate-listsaved-template-empty');
+		}
+
+		$template = trim($frame->expand($template));
+		if (!strlen($template)) {
+			return $helper->error('metatemplate-listsaved-template-empty');
+		}
+
+		/**
+		 * @var array $named
+		 * @var array $unnamed */
+		list($named, $unnamed) = $helper->splitNamedArgs($frame, $values);
+		if (!count($named)) {
+			return $helper->error('metatemplate-listsaved-conditions-missing');
+		}
+
+		foreach ($named as $key => &$value) {
+			$value = $frame->expand($value);
+		}
+
+		foreach ($unnamed as &$value) {
+			$value = $frame->expand($value);
+		}
+
+		$templateTitle = Title::newFromText($template, NS_TEMPLATE);
+		if (!$templateTitle || !$templateTitle->exists()) {
+			return $helper->error('metatemplate-listsaved-template-missing', $template);
+		}
+
+		$page = WikiPage::factory($templateTitle);
+		if (!$page) {
+			return $helper->error('metatemplate-listsaved-template-missing', $template);
+		}
+
+		$maxLen = MetaTemplate::getConfig()->get('ListsavedMaxTemplateSize');
+		$text = false;
+		$text = $page->getContent()->getNativeData();
+		if ($maxLen > 0) {
+			if (!strlen($text)) {
+				return '';
+			} elseif (strlen($text) > $maxLen) {
+				return $helper->error('metatemplate-listsaved-template-toolong', $template, $maxLen);
+			}
+		}
+
+		$disallowed = explode("\n", wfMessage('metatemplate-listsaved-template-disallowed')->text());
+		foreach ($disallowed as $badWord) {
+			if (strlen($badWord) && strpos($text, $badWord))
+				return $helper->error('metatemplate-listsaved-template-disallowedmessage', $template, $badWord);
+		}
+
+		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
+		return [$templateName, $magicArgs, $named, $unnamed];
+	}
+
+	/**
+	 * Sorts the results according to user-specified order (if any), then page name, and finally set.
+	 *
+	 * @param array $arr
+	 * @param array $sortOrder
+	 *
+	 * @return array
+	 *
+	 */
+	private static function listSavedSort(array $arr, array $sortOrder): array
+	{
+		$used = [];
+		$newOrder = [];
+		foreach ($sortOrder as $index => $field) {
+			$col = [];
+			foreach ($arr as $key => $row) {
+				$col[$key] = $row[$field];
+			}
+
+			$newIndex = $index * 2;
+			$newOrder[$newIndex] = $col;
+			$newOrder[$newIndex + 1] = SORT_NATURAL;
+		}
+
+		$sortOrder[] = &$arr;
+		call_user_func_array('array_multisort', $newOrder);
+		return array_pop($sortOrder);
+	}
+
+	/**
 	 * Retrieves the requested set of variables from the database.
 	 *
 	 * @param int $pageId The current page ID.
 	 * @param string $setName The set to load.
 	 * @param array $varNames
 	 *
-	 * @return array|null
+	 * @return ?MetaTemplateVariable[]
 	 *
 	 */
 	private static function	loadFromDatabase(int $pageId, string $setName, array $varNames): ?array
 	{
-		if ($pageId > 0) {
-			return MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames);
-		}
+		return $pageId > 0
+			? MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames)
+			: null;
 	}
 
 	/**

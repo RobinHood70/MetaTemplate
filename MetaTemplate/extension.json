@@ -11,7 +11,8 @@
 	"config": {
 		"_prefix": "metatemplate",
 		"EnableCatPageTemplate": true,
-		"EnableData": true
+		"EnableData": true,
+		"ListsavedMaxTemplateSize": 10000
 	},
 	"license-name": "GPL-2.0-or-later",
 	"manifest_version": 1,

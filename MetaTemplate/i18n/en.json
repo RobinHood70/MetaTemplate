@@ -2,8 +2,12 @@
 	"@metadata": {
 		"authors": []
 	},
-	"metatemplate-listsaved-template-disallowed": "{{#save\n",
-	"metatemplate-listsaved-template-maxlen": "10000",
+	"metatemplate-listsaved-conditions-missing": "#listsaved error: no conditions provided",
+	"metatemplate-listsaved-template-disallowed": "{{#save",
+	"metatemplate-listsaved-template-disallowedmessage": "#listsaved error: Provided template, $1, contains a disallowed word: $2",
+	"metatemplate-listsaved-template-empty": "#listsaved error: no template provided",
+	"metatemplate-listsaved-template-missing": "#listsaved error: the provided template, $1, doesn't exist",
+	"metatemplate-listsaved-template-toolong": "#listsaved error: the provided template, $1, is longer than $2 {{PLURAL:$2:bytes|byte}}",
 	"metatemplate-metavarsonpage-legend": "List all MetaTemplate variables on a page",
 	"metatemplate-metavarsonpage-no-page": "No page specified.",
 	"metatemplate-metavarsonpage-no-results": "There are no variables saved on this page.",

@@ -5,10 +5,7 @@
 $magicWords = [];
 
 $magicWords['en'] = [
-	MetaTemplate::NA_NAMESPACE => [0, 'namespace'],
 	MetaTemplate::NA_NESTLEVEL => [0, 'nestlevel'],
-	MetaTemplate::NA_ORDER => [0, 'order'],
-	MetaTemplate::NA_PAGENAME => [0, 'pagename'],
 	MetaTemplate::NA_SHIFT => [0, 'shift', 'shiftdown'],
 	MetaTemplate::PF_DEFINE => [0, 'define'],
 	MetaTemplate::PF_FULLPAGENAMEx => [0, 'FULLPAGENAMEx'],
@@ -23,6 +20,9 @@ $magicWords['en'] = [
 	MetaTemplate::VR_NAMESPACE0 => [0, 'NAMESPACE0'],
 	MetaTemplate::VR_NESTLEVEL => [0, 'NESTLEVEL'],
 	MetaTemplate::VR_PAGENAME0 => [0, 'PAGENAME0'],
+	MetaTemplateData::NA_NAMESPACE => [0, 'namespace'],
+	MetaTemplateData::NA_ORDER => [0, 'order'],
+	MetaTemplateData::NA_PAGENAME => [0, 'pagename'],
 	MetaTemplateData::NA_SAVEMARKUP => [0, 'savemarkup'],
 	MetaTemplateData::NA_SET => [0, 'set', 'subset'],
 	MetaTemplateData::PF_LISTSAVED => [0, 'listsaved'],

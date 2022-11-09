@@ -2,6 +2,7 @@
 
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IResultWrapper;
 
 /**
  * Handles all SQL-related functions for MetaTemplate.
@@ -98,6 +99,67 @@ class MetaTemplateSql
         $this->dbWrite->insert(self::DATA_TABLE, $data);
     }
 
+    public function loadListSavedData(int $namespace, array $named, array $unnamed): array
+    {
+        $tables = [
+            'page',
+            self::SET_TABLE,
+            self::DATA_TABLE
+        ];
+        $fields = [
+            'page.page_id',
+            'page.page_title',
+            'page.page_namespace',
+            self::SET_TABLE . '.setName',
+            self::DATA_TABLE . '.varName',
+            self::DATA_TABLE . '.varValue'
+        ];
+        $options = [];
+        $joinConds = [
+            'mtSaveSet' => ['JOIN', ['page.page_id=' . self::SET_TABLE . '.pageId']],
+            'mtSaveData' => ['JOIN', [self::SET_TABLE . '.setId=' . self::DATA_TABLE . '.setId']]
+        ];
+
+        $varNames = array_merge(array_keys($named), $unnamed);
+        $conds = [self::DATA_TABLE . '.varName' => $varNames];
+        if ($namespace >= 0) {
+            $conds['page.page_namespace'] = $namespace;
+        }
+
+        $data = 1;
+        foreach ($named as $key => $value) {
+            $dataName = 'data' . $data;
+            $tables[$dataName] = self::DATA_TABLE;
+            $joinConds[$dataName] = ['JOIN', [self::SET_TABLE . '.setId=' . $dataName . '.setId']];
+            $conds[$dataName . '.varName'] = $key;
+            $conds[$dataName . '.varValue'] = $value;
+            $data++;
+        }
+
+        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+        $rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
+
+        $retval = [];
+        for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
+            // The key only serves to provide a quick, unique index as we iterate. After that, it's discarded.
+            $key = str_pad($row['page_id'], 8, '0', STR_PAD_LEFT) . '_' . $row['setName'];
+            if (!isset($retval[$key])) {
+                $retval[$key] = [
+                    'namespace' => $row['page_namespace'],
+                    'pagename' => $row['page_title'],
+                    'set' => $row['setName']
+                ];
+            }
+
+            // Because the final result will always be parsed, we don't need to worry about parsing it here; we can
+            // just include the value verbatim.
+            $retval[$key][$row['varName']] = $row['varValue'];
+        }
+
+        // RHshow($retval);
+        return array_values($retval);
+    }
+
     /**
      * Loads variables for a specific page.
      *
@@ -105,14 +167,13 @@ class MetaTemplateSql
      *
      * @return MetaTemplateSetCollection
      */
-    public function loadPageVariables($pageId): MetaTemplateSetCollection
+    public function loadPageVariables($pageId): ?MetaTemplateSetCollection
     {
         // Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
         // data is tracked with $deleteIds.
 
         // logFunctionText("($pageId)");
         $tables = [self::SET_TABLE, self::DATA_TABLE];
-        $conds = ['pageId' => $pageId];
         $fields = [
             self::SET_TABLE . '.setId',
             'revId',
@@ -121,8 +182,9 @@ class MetaTemplateSql
             'varValue',
             'parseOnLoad',
         ];
+        $joinConds = [self::DATA_TABLE => ['JOIN', [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']]];
+        $conds = ['pageId' => $pageId];
         $options = ['ORDER BY' => 'revId'];
-        $joinConds = [self::DATA_TABLE => ['LEFT JOIN', [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']]];
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         $row = $this->dbRead->fetchRow($result);
         if (!$row) {

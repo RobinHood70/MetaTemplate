@@ -49,6 +49,8 @@ class MetaVarsPager extends TablePager
     function formatValue($name, $value): string
     {
         switch ($name) {
+            case 'parseOnLoad':
+                return $value ? 'Yes' : '';
             case 'setName':
                 return Html::rawElement(
                     'span',
@@ -58,8 +60,8 @@ class MetaVarsPager extends TablePager
                     ],
                     $value
                 );
-            case 'parseOnLoad':
-                return $value ? 'Yes' : '';
+            case 'varValue':
+                return str_replace("\n", "<br>", $value);
             default:
                 return htmlspecialchars($value);
         }

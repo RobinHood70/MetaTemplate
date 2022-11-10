@@ -7,6 +7,8 @@ use MediaWiki\MediaWikiServices;
  */
 class MetaTemplate
 {
+    const METADATA_NAME = '@metatemplate';
+
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
     const NA_SHIFT = 'metatemplate-shift';
 
@@ -156,7 +158,7 @@ class MetaTemplate
         $anyCase = $helper->checkAnyCase($magicArgs);
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
-            if (self::getVar($frame, $destName, $anyCase, false) === false && isset($frame->parent)) {
+            if (self::getVar($frame, $destName, $anyCase) === false && isset($frame->parent)) {
                 $varValue = self::getVar($frame->parent, $srcName, $anyCase, true);
                 if ($varValue !== false) {
                     self::setVar($frame, $destName, $varValue, $anyCase);
@@ -313,7 +315,7 @@ class MetaTemplate
         $anyCase = $helper->checkAnyCase($magicArgs);
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
-            $varValue = self::getVar($frame, $srcName, false, false);
+            $varValue = self::getVar($frame, $srcName, false);
             if ($varValue !== false) {
                 self::setVar($parent, $destName, $varValue, $anyCase);
             }
@@ -386,7 +388,7 @@ class MetaTemplate
      *               arguments; otherwise, it will be false.
      *
      */
-    public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll)
+    public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll = false)
     {
         // If varName is entirely numeric, case doesn't matter, so skip case checking.
         $anyCase &= !ctype_digit($varName);
@@ -432,7 +434,7 @@ class MetaTemplate
                 $destName = $srcName;
             }
 
-            if (strlen($srcName) && strlen($srcName)) {
+            if (strlen($srcName) && strlen($destName)) {
                 $retval[$srcName] = $destName;
             }
         }
@@ -537,7 +539,7 @@ class MetaTemplate
         // Since assignments are typically numerous, try to take the most efficient route possible. Only non-optimal
         // route is if a value exists with the same case, it will be unset/reset despite not needing it.
         if (count($values) < 2) {
-            $existing = self::getVar($frame, $name, $anyCase, false);
+            $existing = self::getVar($frame, $name, $anyCase);
             if ($existing !== false) {
                 // RHshow('Override case');
                 self::setVar($frame, $name, $existing, $anyCase);
@@ -545,7 +547,7 @@ class MetaTemplate
         } elseif ($overwrite) {
             // RHshow('Set/Overwrite');
             self::setVar($frame, $name, $values[1], $anyCase);
-        } elseif (self::getVar($frame, $name, $anyCase, false) === false) {
+        } elseif (self::getVar($frame, $name, $anyCase) === false) {
             // RHshow('Set');
             self::setVar($frame, $name, $values[1], $anyCase);
         } // else variable is already defined and should not be overridden.

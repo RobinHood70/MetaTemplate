@@ -13,13 +13,15 @@ class MetaTemplateData
 
 	const PF_LISTSAVED = 'metatemplate-listsaved';
 	const PF_LOAD = 'metatemplate-load';
+	const PF_LOADLIST = 'metatemplate-loadlist';
 	const PF_SAVE = 'metatemplate-save';
 
+	private const LOADLIST_KEY = '#loadlist';
+	private const SAVE_KEY = MetaTemplate::METADATA_NAME . '#save';
 	private const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
+	private const SAVE_PARSEONLOAD = MetaTemplate::METADATA_NAME . '#parseOnLoad';
 
 	private static $saveArgNameWidth = 50;
-	private static $saveKey = 'mt#Save';
-	private static $saveParseOnLoad = 'mt#ParseOnLoad';
 	private static $setNameWidth = 50;
 
 	/**
@@ -43,23 +45,36 @@ class MetaTemplateData
 	 */
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
 	{
+		$helper = ParserHelper::getInstance();
 		$setup = self::listSavedSetup($frame, $args);
 		if (is_string($setup)) {
 			return ['text' => $setup, 'noparse' => true];
 		}
 
 		/**
-		 * @var string $templateName
+		 * @var Title $templateTitle
 		 * @var array $magicArgs
 		 * @var array $named
 		 * @var array $unnamed
 		 */
-		list($templateName, $magicArgs, $named, $unnamed) = $setup;
+		list($templateTitle, $magicArgs, $named, $unnamed) = $setup;
+		$set = MetaTemplate::METADATA_NAME;
+		$articleId = $templateTitle->getArticleID();
+		$loadlist = self::loadFromDatabase($articleId, $set, [self::LOADLIST_KEY]);
+		if ($loadlist && count($loadlist) === 1) {
+			$var = $loadlist[self::LOADLIST_KEY] ?? false;
+			if ($var) {
+				// $unnamed goes last in array_merge to specified parameters override #loadlist defaults.
+				$unnamed = array_merge(explode("\n", $var->getValue()), $unnamed);
+			}
+		}
+
 		$language = $parser->getConverterLanguage();
 		$namespace = $magicArgs[self::NA_NAMESPACE] ?? null;
 		$namespace = is_null($namespace) ? -1 : $language->getNsIndex($namespace);
 
-		$items = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $named, $unnamed);
+		$translations = MetaTemplate::getVariableTranslations($frame, $unnamed, self::$saveArgNameWidth);
+		$items = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $named, $translations);
 
 		$orderNames = $magicArgs[self::NA_ORDER] ?? null;
 		$orderNames = $orderNames ? explode(',', $orderNames) : [];
@@ -67,8 +82,9 @@ class MetaTemplateData
 		$orderNames[] = 'set';
 
 		$data = self::listSavedSort($items, $orderNames);
+		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
 		$templates = self::createTemplates($language, $templateName, $data);
-		$retval = ParserHelper::getInstance()->formatPFForDebug($templates, $magicArgs[ParserHelper::NA_DEBUG] ?? false);
+		$retval = $helper->formatPFForDebug($templates, $magicArgs[ParserHelper::NA_DEBUG] ?? false);
 
 		return ['text' => $retval, 'noparse' => false];
 	}
@@ -123,7 +139,7 @@ class MetaTemplateData
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::$saveArgNameWidth);
 		$varsToLoad = [];
 		foreach ($translations as $srcName => $destName) {
-			if (MetaTemplate::getVar($frame, $destName, $anyCase, false) === false) {
+			if (MetaTemplate::getVar($frame, $destName, $anyCase) === false) {
 				$varsToLoad[] = $srcName;
 			}
 		}
@@ -166,6 +182,42 @@ class MetaTemplateData
 				}
 			}
 		}
+	}
+
+	/**
+	 * Saves the specified variable names as metadata to be used by #listsaved.
+	 *
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $args Function arguments: None.
+	 *
+	 * @return void
+	 *
+	 */
+	public static function doLoadList(Parser $parser, PPFrame $frame, array $args): void
+	{
+		if ($frame->depth > 0 || $parser->getOptions()->getIsPreview()) {
+			return;
+		}
+
+		$helper = ParserHelper::getInstance();
+		$values = [];
+		foreach ($args as $arg) {
+			$value = $helper->getKeyValue($frame, $arg)[1];
+			if (self::nodeIsTextOnly($value)) {
+				$values[] = $frame->expand($value);
+			}
+		}
+
+		sort($values);
+		$value = implode("\n", $values);
+		$var = new MetaTemplateVariable($value, false);
+		self::addPageVariables(
+			WikiPage::factory($parser->getTitle()),
+			$parser->getOutput(),
+			MetaTemplate::METADATA_NAME,
+			[self::LOADLIST_KEY => $var]
+		);
 	}
 
 	/**
@@ -215,19 +267,19 @@ class MetaTemplateData
 
 		$anyCase = $helper->checkAnyCase($magicArgs);
 		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
-		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::$saveArgNameWidth);
 
 		$varsToSave = [];
 		$output = $parser->getOutput();
+		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::$saveArgNameWidth);
 		foreach ($translations as $srcName => $destName) {
-			$output->setExtensionData(self::$saveParseOnLoad, true);
-			$varValue = MetaTemplate::getVar($frame, $srcName, $anyCase, false);
+			$output->setExtensionData(self::SAVE_PARSEONLOAD, true);
+			$varValue = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($varValue === false) {
 				continue;
 			}
 
 			$varValue = $frame->expand($varValue, $saveMarkup ? self::SAVE_MARKUP_FLAGS : 0);
-			if (!$output->getExtensionData(self::$saveParseOnLoad)) {
+			if (!$output->getExtensionData(self::SAVE_PARSEONLOAD)) {
 				// The value of saveParseOnLoad changed during expansion, meaning that there are <savemarkup> tags
 				// present.
 				$parseOnLoad = true;
@@ -242,17 +294,14 @@ class MetaTemplateData
 			// be parsed.
 			if ($parseOnLoad) {
 				$parseCheck = $parser->preprocessToDom($varValue);
-				$first = $parseCheck->getFirstChild();
-				$parseOnLoad = $first instanceof PPNode_Hash_Text
-					? $first->getNextSibling() !== false
-					: false;
+				$parseOnLoad = !self::nodeIsTextOnly($parseCheck);
 			}
 
 			$varsToSave[$destName] = new MetaTemplateVariable($varValue, $parseOnLoad);
 		}
 
 		// RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
-		$output->setExtensionData(self::$saveParseOnLoad, false); // Probably not necessary, but just in case...
+		$output->setExtensionData(self::SAVE_PARSEONLOAD, false); // Probably not necessary, but just in case...
 		self::addPageVariables(WikiPage::factory($title), $output, $magicArgs[self::NA_SET] ?? '', $varsToSave);
 	}
 
@@ -269,8 +318,8 @@ class MetaTemplateData
 	 */
 	public static function doSaveMarkupTag($value, array $attributes, Parser $parser, PPFrame $frame): string
 	{
-		if ($parser->getOutput()->getExtensionData(self::$saveParseOnLoad)) {
-			$parser->getOutput()->setExtensionData(self::$saveParseOnLoad, false);
+		if ($parser->getOutput()->getExtensionData(self::SAVE_PARSEONLOAD)) {
+			$parser->getOutput()->setExtensionData(self::SAVE_PARSEONLOAD, false);
 			$value = $parser->preprocessToDom($value, Parser::PTD_FOR_INCLUSION);
 			$value = $frame->expand($value, self::SAVE_MARKUP_FLAGS);
 
@@ -290,7 +339,7 @@ class MetaTemplateData
 	 */
 	public static function getPageVariables(ParserOutput $output): ?MetaTemplateSetCollection
 	{
-		return $output->getExtensionData(self::$saveKey);
+		return $output->getExtensionData(self::SAVE_KEY);
 	}
 
 	/**
@@ -321,7 +370,7 @@ class MetaTemplateData
 	 */
 	public static function setPageVariables(ParserOutput $output, ?MetaTemplateSetCollection $value = null): void
 	{
-		$output->setExtensionData(self::$saveKey, $value);
+		$output->setExtensionData(self::SAVE_KEY, $value);
 	}
 
 	/**
@@ -411,8 +460,8 @@ class MetaTemplateData
 	 * @param PPFrame $frame THe frame in use.
 	 * @param array $args Function arguments (see doListSaved for details).
 	 *
-	 * @return array An array of values to pass back to doListSaved: the template name, magicArgs, query parameters,
-	 *               and the list of variables to include in the results.
+	 * @return array An array of values to pass back to doListSaved: the template's WikiPage, magicArgs, query
+	 *               parameters, and the list of variables to include in the results.
 	 *
 	 */
 	private static function listSavedSetup(PPFrame $frame, array $args)
@@ -486,8 +535,7 @@ class MetaTemplateData
 				return $helper->error('metatemplate-listsaved-template-disallowedmessage', $template, $badWord);
 		}
 
-		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
-		return [$templateName, $magicArgs, $named, $unnamed];
+		return [$templateTitle, $magicArgs, $named, $unnamed];
 	}
 
 	/**
@@ -573,6 +621,39 @@ class MetaTemplateData
 
 		// RHshow('Output Variables: ', $vars);
 		return $vars;
+	}
+
+	/**
+	 * Given a node (or string for $args[0]), determine if it's plain text.
+	 *
+	 * @param PPNode $node
+	 *
+	 * @return bool True if the node represents a text-only value.
+	 *
+	 */
+	private static function nodeIsTextOnly($node)
+	{
+		if (is_string($node)) {
+			// This is primitive, but should suffice to check the first parameter of template arguments, which is the
+			// only time this should ever be true. The only other alternative is to fully parse it, which is what this
+			// template aims to avoid.
+			return
+				strpos($node, '{{') >= 0 &&
+				strpos($node, '[') >= 0;
+		}
+
+		if ($node instanceof PPNode_Hash_Text) {
+			return true;
+		}
+
+		if ($node instanceof PPNode_Hash_Tree) {
+			$first = $node->getFirstChild();
+			if ($first instanceof PPNode_Hash_Text) {
+				return !$first->getNextSibling();
+			}
+		}
+
+		return false;
 	}
 
 	/**

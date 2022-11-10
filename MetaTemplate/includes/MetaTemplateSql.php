@@ -99,7 +99,7 @@ class MetaTemplateSql
         $this->dbWrite->insert(self::DATA_TABLE, $data);
     }
 
-    public function loadListSavedData(int $namespace, array $named, array $unnamed): array
+    public function loadListSavedData(int $namespace, array $named, array $translations): array
     {
         $tables = [
             'page',
@@ -120,7 +120,7 @@ class MetaTemplateSql
             'mtSaveData' => ['JOIN', [self::SET_TABLE . '.setId=' . self::DATA_TABLE . '.setId']]
         ];
 
-        $varNames = array_merge(array_keys($named), $unnamed);
+        $varNames = array_merge(array_keys($named), array_keys($translations));
         $conds = [self::DATA_TABLE . '.varName' => $varNames];
         if ($namespace >= 0) {
             $conds['page.page_namespace'] = $namespace;
@@ -151,9 +151,10 @@ class MetaTemplateSql
                 ];
             }
 
+            $varName = $translations[$row['varName']];
             // Because the final result will always be parsed, we don't need to worry about parsing it here; we can
             // just include the value verbatim.
-            $retval[$key][$row['varName']] = $row['varValue'];
+            $retval[$key][$varName] = $row['varValue'];
         }
 
         // RHshow($retval);
@@ -277,8 +278,6 @@ class MetaTemplateSql
         $title = $parser->getTitle();
         $output = $parser->getOutput();
         $vars = MetaTemplateData::getPageVariables($output);
-        $revId = $vars ? $vars->getRevId() : 0;
-        // RHwriteFile('Save page: ', $title->getFullText(), ' - ', $revId, ' / ', $parser->getRevisionId());
         if (!$parser->getRevisionId()) {
             return;
         }

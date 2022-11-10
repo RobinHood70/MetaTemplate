@@ -27,5 +27,6 @@ $magicWords['en'] = [
 	MetaTemplateData::NA_SET => [0, 'set', 'subset'],
 	MetaTemplateData::PF_LISTSAVED => [0, 'listsaved'],
 	MetaTemplateData::PF_LOAD => [0, 'load'],
+	MetaTemplateData::PF_LOADLIST => [0, 'loadlist'],
 	MetaTemplateData::PF_SAVE => [0, 'save'],
 ];

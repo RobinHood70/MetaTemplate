@@ -128,6 +128,21 @@ class MetaTemplateHooks
 		$bypassVars[] = 'ns_id';
 	}
 
+	public static function onPageMoveComplete(
+		MediaWiki\Linker\LinkTarget $old,
+		MediaWiki\Linker\LinkTarget $new,
+		MediaWiki\User\UserIdentity $userIdentity,
+		int $pageid,
+		int $redirid,
+		string $reason,
+		MediaWiki\Revision\RevisionRecord $revision
+	) {
+		// <  MW 1.31: The RevisionRecord and UserIdentity classes do not exist and will show up as errors.
+		// >= MW 1.35: This version will automatically become active. Note that $redirid is the old page ID regardless of
+		//             whether it's a redirect or not.
+		MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
+	}
+
 	/**
 	 * Writes all #saved data to the database.
 	 *
@@ -206,6 +221,13 @@ class MetaTemplateHooks
 		// to modify the source files to insert our own parser and/or preprocessor.
 		global $wgParserConf;
 		$wgParserConf['preprocessorClass'] = "MetaTemplatePreprocessor";
+	}
+
+	public static function onTitleMoveComplete(Title &$title, Title &$newTitle, User $user, $oldid, $newid, $reason, Revision $revision)
+	{
+		// This function is deprecated as of 1.35. The corresponding onPageMoveComplete handles everything from that
+		// point, so this function can be removed, along with the corresponding adjustment to extension.json.
+		MetaTemplateSql::getInstance()->moveVariables($oldid, $newid);
 	}
 
 	/**

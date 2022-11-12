@@ -46,10 +46,12 @@
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
+		"PageMoveComplete": "MetaTemplate::onPageMoved",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
 		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
-		"ParserTestTables": "MetaTemplateHooks::onParserTestTables"
+		"ParserTestTables": "MetaTemplateHooks::onParserTestTables",
+		"TitleMoveComplete": "MetaTemplate::onPageMoved"
 	},
 	"MessagesDirs": {
 		"MetaTemplate": [

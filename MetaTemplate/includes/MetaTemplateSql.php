@@ -206,7 +206,6 @@ class MetaTemplateSql
      * Loads variables from the database.
      *
      * @param mixed $pageId The page ID to load.
-     * @param mixed $revId The minimum revision ID to load.
      * @param string $setName The set name to load.
      * @param array $varNames A filter of which variable names should be returned.
      *
@@ -257,6 +256,15 @@ class MetaTemplateSql
         }
 
         return $retval;
+    }
+
+    public function moveVariables(int $oldid, int $newid)
+    {
+        $this->dbRead->update(
+            self::SET_TABLE,
+            ['pageId' => $newid],
+            ['pageId' => $oldid]
+        );
     }
 
     /**

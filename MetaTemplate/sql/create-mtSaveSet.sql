@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS mtSaveSet (
     revId INT UNSIGNED NOT NULL,
     setId INT UNSIGNED NOT NULL AUTO_INCREMENT,
     -- FOREIGN KEY (pageId) references page (page_id), -- Unable right now due to page being MyISAM and mtSaveSet being InnoDB
-    PRIMARY KEY (setName, pageId, revId),
-    UNIQUE INDEX (setId),
-    INDEX (pageId)
+    PRIMARY KEY (pageId, setName, revId),
+    UNIQUE INDEX (setId)
 ) /*$wgDBTableOptions*/;

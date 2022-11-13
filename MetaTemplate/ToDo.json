@@ -6,15 +6,7 @@
 		"metavars": "ApiQueryMetaVars"
 	},
 	"AutoloadClasses": {
-		"MetaTemplateCategoryPage": "MetaTemplateCategoryPage.php",
-		"MetaTemplateCategoryViewer": "MetaTemplateCategoryPage.php",
-		"CategoryTreeCategoryPage": "FakeCategoryTreeStubs.php",
 		"ApiQueryMetaVars": "ApiQueryMetaVars.php",
 		"SpecialPagesWithMetaVar": "SpecialPagesWithMetaVar.php"
-	},
-	"Hooks": {
-		"ArticleDeleteComplete": "MetaTemplateSaveData::OnDelete",
-		"ArticleFromTitle": "MetaTemplate::efMetaTemplateArticleFromTitle",
-		"TitleMoveComplete": "MetaTemplateSaveData::OnMove"
 	}
 }

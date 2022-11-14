@@ -42,6 +42,7 @@ class MetaTemplate
      */
     private static $bypassVars = null;
 
+    //Dummy change
     /**
      * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
      * section of extension.json. Prepend the names with $metatemplate to alter their values in LocalSettings.php.

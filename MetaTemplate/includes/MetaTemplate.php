@@ -25,8 +25,6 @@ class MetaTemplate
     const STTNG_ENABLEDATA = 'EnableData';
     const STTNG_ENABLECPT = 'EnableCatPageTemplate';
 
-    const TG_CATPAGETEMPLATE = 'metatemplate-catpagetemplate'; // Might be movable
-
     const VR_FULLPAGENAME0 = 'metatemplate-fullpagename0';
     const VR_NAMESPACE0 = 'metatemplate-namespace0';
     const VR_NESTLEVEL = 'metatemplate-nestlevel';
@@ -42,7 +40,6 @@ class MetaTemplate
      */
     private static $bypassVars = null;
 
-    //Dummy change
     /**
      * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
      * section of extension.json. Prepend the names with $metatemplate to alter their values in LocalSettings.php.

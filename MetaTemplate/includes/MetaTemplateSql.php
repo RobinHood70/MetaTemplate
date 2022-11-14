@@ -268,6 +268,70 @@ class MetaTemplateSql
     }
 
     /**
+     * Does a simple purge on all direct backlinks from a page. Needs tested to see if this should be used in the long run. Might be too server intensive, but
+     *
+     * @param Title $title
+     *
+     * @return void
+     *
+     */
+    public function recursiveInvalidateCache(Title $title): void
+    {
+        // Note: this is recursive only in the sense that it will cause page re-evaluation, which will, in turn, cause
+        // their dependents to be re-evaluated. This should not be left in-place in the final product, as it's very
+        // server-intensive. (Is it, though? Test on large job on dev.) Instead, call the cache's enqueue jobs method
+        // to put things on the queue or possibly just send this page to be purged with forcerecursivelinksupdate.
+
+        // RHwriteFile('Recursive Invalidate');
+        $templateLinks = 'templatelinks';
+        $linkIds = [];
+        foreach ($title->getBacklinkCache()->getLinks($templateLinks) as $link) {
+            $linkIds[] = $link->getArticleID();
+        }
+
+        if (!count($linkIds)) {
+            return;
+        }
+
+        $result = $this->dbRead->select(
+            self::SET_TABLE,
+            ['pageId'],
+            ['pageId' => $linkIds],
+            __METHOD__
+        );
+
+        $recursiveIds = [];
+        for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
+            $recursiveIds[] = $row['pageId'];
+        }
+
+        foreach ($linkIds as $linkId) {
+            if (!isset(self::$pagesPurged[$linkId])) {
+                self::$pagesPurged[$linkId] = true;
+                $title = Title::newFromID($linkId);
+                if (isset($recursiveIds[$linkId])) {
+                    $job = new RefreshLinksJob(
+                        $title,
+                        [
+                            'table' => $templateLinks,
+                            'recursive' => true,
+                        ] + Job::newRootJobParams(
+                            "refreshlinks:{$templateLinks}:{$title->getPrefixedText()}"
+                        )
+                    );
+
+                    JobQueueGroup::singleton()->push($job);
+                } else {
+                    $page = WikiPage::factory($title);
+                    $page->doPurge();
+                }
+            }
+        }
+
+        // RHwriteFile('End Recursive Update');
+    }
+
+    /**
      * Saves variables to the database.
      *
      * @param Parser $parser The parser in use.
@@ -390,70 +454,6 @@ class MetaTemplateSql
                 );
             }
         }
-    }
-
-    /**
-     * Does a simple purge on all direct backlinks from a page. Needs tested to see if this should be used in the long run. Might be too server intensive, but
-     *
-     * @param Title $title
-     *
-     * @return void
-     *
-     */
-    private function recursiveInvalidateCache(Title $title): void
-    {
-        // Note: this is recursive only in the sense that it will cause page re-evaluation, which will, in turn, cause
-        // their dependents to be re-evaluated. This should not be left in-place in the final product, as it's very
-        // server-intensive. (Is it, though? Test on large job on dev.) Instead, call the cache's enqueue jobs method
-        // to put things on the queue or possibly just send this page to be purged with forcerecursivelinksupdate.
-
-        // RHwriteFile('Recursive Invalidate');
-        $templateLinks = 'templatelinks';
-        $linkIds = [];
-        foreach ($title->getBacklinkCache()->getLinks($templateLinks) as $link) {
-            $linkIds[] = $link->getArticleID();
-        }
-
-        if (!count($linkIds)) {
-            return;
-        }
-
-        $result = $this->dbRead->select(
-            self::SET_TABLE,
-            ['pageId'],
-            ['pageId' => $linkIds],
-            __METHOD__
-        );
-
-        $recursiveIds = [];
-        for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-            $recursiveIds[] = $row['pageId'];
-        }
-
-        foreach ($linkIds as $linkId) {
-            if (!isset(self::$pagesPurged[$linkId])) {
-                self::$pagesPurged[$linkId] = true;
-                $title = Title::newFromID($linkId);
-                if (isset($recursiveIds[$linkId])) {
-                    $job = new RefreshLinksJob(
-                        $title,
-                        [
-                            'table' => $templateLinks,
-                            'recursive' => true,
-                        ] + Job::newRootJobParams(
-                            "refreshlinks:{$templateLinks}:{$title->getPrefixedText()}"
-                        )
-                    );
-
-                    JobQueueGroup::singleton()->push($job);
-                } else {
-                    $page = WikiPage::factory($title);
-                    $page->doPurge();
-                }
-            }
-        }
-
-        // RHwriteFile('End Recursive Update');
     }
 
     /**

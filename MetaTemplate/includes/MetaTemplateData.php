@@ -8,13 +8,15 @@ class MetaTemplateData
 	const NA_NAMESPACE = 'metatemplate-namespace';
 	const NA_ORDER = 'metatemplate-order';
 	const NA_PAGENAME = 'metatemplate-pagename';
-	const NA_SAVEMARKUP = 'metatemplate-savemarkup';
+	const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
 	const NA_SET = 'metatemplate-set';
 
 	const PF_LISTSAVED = 'metatemplate-listsaved';
 	const PF_LOAD = 'metatemplate-load';
 	const PF_LOADLIST = 'metatemplate-loadlist';
 	const PF_SAVE = 'metatemplate-save';
+
+	const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 
 	private const LOADLIST_KEY = '#loadlist';
 	private const SAVE_KEY = MetaTemplate::METADATA_NAME . '#save';

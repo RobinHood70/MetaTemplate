@@ -22,6 +22,8 @@
 	"type": "parserhook",
 	"AutoloadClasses": {
 		"MetaTemplate": "includes/MetaTemplate.php",
+		"MetaTemplateCategoryPage": "includes/MetaTemplateCategoryPage.php",
+		"MetaTemplateCategoryViewer": "includes/MetaTemplateCategoryViewer.php",
 		"MetaTemplateData": "includes/MetaTemplateData.php",
 		"MetaTemplateDataUpdate": "includes/MetaTemplateDataUpdate.php",
 		"MetaTemplateFrameRoot": "includes/MetaTemplateFrameRoot.php",
@@ -43,15 +45,16 @@
 		"MetaTemplateMagic": "i18n/MetaTemplate.i18n.magic.php"
 	},
 	"Hooks": {
+		"ArticleFromTitle": "MetaTemplateHooks::onArticleFromTitle",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
-		"PageMoveComplete": "MetaTemplate::onPageMoved",
+		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
 		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
 		"ParserTestTables": "MetaTemplateHooks::onParserTestTables",
-		"TitleMoveComplete": "MetaTemplate::onPageMoved"
+		"TitleMoveComplete": "MetaTemplateHooks::onPageMoveComplete"
 	},
 	"MessagesDirs": {
 		"MetaTemplate": [

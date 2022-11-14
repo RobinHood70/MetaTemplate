@@ -63,6 +63,15 @@ class MetaTemplateHooks
 		MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 	}
 
+	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): ?Article
+	{
+		if ($title->getNamespace() === NS_CATEGORY) {
+			return new MetaTemplateCategoryPage($title);
+		}
+
+		return null;
+	}
+
 	// Initial table setup/modifications from v1.
 	/**
 	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
@@ -128,19 +137,37 @@ class MetaTemplateHooks
 		$bypassVars[] = 'ns_id';
 	}
 
+	/**
+	 * During a move, this function moves data from the original page to the new one, then forces re-evaluation of the
+	 * new page to ensure all information is up to date.
+	 *
+	 * @param MediaWiki\Linker\LinkTarget $old The original LinkTarget for the page.
+	 * @param MediaWiki\Linker\LinkTarget $new The new LinkTarget for the page.
+	 * @param MediaWiki\User\UserIdentity $userIdentity The user performing the move.
+	 * @param int $pageid The original page ID.
+	 * @param int $redirid The new page ID.
+	 * @param string $reason The reason for the move.
+	 * @param MediaWiki\Revision\RevisionRecord $revision The RevisionRecord.
+	 *
+	 * @return void
+	 *
+	 */
 	public static function onPageMoveComplete(
-		MediaWiki\Linker\LinkTarget $old,
-		MediaWiki\Linker\LinkTarget $new,
-		MediaWiki\User\UserIdentity $userIdentity,
+		$old,
+		$new,
+		$userIdentity,
 		int $pageid,
 		int $redirid,
 		string $reason,
-		MediaWiki\Revision\RevisionRecord $revision
+		$revision
 	) {
-		// <  MW 1.31: The RevisionRecord and UserIdentity classes do not exist and will show up as errors.
-		// >= MW 1.35: This version will automatically become active. Note that $redirid is the old page ID regardless of
-		//             whether it's a redirect or not.
+		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
+		// the same number and order of parameters, just with different object types.
 		MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
+		$title = $new instanceof MediaWiki\Linker\LinkTarget
+			? Title::newFromLinkTarget($new)
+			: $new;
+		MetaTemplateSql::getInstance()->recursiveInvalidateCache($title);
 	}
 
 	/**
@@ -223,13 +250,6 @@ class MetaTemplateHooks
 		$wgParserConf['preprocessorClass'] = "MetaTemplatePreprocessor";
 	}
 
-	public static function onTitleMoveComplete(Title &$title, Title &$newTitle, User $user, $oldid, $newid, $reason, Revision $revision)
-	{
-		// This function is deprecated as of 1.35. The corresponding onPageMoveComplete handles everything from that
-		// point, so this function can be removed, along with the corresponding adjustment to extension.json.
-		MetaTemplateSql::getInstance()->moveVariables($oldid, $newid);
-	}
-
 	/**
 	 * Initialize parser functions.
 	 *
@@ -266,12 +286,12 @@ class MetaTemplateHooks
 	 */
 	private static function initTagFunctions(Parser $parser)
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
-			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateData::NA_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateCategoryPage::TG_CATPAGETEMPLATE, 'MetaTemplateCategory::doCatPageTemplate');
 		}
 
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			// $parser->setHook(MetaTemplate::TG_CATPAGETEMPLATE, 'MetaTemplateInit::efMetaTemplateCatPageTemplate');
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		}
 	}
 }

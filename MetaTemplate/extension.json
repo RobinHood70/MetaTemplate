@@ -25,7 +25,6 @@
 		"MetaTemplateCategoryPage": "includes/MetaTemplateCategoryPage.php",
 		"MetaTemplateCategoryViewer": "includes/MetaTemplateCategoryViewer.php",
 		"MetaTemplateData": "includes/MetaTemplateData.php",
-		"MetaTemplateDataUpdate": "includes/MetaTemplateDataUpdate.php",
 		"MetaTemplateFrameRoot": "includes/MetaTemplateFrameRoot.php",
 		"MetaTemplateHooks": "includes/MetaTemplateHooks.php",
 		"MetaTemplatePreprocessor": "includes/MetaTemplatePreprocessor.php",

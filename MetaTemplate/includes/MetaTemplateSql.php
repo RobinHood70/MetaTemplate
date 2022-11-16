@@ -2,7 +2,6 @@
 
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IResultWrapper;
 
 /**
  * Handles all SQL-related functions for MetaTemplate.

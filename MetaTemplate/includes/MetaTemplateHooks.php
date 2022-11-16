@@ -287,7 +287,7 @@ class MetaTemplateHooks
 	private static function initTagFunctions(Parser $parser)
 	{
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateCategoryPage::TG_CATPAGETEMPLATE, 'MetaTemplateCategory::doCatPageTemplate');
+			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateCategoryPage::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
 		}
 
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {

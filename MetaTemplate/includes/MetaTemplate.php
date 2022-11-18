@@ -223,7 +223,7 @@ class MetaTemplate
         $retval = $frame->depth;
         $args = $frame->getNamedArguments();
         if (!is_null($args)) {
-            $magicArgs = ParserHelper::getInstance()->transformArgs($args);
+            $magicArgs = ParserHelper::getInstance()->transformAttributes($args);
             if (isset($magicArgs[self::NA_NESTLEVEL])) {
                 $retval = $frame->expand($magicArgs[self::NA_NESTLEVEL]);
             }

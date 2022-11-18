@@ -318,17 +318,17 @@ class MetaTemplateData
 	 * @return string The value text with templates and tags left unparsed.
 	 *
 	 */
-	public static function doSaveMarkupTag($value, array $attributes, Parser $parser, PPFrame $frame): string
+	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame $frame): string
 	{
 		if ($parser->getOutput()->getExtensionData(self::SAVE_PARSEONLOAD)) {
 			$parser->getOutput()->setExtensionData(self::SAVE_PARSEONLOAD, false);
-			$value = $parser->preprocessToDom($value, Parser::PTD_FOR_INCLUSION);
+			$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
 			$value = $frame->expand($value, self::SAVE_MARKUP_FLAGS);
 
 			return $value;
 		}
 
-		return $parser->recursiveTagParse($value, $frame);
+		return $parser->recursiveTagParse($content, $frame);
 	}
 
 	/**

@@ -453,7 +453,7 @@ class MetaTemplate
             self::NA_SHIFT,
         ]);
 
-        if (self::can('EnableData')) {
+        if (self::can(self::STTNG_ENABLEDATA)) {
             MetaTemplateData::init();
         }
     }

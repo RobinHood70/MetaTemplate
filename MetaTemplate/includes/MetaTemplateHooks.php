@@ -63,13 +63,11 @@ class MetaTemplateHooks
 		MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 	}
 
-	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): ?Article
+	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): void
 	{
 		if ($title->getNamespace() === NS_CATEGORY) {
-			return new MetaTemplateCategoryPage($title);
+			$article = new MetaTemplateCategoryPage($title);
 		}
-
-		return null;
 	}
 
 	// Initial table setup/modifications from v1.
@@ -160,7 +158,7 @@ class MetaTemplateHooks
 		int $redirid,
 		string $reason,
 		$revision
-	) {
+	): void {
 		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
 		// the same number and order of parameters, just with different object types.
 		MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
@@ -194,7 +192,7 @@ class MetaTemplateHooks
 	 * @return void
 	 *
 	 */
-	public static function onParserFirstCallInit(Parser $parser)
+	public static function onParserFirstCallInit(Parser $parser): void
 	{
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
@@ -284,7 +282,7 @@ class MetaTemplateHooks
 	 *
 	 * @return void
 	 */
-	private static function initTagFunctions(Parser $parser)
+	private static function initTagFunctions(Parser $parser): void
 	{
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateCategoryPage::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');

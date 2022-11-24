@@ -2,7 +2,7 @@
 // namespace MediaWiki\Extension\MetaTemplate;
 // use MediaWiki\DatabaseUpdater;
 
-// TODO: Add {{#define/local/preview:a=b|c=d}}
+/** @todo Add {{#define/local/preview:a=b|c=d}} */
 class MetaTemplateHooks
 {
 	const OLDSET_TABLE = 'mt_save_set';
@@ -63,6 +63,19 @@ class MetaTemplateHooks
 		MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 	}
 
+	/**
+	 * If in Category space, this creates a new CategoryPage derivative that will open one of:
+	 *   - A MetaTemplateCategoryViewer if a <catpagetemplate> is present on the category page.
+	 *   - A CategoryTreeCategoryViewer if the CategoryTree extension is detected.
+	 *   - A regular CategoryViewer in all other cases.
+	 *
+	 * @param Title $title The category's title.
+	 * @param Article|null $article The new article page.
+	 * @param IContextSource $context The request context.
+	 *
+	 * @return void
+	 *
+	 */
 	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): void
 	{
 		if ($title->getNamespace() === NS_CATEGORY) {
@@ -127,10 +140,13 @@ class MetaTemplateHooks
 	 */
 	public static function onMetaTemplateSetBypassVars(array &$bypassVars): void
 	{
-		// TODO: This function is a placeholder until UespCustomCode is rewritten, at which point this can be
-		// transferred there.
-		// Going with hard-coded values, since these are unlikely to change, even if we transfer them to other
-		// languages. If we do want to translate them, it's changed easily enough at that time.
+		/** @todo This function is a placeholder until UespCustomCode is rewritten, at which point this can be
+		 *  transferred there.
+		 */
+
+		/* Going with hard-coded values, since these are unlikely to change, even if we transfer them to other
+		 * languages. If we do want to translate them, it's changed easily enough at that time.
+		 */
 		$bypassVars[] = 'ns_base';
 		$bypassVars[] = 'ns_id';
 	}

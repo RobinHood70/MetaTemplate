@@ -169,7 +169,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         MetaTemplate::setVar($frame, self::$mwSortkey->getSynonym(0), $splitkey[0]);
         if (is_null($curSet)) {
             // We communicate back-channel so as not to corrupt anything in the frame.
-            $output->setExtensionData(MetaTemplate::STAR_SET, '*');
+            $output->setExtensionData(MetaTemplate::KEY_WILDCARD_SET, '*');
             $setName = '';
         } else {
             $setName = $curSet;
@@ -240,7 +240,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
         // This is where the function gets called recursively to fill in multiple sets, if need be.
         $setList = [];
-        $setsFound = $output->getExtensionData(MetaTemplate::STAR_SET) ?? [];
+        $setsFound = $output->getExtensionData(MetaTemplate::KEY_WILDCARD_SET) ?? [];
         // RHshow('Sets found: ', $setsFound);
         if (!isset($curSet) && $setsFound !== '*' && !empty($setsFound)) {
             // RHshow('Current set: ', is_null($curSet) ? '<null>' : "'$curSet'", "\nSets found: ", $setsFound);

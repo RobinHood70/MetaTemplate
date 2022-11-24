@@ -7,10 +7,10 @@ use MediaWiki\MediaWikiServices;
  */
 class MetaTemplate
 {
-    const METADATA_NAME = '@metatemplate';
+    const KEY_METATEMPLATE = '@metatemplate';
 
     // Shared between CPT and #load, so needs a shared home in case one or the other is disabled.
-    const STAR_SET = self::METADATA_NAME . '#starSet';
+    const KEY_WILDCARD_SET = self::KEY_METATEMPLATE . '#wildcardSet';
 
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
     const NA_SHIFT = 'metatemplate-shift';

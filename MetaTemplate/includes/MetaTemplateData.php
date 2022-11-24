@@ -18,10 +18,11 @@ class MetaTemplateData
 
 	const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 
-	private const KEY_PRELOAD = '#preload';
-	private const SAVE_KEY = MetaTemplate::METADATA_NAME . '#save';
+	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
+	private const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
+	private const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
+
 	private const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
-	private const SAVE_PARSEONLOAD = MetaTemplate::METADATA_NAME . '#parseOnLoad';
 
 	private static $saveArgNameWidth = 50;
 	private static $setNameWidth = 50;
@@ -60,7 +61,7 @@ class MetaTemplateData
 		 * @var array $unnamed
 		 */
 		list($templateTitle, $magicArgs, $named, $unnamed) = $setup;
-		$set = MetaTemplate::METADATA_NAME;
+		$set = MetaTemplate::KEY_METATEMPLATE;
 		$articleId = $templateTitle->getArticleID();
 		$preload = self::loadFromDatabase($articleId, $set, [self::KEY_PRELOAD]);
 		if ($preload && count($preload) === 1) {
@@ -156,9 +157,10 @@ class MetaTemplateData
 		// catpagetemplate code baked in here, but any other way I could think of, like hooks, generated a lot of
 		// overhead for what is likely to be a fairly rare scenario.
 		$set = $magicArgs[self::NA_SET]
-			?? $output->getExtensionData(MetaTemplate::STAR_SET)
+			?? $output->getExtensionData(MetaTemplate::KEY_WILDCARD_SET)
 			? '*'
 			: '';
+		$set = substr($set, 0, self::$setNameWidth);
 		$articleId = $loadTitle->getArticleID();
 		// Compare on title since an empty page won't have an ID.
 		$result = $parser->getTitle()->getFullText() === $loadTitle->getFullText()
@@ -176,11 +178,11 @@ class MetaTemplateData
 
 		if ($result) {
 			if ($set === '*') {
-				$output->setExtensionData(MetaTemplate::STAR_SET, $result);
+				$output->setExtensionData(MetaTemplate::KEY_WILDCARD_SET, $result);
 				return;
 			}
 
-			$output->setExtensionData(MetaTemplate::STAR_SET, null);
+			$output->setExtensionData(MetaTemplate::KEY_WILDCARD_SET, null);
 			foreach ($result as $varName => $var) {
 				$varValue = $var->getValue();
 				if ($var->getParseOnLoad()) {
@@ -227,7 +229,7 @@ class MetaTemplateData
 		self::addPageVariables(
 			WikiPage::factory($parser->getTitle()),
 			$parser->getOutput(),
-			MetaTemplate::METADATA_NAME,
+			MetaTemplate::KEY_METATEMPLATE,
 			[self::KEY_PRELOAD => $var]
 		);
 	}
@@ -284,14 +286,14 @@ class MetaTemplateData
 		$output = $parser->getOutput();
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::$saveArgNameWidth);
 		foreach ($translations as $srcName => $destName) {
-			$output->setExtensionData(self::SAVE_PARSEONLOAD, true);
+			$output->setExtensionData(self::KEY_PARSEONLOAD, true);
 			$varValue = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($varValue === false) {
 				continue;
 			}
 
 			$varValue = $frame->expand($varValue, $saveMarkup ? self::SAVE_MARKUP_FLAGS : 0);
-			if (!$output->getExtensionData(self::SAVE_PARSEONLOAD)) {
+			if (!$output->getExtensionData(self::KEY_PARSEONLOAD)) {
 				// The value of saveParseOnLoad changed during expansion, meaning that there are <savemarkup> tags
 				// present.
 				$parseOnLoad = true;
@@ -313,8 +315,9 @@ class MetaTemplateData
 		}
 
 		// RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
-		$output->setExtensionData(self::SAVE_PARSEONLOAD, false); // Probably not necessary, but just in case...
-		self::addPageVariables(WikiPage::factory($title), $output, $magicArgs[self::NA_SET] ?? '', $varsToSave);
+		$output->setExtensionData(self::KEY_PARSEONLOAD, false); // Probably not necessary, but just in case...
+		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::$setNameWidth);
+		self::addPageVariables(WikiPage::factory($title), $output, $set, $varsToSave);
 	}
 
 	/**
@@ -330,8 +333,8 @@ class MetaTemplateData
 	 */
 	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame $frame): string
 	{
-		if ($parser->getOutput()->getExtensionData(self::SAVE_PARSEONLOAD)) {
-			$parser->getOutput()->setExtensionData(self::SAVE_PARSEONLOAD, false);
+		if ($parser->getOutput()->getExtensionData(self::KEY_PARSEONLOAD)) {
+			$parser->getOutput()->setExtensionData(self::KEY_PARSEONLOAD, false);
 			$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
 			$value = $frame->expand($value, self::SAVE_MARKUP_FLAGS);
 
@@ -351,7 +354,7 @@ class MetaTemplateData
 	 */
 	public static function getPageVariables(ParserOutput $output): ?MetaTemplateSetCollection
 	{
-		return $output->getExtensionData(self::SAVE_KEY);
+		return $output->getExtensionData(self::KEY_SAVE);
 	}
 
 	/**
@@ -382,7 +385,7 @@ class MetaTemplateData
 	 */
 	public static function setPageVariables(ParserOutput $output, ?MetaTemplateSetCollection $value = null): void
 	{
-		$output->setExtensionData(self::SAVE_KEY, $value);
+		$output->setExtensionData(self::KEY_SAVE, $value);
 	}
 
 	/**

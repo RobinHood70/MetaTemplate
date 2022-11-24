@@ -13,12 +13,12 @@ class MetaTemplateData
 
 	const PF_LISTSAVED = 'metatemplate-listsaved';
 	const PF_LOAD = 'metatemplate-load';
-	const PF_LOADLIST = 'metatemplate-loadlist';
+	const PF_PRELOAD = 'metatemplate-preload';
 	const PF_SAVE = 'metatemplate-save';
 
 	const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 
-	private const LOADLIST_KEY = '#loadlist';
+	private const KEY_PRELOAD = '#preload';
 	private const SAVE_KEY = MetaTemplate::METADATA_NAME . '#save';
 	private const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
 	private const SAVE_PARSEONLOAD = MetaTemplate::METADATA_NAME . '#parseOnLoad';
@@ -62,11 +62,11 @@ class MetaTemplateData
 		list($templateTitle, $magicArgs, $named, $unnamed) = $setup;
 		$set = MetaTemplate::METADATA_NAME;
 		$articleId = $templateTitle->getArticleID();
-		$loadlist = self::loadFromDatabase($articleId, $set, [self::LOADLIST_KEY]);
-		if ($loadlist && count($loadlist) === 1) {
-			$var = $loadlist[self::LOADLIST_KEY] ?? false;
+		$preload = self::loadFromDatabase($articleId, $set, [self::KEY_PRELOAD]);
+		if ($preload && count($preload) === 1) {
+			$var = $preload[self::KEY_PRELOAD] ?? false;
 			if ($var) {
-				// $unnamed goes last in array_merge to specified parameters override #loadlist defaults.
+				// $unnamed goes last in array_merge so specified parameters override #preload defaults.
 				$unnamed = array_merge(explode("\n", $var->getValue()), $unnamed);
 			}
 		}
@@ -206,7 +206,7 @@ class MetaTemplateData
 	 * @return void
 	 *
 	 */
-	public static function doLoadList(Parser $parser, PPFrame $frame, array $args): void
+	public static function doPreload(Parser $parser, PPFrame $frame, array $args): void
 	{
 		if ($frame->depth > 0 || $parser->getOptions()->getIsPreview()) {
 			return;
@@ -228,7 +228,7 @@ class MetaTemplateData
 			WikiPage::factory($parser->getTitle()),
 			$parser->getOutput(),
 			MetaTemplate::METADATA_NAME,
-			[self::LOADLIST_KEY => $var]
+			[self::KEY_PRELOAD => $var]
 		);
 	}
 

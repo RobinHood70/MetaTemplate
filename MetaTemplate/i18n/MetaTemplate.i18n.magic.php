@@ -55,7 +55,7 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 
 		MetaTemplateData::PF_LISTSAVED => [0, 'listsaved'],
 		MetaTemplateData::PF_LOAD => [0, 'load'],
-		MetaTemplateData::PF_LOADLIST => [0, 'loadlist'],
+		MetaTemplateData::PF_PRELOAD => [0, 'preload'],
 		MetaTemplateData::PF_SAVE => [0, 'save'],
 
 		MetaTemplateData::TG_SAVEMARKUP => [0, 'savemarkup'],

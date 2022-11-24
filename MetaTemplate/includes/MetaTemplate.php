@@ -9,6 +9,9 @@ class MetaTemplate
 {
     const METADATA_NAME = '@metatemplate';
 
+    // Shared between CPT and #load, so needs a shared home in case one or the other is disabled.
+    const STAR_SET = self::METADATA_NAME . '#starSet';
+
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
     const NA_SHIFT = 'metatemplate-shift';
 
@@ -223,7 +226,7 @@ class MetaTemplate
         $retval = $frame->depth;
         $args = $frame->getNamedArguments();
         if (!is_null($args)) {
-            $magicArgs = ParserHelper::getInstance()->transformAttributes($args);
+            $magicArgs = ParserHelper::getInstance()->getMagicArgs($frame, $args, self::NA_NESTLEVEL)[0];
             if (isset($magicArgs[self::NA_NESTLEVEL])) {
                 $retval = $frame->expand($magicArgs[self::NA_NESTLEVEL]);
             }
@@ -456,6 +459,10 @@ class MetaTemplate
         if (self::can(self::STTNG_ENABLEDATA)) {
             MetaTemplateData::init();
         }
+
+        if (self::can(self::STTNG_ENABLECPT)) {
+            MetaTemplateCategoryViewer::init();
+        }
     }
 
     /**
@@ -490,14 +497,18 @@ class MetaTemplate
         }
 
         self::unsetVar($frame, $varName, $anyCase, false);
-        if (is_string($value)) {
-            // Value is a string, so create node and leave text as is.
-            $valueNode = new PPNode_Hash_Text([$value], 0);
-            $valueText = $value;
-        } else {
+        if ($value instanceof PPNode) {
             // Value is a node, so leave node as it is and expand value for text.
             $valueNode = $value;
             $valueText = $frame->expand($value);
+        } else {
+            if (!is_string($value)) {
+                $value = ParserHelper::getInstance()->error('metatemplate-setvar-notrecognized', $value, $varName);
+            }
+
+            // Value is a string, so create node and leave text as is.
+            $valueNode = new PPNode_Hash_Text([$value], 0);
+            $valueText = $value;
         }
 
         $args[$varName] = $valueNode;

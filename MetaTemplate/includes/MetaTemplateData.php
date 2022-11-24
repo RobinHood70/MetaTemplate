@@ -152,13 +152,18 @@ class MetaTemplateData
 		}
 
 		// RHshow('Vars to load: ', $varsToLoad);
-		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::$setNameWidth);
+		// Use existing set if specified; if not, check if using <catpagetemplate> or empty set. It's not ideal to have
+		// catpagetemplate code baked in here, but any other way I could think of, like hooks, generated a lot of
+		// overhead for what is likely to be a fairly rare scenario.
+		$set = $magicArgs[self::NA_SET]
+			?? $output->getExtensionData(MetaTemplate::STAR_SET)
+			? '*'
+			: '';
 		$articleId = $loadTitle->getArticleID();
 		// Compare on title since an empty page won't have an ID.
 		$result = $parser->getTitle()->getFullText() === $loadTitle->getFullText()
 			? self::loadFromOutput($output, $set, $varsToLoad)
 			: self::loadFromDatabase($articleId, $set, $varsToLoad);
-		// RHshow('Result Main: ', $result);
 
 		// If no results were returned and the page is a redirect, see if there are variables there.
 		if (!$result && $loadTitle->isRedirect()) {
@@ -167,10 +172,15 @@ class MetaTemplateData
 			$result = $parser->getTitle()->getFullText() === $loadTitle->getFullText()
 				? self::loadFromOutput($output, $set, $varsToLoad)
 				: self::loadFromDatabase($articleId, $set, $varsToLoad);
-			// RHshow('Result Redirect: ', $result);
 		}
 
 		if ($result) {
+			if ($set === '*') {
+				$output->setExtensionData(MetaTemplate::STAR_SET, $result);
+				return;
+			}
+
+			$output->setExtensionData(MetaTemplate::STAR_SET, null);
 			foreach ($result as $varName => $var) {
 				$varValue = $var->getValue();
 				if ($var->getParseOnLoad()) {
@@ -521,7 +531,6 @@ class MetaTemplateData
 		}
 
 		$maxLen = MetaTemplate::getConfig()->get('ListsavedMaxTemplateSize');
-		$text = false;
 		$text = $page->getContent()->getNativeData();
 		if ($maxLen > 0) {
 			if (!strlen($text)) {
@@ -621,7 +630,6 @@ class MetaTemplateData
 			}
 		}
 
-		// RHshow('Output Variables: ', $vars);
 		return $vars;
 	}
 

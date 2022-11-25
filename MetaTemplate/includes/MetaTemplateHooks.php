@@ -60,6 +60,7 @@ class MetaTemplateHooks
 	 */
 	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount): void
 	{
+		// RHlogFunctionText('Deleted: ', $article->getTitle()->getFullText());
 		MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 	}
 
@@ -177,6 +178,7 @@ class MetaTemplateHooks
 	): void {
 		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
 		// the same number and order of parameters, just with different object types.
+		// RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
 		MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
 		$title = $new instanceof MediaWiki\Linker\LinkTarget
 			? Title::newFromLinkTarget($new)

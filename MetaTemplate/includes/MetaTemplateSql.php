@@ -150,7 +150,9 @@ class MetaTemplateSql
                 ];
             }
 
-            $varName = $translations[$row['varName']];
+            // Look up the name to use. If database returns a variable we don't have a translation for, just use the
+            // name as is.
+            $varName = $translations[$row['varName']] ?? $row['varName'];
             // Because the final result will always be parsed, we don't need to worry about parsing it here; we can
             // just include the value verbatim.
             $retval[$key][$varName] = $row['varValue'];

@@ -19,7 +19,7 @@ class MetaTemplateData
 	const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 
 	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
-	private const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
+	private const KEY_PRELOAD = '#preload'; // Used under @MetaTemplate set so no need to add that here.
 	private const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
 
 	private const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
@@ -49,7 +49,7 @@ class MetaTemplateData
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
 	{
 		$helper = ParserHelper::getInstance();
-		$setup = self::listSavedSetup($frame, $args);
+		$setup = self::listSavedSetup($parser, $frame, $args);
 		if (is_string($setup)) {
 			return ['text' => $setup, 'noparse' => true];
 		}
@@ -61,8 +61,8 @@ class MetaTemplateData
 		 * @var array $unnamed
 		 */
 		list($templateTitle, $magicArgs, $named, $unnamed) = $setup;
-		$set = MetaTemplate::KEY_METATEMPLATE;
 		$articleId = $templateTitle->getArticleID();
+		$set = MetaTemplate::KEY_METATEMPLATE;
 		$preload = self::loadFromDatabase($articleId, $set, [self::KEY_PRELOAD]);
 		if ($preload && count($preload) === 1) {
 			$var = $preload[self::KEY_PRELOAD] ?? false;
@@ -479,7 +479,7 @@ class MetaTemplateData
 	 *               parameters, and the list of variables to include in the results.
 	 *
 	 */
-	private static function listSavedSetup(PPFrame $frame, array $args)
+	private static function listSavedSetup(Parser $parser, PPFrame $frame, array $args)
 	{
 		$helper = ParserHelper::getInstance();
 		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
@@ -524,12 +524,19 @@ class MetaTemplateData
 		}
 
 		$templateTitle = Title::newFromText($template, NS_TEMPLATE);
-		if (!$templateTitle || !$templateTitle->exists()) {
+		if (!$templateTitle) {
 			return $helper->error('metatemplate-listsaved-template-missing', $template);
 		}
 
 		$page = WikiPage::factory($templateTitle);
 		if (!$page) {
+			return $helper->error('metatemplate-listsaved-template-missing', $template);
+		}
+
+		// Track the page here rather than letting the output do it, since the template should be tracked even if it
+		// doesn't exist.
+		self::trackPage($parser->getOutput(), $page);
+		if (!$page->exists()) {
 			return $helper->error('metatemplate-listsaved-template-missing', $template);
 		}
 

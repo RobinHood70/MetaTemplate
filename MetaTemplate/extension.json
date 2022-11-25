@@ -3,8 +3,7 @@
 	"description": "Features to make templates more powerful",
 	"version": "2.0",
 	"author": [
-		"RobinHood70",
-		"Nephele (original design)"
+		"RobinHood70"
 	],
 	"url": "https://en.uesp.net/wiki/UESPWiki:MetaTemplate",
 	"callback": "MetaTemplateHooks::onRegister",

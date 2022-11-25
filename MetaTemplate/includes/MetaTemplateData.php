@@ -7,6 +7,7 @@ class MetaTemplateData
 {
 	const NA_NAMESPACE = 'metatemplate-namespace';
 	const NA_ORDER = 'metatemplate-order';
+	const NA_PAGELENGTH = 'metatemplate-pagelength';
 	const NA_PAGENAME = 'metatemplate-pagename';
 	const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
 	const NA_SET = 'metatemplate-set';

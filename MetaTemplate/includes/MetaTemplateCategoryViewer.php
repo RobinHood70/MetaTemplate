@@ -17,7 +17,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public const VAR_CATTEXTPRE = 'metatemplate-cattextpre';
 
     // CategoryViewer does not define these, despite wide-spread internal usage in later versions, so we do. If that
-    // changes in the future, these can be removed or copied from the original.
+    // changes in the future, these can be removed and the code altered, or they can be made synonyms for the CV names.
     private const CV_IMAGE = 'image';
     private const CV_PAGE = 'page';
     private const CV_SUBCAT = 'subcat';
@@ -36,6 +36,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     /** @var ?MagicWord */
     private static $mwNamespace = null;
+
+    /** @var ?MagicWord */
+    private static $mwPagelength = null;
 
     /** @var ?MagicWord */
     private  static $mwPagename = null;
@@ -64,6 +67,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         self::$parser = $parser;
         self::$frame = $frame;
         self::$mwNamespace = self::$mwNamespace ?? MagicWord::get(MetaTemplateData::NA_NAMESPACE);
+        self::$mwPagelength = self::$mwPagelength ?? MagicWord::get(MetaTemplateData::NA_PAGELENGTH);
         self::$mwPagename = self::$mwPagename ?? MagicWord::get(MetaTemplateData::NA_PAGENAME);
         self::$mwSet = self::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET);
         self::$mwSortkey = self::$mwSortkey ?? MagicWord::get(self::NA_SORTKEY);
@@ -154,28 +158,63 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         }
     }
 
-    private function processTemplate(string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false, string $curSet = NULL, array $setValues = []): array
+    private function createFrame(Title $title, string $set, string $sortkey, int $pageLength): PPTemplateFrame_Hash
     {
-        $template = self::$templates[$type] ?? '';
-        if (!strlen($template)) {
-            return [];
-        }
-
-        $parentFrame = self::$frame;
-        $frame = $parentFrame->newChild([], $title);
-        $splitkey = explode("\n", $sortkey);
-        $output = self::$parser->getOutput();
+        $frame = self::$frame->newChild([], $title);
+        MetaTemplate::setVar($frame, self::$mwPagelength->getSynonym(0), strval($pageLength));
         MetaTemplate::setVar($frame, self::$mwPagename->getSynonym(0), $title->getFullText());
-        MetaTemplate::setVar($frame, self::$mwSortkey->getSynonym(0), $splitkey[0]);
-        if (is_null($curSet)) {
-            // We communicate back-channel so as not to corrupt anything in the frame.
-            $output->setExtensionData(MetaTemplate::KEY_WILDCARD_SET, '*');
-            $setName = '';
-        } else {
-            $setName = $curSet;
+        MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $set);
+        MetaTemplate::setVar($frame, self::$mwSortkey->getSynonym(0), explode("\n", $sortkey)[0]);
+
+        return $frame;
+    }
+
+    private function getCatVariables(string $type, Title $title, string $templateOutput, bool $isRedirect, string $sortkey): array
+    {
+        $catPage = isset($args[self::VAR_CATPAGE])
+            ? Title::newFromText($args[self::VAR_CATPAGE])
+            : $title;
+
+        $catAnchor = $args[self::VAR_CATANCHOR] ?? '';
+        if (strLen($catAnchor) && $catAnchor[0] === '#') {
+            $catAnchor = substr($catAnchor, 1);
         }
 
-        MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $setName);
+        if (!empty($catAnchor)) {
+            $catPage = $catPage->createFragmentTarget($catAnchor);
+        }
+
+        // Take full text of catpagetemplate ($templateOutput) only if #catlabel is not defined. If that's blank,
+        // use the normal text.
+        $catLabel = $args[self::VAR_CATLABEL] ?? null;
+        if (is_null($catLabel)) {
+            $catLabel = $templateOutput === ''
+                ? $catPage->getFullText()
+                : $templateOutput;
+        }
+
+        $link = $this->generateLink($type, $catPage, $catRedirect ?? $isRedirect, $catLabel);
+        if (isset($args[self::VAR_CATTEXTPRE])) {
+            $link = $args[self::VAR_CATTEXTPRE] . ' ' . $link;
+        }
+
+        if (isset($args[self::VAR_CATTEXTPOST])) {
+            $link .= ' ' . $args[self::VAR_CATTEXTPOST];
+        }
+
+        $catGroup = $args[self::VAR_CATGROUP] ?? $type === self::CV_SUBCAT
+            ? $this->getSubcategorySortChar($catPage, $sortkey)
+            : self::$contLang->convert(self::$contLang->firstChar($sortkey));;
+
+        return [
+            'start_char' => $catGroup,
+            'link' => $link
+        ];
+    }
+
+    private function processSet(array &$setList, string $type, $template, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false, string $set = NULL, array $setValues = [])
+    {
+        $frame = $this->createFrame($title, $set, $sortkey, $pageLength);
         foreach ($setValues as $setKey => $setValue) {
             $varValue = $setValue->getValue();
             if ($setValue->getParseOnLoad()) {
@@ -191,77 +230,55 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $templateOutput = self::$parser->recursiveTagParse($template, $frame);
         $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
 
-        // This does not check if the page is a category, since there's nothing we can do about it at this point.
-        // Not yet handling possibility that the new title might be a redlink, or that pageLength might not be relevant any more.
-        $catPage = isset($args[self::VAR_CATPAGE])
-            ? Title::newFromText($args[self::VAR_CATPAGE])
-            : $title;
+        if (!($args[self::VAR_CATSKIP] ?? false)) {
+            $setList[] = $this->getCatVariables($type, $title, $templateOutput, $isRedirect, $sortkey);
+        }
+    }
 
-        $catSkip = $args[self::VAR_CATSKIP] ?? null;
-        if ($catSkip) {
-            $retvals = [];
-        } else {
-            $catAnchor = $args[self::VAR_CATANCHOR] ?? '';
-            if (strLen($catAnchor) && $catAnchor[0] === '#') {
-                $catAnchor = substr($catAnchor, 1);
-            }
-
-            if (!empty($catAnchor)) {
-                $catPage = $catPage->createFragmentTarget($catAnchor);
-            }
-
-            // Take full text of catpagetemplate ($templateOutput) only if #catlabel is not defined. If that's blank,
-            // use the normal text.
-            $catLabel = $args[self::VAR_CATLABEL] ?? null;
-            if (is_null($catLabel)) {
-                $catLabel = $templateOutput === ''
-                    ? $catPage->getFullText()
-                    : $templateOutput;
-            }
-
-            $link = $this->generateLink($type, $catPage, $catRedirect ?? $isRedirect, $catLabel);
-            if (isset($args[self::VAR_CATTEXTPRE])) {
-                $link = $args[self::VAR_CATTEXTPRE] . ' ' . $link;
-            }
-
-            if (isset($args[self::VAR_CATTEXTPOST])) {
-                $link .= ' ' . $args[self::VAR_CATTEXTPOST];
-            }
-
-            $catGroup = $args[self::VAR_CATGROUP] ?? $type === self::CV_SUBCAT
-                ? $this->getSubcategorySortChar($catPage, $sortkey)
-                : self::$contLang->convert(self::$contLang->firstChar($sortkey));;
-
-            $retvals = [
-                'start_char' => $catGroup,
-                'link' => $link
-            ];
+    private function processTemplate(string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
+    {
+        $template = self::$templates[$type] ?? '';
+        if (!strlen($template)) {
+            return [];
         }
 
-        // This is where the function gets called recursively to fill in multiple sets, if need be.
-        $setList = [];
+        $frame = $this->createFrame($title, $sortkey, '', $pageLength);
+
+        // Communicate to #load via back channel so as not to corrupt anything in the frame.
+        $output = self::$parser->getOutput();
+        $output->setExtensionData(MetaTemplate::KEY_WILDCARD_SET, '*');
+
+        $trialRun = self::$parser->recursiveTagParse($template, $frame);
+        $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
+        // RHshow($trialRun);
+
+        // This does not check if the page is a category, since there's nothing we can do about it at this point.
+        // Not yet handling possibility that the new title might be a redlink, or that pageLength might not be relevant any more.
+        if ($args[self::VAR_CATSKIP] ?? false) {
+            return [];
+        }
+
         $setsFound = $output->getExtensionData(MetaTemplate::KEY_WILDCARD_SET) ?? [];
         // RHshow('Sets found: ', $setsFound);
-        if (!isset($curSet) && $setsFound !== '*' && !empty($setsFound)) {
-            // RHshow('Current set: ', is_null($curSet) ? '<null>' : "'$curSet'", "\nSets found: ", $setsFound);
-            // RHshow($templateOutput);
+        if ($setsFound === '*' || !count($setsFound)) {
+            // There was no #load on the page, so return a single node with the appropriate values.
+            // Also returns if there's a #load but no corresponding data.
+            return [$this->getCatVariables($type, $title, $trialRun, $isRedirect, $sortkey)];
+        }
+
+        $setList = [];
+        if ($setsFound !== '*' && !empty($setsFound)) {
+            // The code below adds multiple entries to a category listing where there would normally be only one, but
+            // the code in the base CategoryViewer just works on an arbitrary array of entries, presumably to handle
+            // the final set of category items being smaller than all others, so it has no issues with the extra
+            // entries.
             foreach ($setsFound as $set => $setValues) {
                 // RHshow('Set: ', is_null($set) ? '<null>' : "'$set'", ' => ', $setValues);
-                $setList = array_merge($setList, $this->processTemplate($type, $title, $sortkey, $pageLength, $isRedirect, $set, $setValues));
+                $this->processSet($setList, $type, $template, $title, $sortkey, $pageLength, $isRedirect, $set, $setValues);
             }
 
             ksort($setList, SORT_NATURAL);
             // RHshow('Count setList: ', count($setList), 'Cat label: ', $catLabel, "\nSet list: ", $setList);
-
-            // NB I am NOT doing anything to warn category page that multiple objects are being added
-            // when it only expects one... there is code in the catpage that is supposed to be there
-            // to handle such surprises
-        } elseif (empty($catSkip)) {
-            if (isset($curSet)) {
-                $setList[$curSet] = $retvals;
-            } else {
-                $setList[0] = $retvals;
-            }
         }
 
         return $setList;

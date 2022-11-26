@@ -10,7 +10,9 @@ class MetaTemplate
     const KEY_METATEMPLATE = '@metatemplate';
 
     // Shared between CPT and #load, so needs a shared home in case one or the other is disabled.
-    const KEY_WILDCARD_SET = self::KEY_METATEMPLATE . '#wildcardSet';
+    const KEY_BULK_LOAD = self::KEY_METATEMPLATE . '#bulkLoad';
+    const KEY_CPT_LOAD = self::KEY_METATEMPLATE . '#loadViaCPT';
+    const KEY_PRELOADED = MetaTemplate::KEY_METATEMPLATE . '#preloaded';
 
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
     const NA_SHIFT = 'metatemplate-shift';

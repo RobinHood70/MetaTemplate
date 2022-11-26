@@ -207,12 +207,12 @@ class MetaTemplateSql
      * Creates the query to load variables from the database.
      *
      * @param mixed $pageId The page ID to load.
-     * @param string $setName The set name to load.
+     * @param string $setName The set name to load. If null, loads all sets.
      * @param array $varNames A filter of which variable names should be returned.
      *
      * @return array Array of tables, fields, conditions, options, and join conditions for a query, mirroring the
      *               parameters to IDatabase->select.
-     */ public function getLoadQuery($pageId, string $setName = '', $varNames = []): ?array
+     */ public function getLoadQuery($pageId, ?string $setName, $varNames = []): ?array
     {
         $tables = [self::SET_TABLE, self::DATA_TABLE];
         $fields = [
@@ -225,6 +225,11 @@ class MetaTemplateSql
             'setName' => $setName,
             'pageId' => $pageId
         ];
+
+        if (is_null($setName)) {
+            $fields[] = 'setName';
+            unset($conds['setName']);
+        }
 
         if (count($varNames)) {
             $conds['varName'] = $varNames;
@@ -252,42 +257,28 @@ class MetaTemplateSql
      * @param string $setName The set name to load.
      * @param array $varNames A filter of which variable names should be returned.
      *
-     * @return ?MetaTemplateVariable[]
+     * @return ?MetaTemplateVariable[][]
      */
-    public function loadTableVariables($pageId, string $setName = '', $varNames = []): ?array
+    public function loadTableVariables($pageId, ?string $setName, $varNames = []): ?array
     {
         $retval = [];
         list($tables, $fields, $conds, $options, $joinConds) = $this->getLoadQuery($pageId, $setName, $varNames);
-        $includeSets = $setName === '*';
-        if ($includeSets) {
-            $fields[] = 'setName';
-            unset($conds['setName']);
-        }
-
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         if (!$result || !$result->numRows()) {
             return null;
         }
 
+        $setName = $setName ?? '';
         $sets = [];
         $row = $result->fetchRow();
         while ($row) {
-            extract($row);
             // Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
             // will overwrite the older values.
+            extract($row);
             $var = new MetaTemplateVariable($varValue, $parseOnLoad);
-            if ($includeSets) {
-                $retval[$setName][$varName] = $var;
-                $sets[] = $setName;
-            } else {
-                $retval[$varName] = $var;
-            }
-
+            $retval[$setName][$varName] = $var;
+            $sets[] = $setName;
             $row = $result->fetchRow();
-        }
-
-        if ($includeSets && count($sets) === 1) {
-            $retval = $retval[$sets[0]];
         }
 
         return $retval;

@@ -169,7 +169,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         return $frame;
     }
 
-    private function getCatVariables(string $type, Title $title, string $templateOutput, bool $isRedirect, string $sortkey): array
+    private function parseCatVariables(string $type, Title $title, string $templateOutput, bool $isRedirect, string $sortkey, array $args): array
     {
         $catPage = isset($args[self::VAR_CATPAGE])
             ? Title::newFromText($args[self::VAR_CATPAGE])
@@ -231,7 +231,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
 
         if (!($args[self::VAR_CATSKIP] ?? false)) {
-            $setList[] = $this->getCatVariables($type, $title, $templateOutput, $isRedirect, $sortkey);
+            $setList[] = $this->parseCatVariables($type, $title, $templateOutput, $isRedirect, $sortkey, $args);
         }
     }
 
@@ -246,32 +246,29 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
         // Communicate to #load via back channel so as not to corrupt anything in the frame.
         $output = self::$parser->getOutput();
-        $output->setExtensionData(MetaTemplate::KEY_WILDCARD_SET, '*');
-
+        $output->setExtensionData(MetaTemplate::KEY_CPT_LOAD, true);
         $trialRun = self::$parser->recursiveTagParse($template, $frame);
+        $output->setExtensionData(MetaTemplate::KEY_CPT_LOAD, null);
         $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
-        // RHshow($trialRun);
-
-        // This does not check if the page is a category, since there's nothing we can do about it at this point.
-        // Not yet handling possibility that the new title might be a redlink, or that pageLength might not be relevant any more.
-        if ($args[self::VAR_CATSKIP] ?? false) {
+        if (!empty($args[self::VAR_CATSKIP])) {
             return [];
         }
 
-        $setsFound = $output->getExtensionData(MetaTemplate::KEY_WILDCARD_SET) ?? [];
+        $setsFound = $output->getExtensionData(MetaTemplate::KEY_BULK_LOAD) ?? false;
         // RHshow('Sets found: ', $setsFound);
-        if ($setsFound === '*' || !count($setsFound)) {
+        $output->setExtensionData(MetaTemplate::KEY_BULK_LOAD, null);
+        if (!is_array($setsFound)) {
             // There was no #load on the page, so return a single node with the appropriate values.
             // Also returns if there's a #load but no corresponding data.
-            return [$this->getCatVariables($type, $title, $trialRun, $isRedirect, $sortkey)];
+            return [$this->parseCatVariables($type, $title, $trialRun, $isRedirect, $sortkey, $args)];
         }
 
+        // The code below adds multiple entries to a category listing where there would normally be only one, but
+        // the code in the base CategoryViewer just works on an arbitrary array of entries, presumably to handle
+        // the final set of category items being smaller than all others, so it has no issues with the extra
+        // entries.
         $setList = [];
-        if ($setsFound !== '*' && !empty($setsFound)) {
-            // The code below adds multiple entries to a category listing where there would normally be only one, but
-            // the code in the base CategoryViewer just works on an arbitrary array of entries, presumably to handle
-            // the final set of category items being smaller than all others, so it has no issues with the extra
-            // entries.
+        if (count($setsFound)) {
             foreach ($setsFound as $set => $setValues) {
                 // RHshow('Set: ', is_null($set) ? '<null>' : "'$set'", ' => ', $setValues);
                 $this->processSet($setList, $type, $template, $title, $sortkey, $pageLength, $isRedirect, $set, $setValues);

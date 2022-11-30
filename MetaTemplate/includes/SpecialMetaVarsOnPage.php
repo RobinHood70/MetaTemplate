@@ -94,13 +94,11 @@ class SpecialMetaVarsOnPage extends SpecialPage
         }
 
         $title = Title::newFromText($this->pageName);
-        $conds = [];
         $out = $this->getOutput();
 
         if ($title && $title->canExist()) {
             // RHshow($title->getFullText(), ' (', $title->getArticleID(), ')');
-            $conds[MetaTemplateSql::SET_TABLE . '.pageId'] = $title->getArticleID();
-            $pager = new MetaVarsPager($this->getContext(), $conds, $this->limit);
+            $pager = new MetaVarsPager($this->getContext(), $title->getArticleId(), $this->limit);
             if ($pager->getNumRows()) {
                 $out->addParserOutput($pager->getFullOutput());
             } else {

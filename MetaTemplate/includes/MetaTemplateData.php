@@ -125,41 +125,45 @@ class MetaTemplateData
 
 		$output = $parser->getOutput();
 		$unfiltered = $output->getExtensionData(MetaTemplate::KEY_CPT_LOAD) ?? false;
-		if (!$unfiltered && !$helper->checkIfs($frame, $magicArgs)) {
-			return;
-		}
+		$titleText = array_shift($values);
+		if (!$unfiltered) {
+			if (!$helper->checkIfs($frame, $magicArgs)) {
+				return;
+			}
 
-		$loadTitle = Title::newFromText($frame->expand(array_shift($values)));
-		if (!$loadTitle || !$loadTitle->canExist()) {
-			return;
+			$titleText = $frame->expand($titleText);
+			$loadTitle = Title::newFromText($titleText);
+			if (!$loadTitle || !$loadTitle->canExist()) {
+				return;
+			}
+
+			$page = WikiPage::factory($loadTitle);
+			self::trackPage($output, $page);
 		}
 
 		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
-		$page = WikiPage::factory($loadTitle);
-		self::trackPage($output, $page);
-
 		$anyCase = $helper->checkAnyCase($magicArgs);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::$saveArgNameWidth);
 		$varsToLoad = self::getVarList($frame, $translations, $anyCase);
 		if ($unfiltered) {
 			$output->setExtensionData(MetaTemplate::KEY_PRELOADED, $varsToLoad);
 		} else {
-			$varsToLoad = array_diff($varsToLoad, $output->getExtensionData(MetaTemplate::KEY_PRELOADED));
+			$preloaded = $output->getExtensionData(MetaTemplate::KEY_PRELOADED) ?? null;
+			if ($preloaded) {
+				$varsToLoad = array_diff($varsToLoad, $preloaded);
+			}
 		}
 
-		if (!$varsToLoad) {
-			// If all variables to load are already defined, skip loading altogether.
+		// If all variables to load are already defined or this is a bulk-load run, skip loading altogether.
+		if (!$varsToLoad || $unfiltered) {
 			return;
 		}
 
-		$set = $unfiltered ? null : substr($magicArgs[self::NA_SET] ?? '', 0, self::$setNameWidth);
+		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::$setNameWidth);
 		$result = self::getResult($parser, $page, $set, $varsToLoad);
-		if (!empty($result)) {
-			if ($unfiltered) {
-				$output->setExtensionData(MetaTemplate::KEY_BULK_LOAD, $result);
-			} else {
-				self::parseResult($result, $parser, $frame, $translations, $anyCase);
-			}
+		$pageId = $page->getId();
+		if (isset($result[$pageId])) {
+			self::parseResult($result[$pageId], $parser, $frame, $translations, $anyCase);
 		}
 	}
 
@@ -450,12 +454,12 @@ class MetaTemplateData
 	 * @param string|null $set
 	 * @param array $varsToLoad
 	 *
-	 * @return array
+	 * @return ?array The array of loaded variables.
 	 *
 	 */
 	private static function getResult(Parser $parser, WikiPage $page, ?string $set, array $varsToLoad): ?array
 	{
-		$result = null;
+		$result = [];
 		$title = $page->getTitle();
 		$articleId = $title->getArticleID();
 		$output = $parser->getOutput();

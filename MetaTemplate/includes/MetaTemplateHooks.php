@@ -1,13 +1,12 @@
 <?php
-// namespace MediaWiki\Extension\MetaTemplate;
+// name space MediaWiki\Extension\MetaTemplate;
+
 // use MediaWiki\DatabaseUpdater;
+use Wikimedia\Rdbms\IResultWrapper;
 
 /** @todo Add {{#define/local/preview:a=b|c=d}} */
 class MetaTemplateHooks
 {
-	const OLDSET_TABLE = 'mt_save_set';
-	const OLDDATA_TABLE = 'mt_save_data';
-
 	/**
 	 * Migrates the MetaTemplate 1.0 data table to the current version.
 	 *
@@ -19,10 +18,8 @@ class MetaTemplateHooks
 	 */
 	public static function migrateDataTable(DatabaseUpdater $updater, string $dir): void
 	{
-		$db = $updater->getDB();
-		if (!$db->tableExists(self::OLDDATA_TABLE)) {
-			$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
-			$updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+			MetaTemplateSql::getInstance()->migrateDataTable($updater, $dir);
 		}
 	}
 
@@ -37,10 +34,8 @@ class MetaTemplateHooks
 	 */
 	public static function migrateSetTable(DatabaseUpdater $updater, string $dir): void
 	{
-		$db = $updater->getDB();
-		if (!$db->tableExists(self::OLDSET_TABLE)) {
-			$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
-			$updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+			MetaTemplateSql::getInstance()->migrateSetTable($updater, $dir);
 		}
 	}
 
@@ -60,8 +55,10 @@ class MetaTemplateHooks
 	 */
 	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount): void
 	{
-		// RHlogFunctionText('Deleted: ', $article->getTitle()->getFullText());
-		MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+			// RHlogFunctionText('Deleted: ', $article->getTitle()->getFullText());
+			MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
+		}
 	}
 
 	/**
@@ -71,7 +68,7 @@ class MetaTemplateHooks
 	 *   - A regular CategoryViewer in all other cases.
 	 *
 	 * @param Title $title The category's title.
-	 * @param Article|null $article The new article page.
+	 * @param ?Article $article The new article page.
 	 * @param IContextSource $context The request context.
 	 *
 	 * @return void
@@ -79,8 +76,15 @@ class MetaTemplateHooks
 	 */
 	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): void
 	{
-		if ($title->getNamespace() === NS_CATEGORY) {
+		if ($title->getNamespace() === NS_CATEGORY && MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 			$article = new MetaTemplateCategoryPage($title);
+		}
+	}
+
+	public static function onDoCategoryQuery(string $type, IResultWrapper $result)
+	{
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+			MetaTemplateCategoryViewer::onDoCategoryQuery($type, $result);
 		}
 	}
 
@@ -96,21 +100,8 @@ class MetaTemplateHooks
 	 */
 	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
 	{
-		/** @var string $dir  */
-		$dir = dirname(__DIR__);
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
-			$db = $updater->getDB();
-			if (!$db->tableExists(MetaTemplateSql::SET_TABLE)) {
-				$updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
-			}
-
-			$updater->addExtensionUpdate([[__CLASS__, 'migrateSetTable'], $dir]);
-
-			if (!$db->tableExists(MetaTemplateSql::DATA_TABLE)) {
-				$updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::DATA_TABLE . '.sql');
-			}
-
-			$updater->addExtensionUpdate([[__CLASS__, 'migrateDataTable'], $dir]);
+			MetaTemplateSql::getInstance()->onLoadExtensionSchemaUpdates($updater);
 		}
 	}
 
@@ -179,11 +170,13 @@ class MetaTemplateHooks
 		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
 		// the same number and order of parameters, just with different object types.
 		// RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
-		MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
-		$title = $new instanceof MediaWiki\Linker\LinkTarget
-			? Title::newFromLinkTarget($new)
-			: $new;
-		MetaTemplateSql::getInstance()->recursiveInvalidateCache($title);
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+			MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
+			$title = $new instanceof MediaWiki\Linker\LinkTarget
+				? Title::newFromLinkTarget($new)
+				: $new;
+			MetaTemplateSql::getInstance()->recursiveInvalidateCache($title);
+		}
 	}
 
 	/**
@@ -197,9 +190,11 @@ class MetaTemplateHooks
 	 */
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
-		// RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
-		// RHwriteFile(substr($text, 0, 30) . "\n");
-		MetaTemplateSql::getInstance()->saveVariables($parser);
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+			// RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
+			// RHwriteFile(substr($text, 0, 30) . "\n");
+			MetaTemplateSql::getInstance()->saveVariables($parser);
+		}
 	}
 
 	/**

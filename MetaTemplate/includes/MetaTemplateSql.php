@@ -8,8 +8,11 @@ use Wikimedia\Rdbms\IDatabase;
  */
 class MetaTemplateSql
 {
-    const SET_TABLE = 'mtSaveSet';
-    const DATA_TABLE = 'mtSaveData';
+    private const OLDSET_TABLE = 'mt_save_set';
+    private const OLDDATA_TABLE = 'mt_save_data';
+
+    public const DATA_TABLE = 'mtSaveData';
+    public const SET_TABLE = 'mtSaveSet';
 
     /** @var MetaTemplateSql */
     private static $instance;
@@ -56,6 +59,48 @@ class MetaTemplateSql
         return self::$instance;
     }
 
+    public function catQuery(array $pageIds, ?array $varNames = [])
+    {
+        list($tables, $joinConds, $options) = self::baseQuery();
+        $fields = [
+            self::SET_TABLE . '.pageId',
+            self::SET_TABLE . '.setName',
+            self::DATA_TABLE . '.varName',
+            self::DATA_TABLE . '.varValue',
+            self::DATA_TABLE . '.parseOnLoad'
+        ];
+
+        $conds = [self::SET_TABLE . '.pageId' => $pageIds];
+
+        if (!empty($varNames)) {
+            $conds['varName'] = $varNames;
+        }
+
+        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+        $rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
+
+        $retval = [];
+        for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
+            $pageId = $row['pageId'];
+            if (!isset($retval[$pageId])) {
+                $retval[$pageId] = [];
+            }
+
+            $page = &$retval[$pageId];
+            $setName = $row['setName'];
+            if (!isset($page[$setName])) {
+                /** @var MetaTemplateSet $set */
+                $set = new MetaTemplateSet($setName);
+                $page[$setName] = $set;
+            }
+
+            $set = $page[$setName];
+            $set->addVariable($row['varName'], $row['varValue'], $row['parseOnLoad']);
+        }
+
+        return $retval;
+    }
+
     /**
      * Handles data to be deleted.
      *
@@ -72,6 +117,61 @@ class MetaTemplateSql
         $this->dbWrite->delete(self::SET_TABLE, ['pageId' => $pageId]);
         self::$pagesPurged[$pageId] = true;
         $this->recursiveInvalidateCache($title);
+    }
+
+    /**
+     * Creates the query to load variables from the database.
+     *
+     * @param int $pageId The page ID to load.
+     * @param ?string $setName The set name to load. If null, loads all sets.
+     * @param array $varNames A filter of which variable names should be returned.
+     * @param bool $textNames If set to true, will return values as and associative array with the standard naming
+     *                        convention rather than a one-dimensional array with no names.
+     *
+     * @return array Array of tables, fields, conditions, options, and join conditions for a query, mirroring the
+     *               parameters to IDatabase->select.
+     */ public function loadQuery(int $pageId, ?string $setName, array $varNames, bool $textNames): ?array
+    {
+        list($tables, $joinConds, $options) = self::baseQuery();
+        $fields = [
+            'varName',
+            'varValue',
+            'parseOnLoad'
+        ];
+
+        if (is_null($setName)) {
+            $fields[] = 'setName';
+        }
+
+        $conds = ['pageId' => $pageId];
+        if (!is_null($setName)) {
+            $conds['setName'] = $setName;
+        }
+
+        if (count($varNames)) {
+            $conds['varName'] = $varNames;
+        }
+
+        // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
+        // ensure that we start with the lowest first, so data is overridden by the most recent values once we get
+        // there, but lower values will exist if the write is incomplete.
+
+        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds))
+        return $textNames
+            ? [
+                'tables' => $tables,
+                'fields' => $fields,
+                'conds' => $conds,
+                'options' => $options,
+                'join_conds' => $joinConds
+            ]
+            : [
+                $tables,
+                $fields,
+                $conds,
+                $options,
+                $joinConds
+            ];
     }
 
     /**
@@ -100,24 +200,21 @@ class MetaTemplateSql
 
     public function loadListSavedData(int $namespace, array $named, array $translations): array
     {
-        $tables = [
-            'page',
-            self::SET_TABLE,
-            self::DATA_TABLE
-        ];
+        list($tables, $joinConds, $options) = self::baseQuery();
+        $tables[] = 'page';
         $fields = [
             'page.page_id',
             'page.page_title',
             'page.page_namespace',
+            self::SET_TABLE . '.setId',
+            self::SET_TABLE . '.revId',
             self::SET_TABLE . '.setName',
             self::DATA_TABLE . '.varName',
-            self::DATA_TABLE . '.varValue'
+            self::DATA_TABLE . '.varValue',
+            self::DATA_TABLE . '.parseOnLoad'
         ];
-        $options = [];
-        $joinConds = [
-            'mtSaveSet' => ['JOIN', ['page.page_id=' . self::SET_TABLE . '.pageId']],
-            'mtSaveData' => ['JOIN', [self::SET_TABLE . '.setId=' . self::DATA_TABLE . '.setId']]
-        ];
+
+        $joinConds[self::SET_TABLE] = ['JOIN', ['page.page_id=' . self::SET_TABLE . '.pageId']];
 
         $varNames = array_merge(array_keys($named), array_keys($translations));
         $conds = [self::DATA_TABLE . '.varName' => $varNames];
@@ -135,7 +232,7 @@ class MetaTemplateSql
             $data++;
         }
 
-        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds));
         $rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 
         $retval = [];
@@ -175,7 +272,7 @@ class MetaTemplateSql
         // data is tracked with $deleteIds.
 
         // logFunctionText("($pageId)");
-        $tables = [self::SET_TABLE, self::DATA_TABLE];
+        list($tables, $joinConds, $options) = self::baseQuery();
         $fields = [
             self::SET_TABLE . '.setId',
             'revId',
@@ -184,9 +281,8 @@ class MetaTemplateSql
             'varValue',
             'parseOnLoad',
         ];
-        $joinConds = [self::DATA_TABLE => ['JOIN', [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']]];
+
         $conds = ['pageId' => $pageId];
-        $options = ['ORDER BY' => 'revId'];
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         $row = $this->dbRead->fetchRow($result);
         if (!$row) {
@@ -204,53 +300,6 @@ class MetaTemplateSql
     }
 
     /**
-     * Creates the query to load variables from the database.
-     *
-     * @param mixed $pageId The page ID to load.
-     * @param string $setName The set name to load. If null, loads all sets.
-     * @param array $varNames A filter of which variable names should be returned.
-     *
-     * @return array Array of tables, fields, conditions, options, and join conditions for a query, mirroring the
-     *               parameters to IDatabase->select.
-     */ public function getLoadQuery($pageId, ?string $setName, $varNames = []): ?array
-    {
-        $tables = [self::SET_TABLE, self::DATA_TABLE];
-        $fields = [
-            'varName',
-            'varValue',
-            'parseOnLoad'
-        ];
-
-        $conds = [
-            'setName' => $setName,
-            'pageId' => $pageId
-        ];
-
-        if (is_null($setName)) {
-            $fields[] = 'setName';
-            unset($conds['setName']);
-        }
-
-        if (count($varNames)) {
-            $conds['varName'] = $varNames;
-        }
-
-        $options = ['ORDER BY' => 'revId ASC'];
-
-        // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
-        // ensure that we start with the lowest first, so data is overridden by the most recent values once we get
-        // there, but lower values will exist if the write is incomplete.
-        $joinConds = [
-            self::DATA_TABLE => [
-                'LEFT JOIN',
-                [self::DATA_TABLE . '.setId=' . self::SET_TABLE . '.setId']
-            ]
-        ];
-
-        return [$tables, $fields, $conds, $options, $joinConds];
-    }
-
-    /**
      * Loads variables from the database.
      *
      * @param mixed $pageId The page ID to load.
@@ -262,7 +311,8 @@ class MetaTemplateSql
     public function loadTableVariables($pageId, ?string $setName, $varNames = []): ?array
     {
         $retval = [];
-        list($tables, $fields, $conds, $options, $joinConds) = $this->getLoadQuery($pageId, $setName, $varNames);
+        list($tables, $fields, $conds, $options, $joinConds) = $this->loadQuery($pageId, $setName, $varNames, false);
+        // RHlogFunctionText($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         if (!$result || !$result->numRows()) {
             return null;
@@ -284,13 +334,93 @@ class MetaTemplateSql
         return $retval;
     }
 
-    public function moveVariables(int $oldid, int $newid)
+    /**
+     * Moves variables from one page ID to another during a page move.
+     *
+     * @param int $oldid The original page ID.
+     * @param int $newid The new page ID.
+     *
+     * @return void
+     *
+     */
+    public function moveVariables(int $oldid, int $newid): void
     {
         $this->dbRead->update(
             self::SET_TABLE,
             ['pageId' => $newid],
             ['pageId' => $oldid]
         );
+    }
+
+    /**
+     * Migrates the MetaTemplate 1.0 data table to the current version.
+     *
+     * @param DatabaseUpdater $updater
+     * @param string $dir
+     *
+     * @return void
+     *
+     */
+    public function migrateDataTable(DatabaseUpdater $updater, string $dir): void
+    {
+        $db = $updater->getDB();
+        if (!$db->tableExists(self::OLDDATA_TABLE)) {
+            $updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
+            $updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+        }
+    }
+
+    /**
+     * Migrates the MetaTemplate 1.0 set table to the current version.
+     *
+     * @param DatabaseUpdater $updater
+     * @param string $dir
+     *
+     * @return void
+     *
+     */
+    public function migrateSetTable(DatabaseUpdater $updater, string $dir): void
+    {
+        $db = $updater->getDB();
+        if (!$db->tableExists(self::OLDSET_TABLE)) {
+            $updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
+            $updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+        }
+    }
+
+    // Initial table setup/modifications from v1.
+    /**
+     * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
+     * have been altered and the datestamp removed.
+     *
+     * @param DatabaseUpdater $updater
+     *
+     * @return void
+     *
+     */
+    public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
+    {
+        /** @var string $dir  */
+        $dir = dirname(__DIR__);
+        if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+            $db = $updater->getDB();
+            if (!$db->tableExists(MetaTemplateSql::SET_TABLE)) {
+                $updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
+            }
+
+            $updater->addExtensionUpdate([[__CLASS__, 'migrateSetTable'], $dir]);
+
+            if (!$db->tableExists(MetaTemplateSql::DATA_TABLE)) {
+                $updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::DATA_TABLE . '.sql');
+            }
+
+            $updater->addExtensionUpdate([[__CLASS__, 'migrateDataTable'], $dir]);
+        }
+    }
+
+    public function pageIdLimiter(int $id): array
+    {
+        return [MetaTemplateSql::SET_TABLE . '.pageId' => $id];
     }
 
     /**
@@ -420,6 +550,29 @@ class MetaTemplateSql
         return
             $this->dbRead->tableExists(self::SET_TABLE) &&
             $this->dbRead->tableExists(self::DATA_TABLE);
+    }
+
+    /**
+     * Returns the basic query arrays for most MetaTemplate queries.
+     *
+     * @return array [$tables, $joinConds, $options]
+     *
+     */
+    private static function baseQuery()
+    {
+        $tables = [
+            self::SET_TABLE,
+            self::DATA_TABLE
+        ];
+
+        $joinConds = [
+            self::DATA_TABLE =>
+            ['JOIN', [self::SET_TABLE . '.setId=' . self::DATA_TABLE . '.setId']]
+        ];
+
+        $options = ['ORDER BY' => 'revId'];
+
+        return [$tables, $joinConds, $options];
     }
 
     /**

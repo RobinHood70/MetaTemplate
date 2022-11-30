@@ -1,9 +1,14 @@
 <?php
 class MetaVarsPager extends TablePager
 {
-    private $conds;
-
+    private const HEADER_KEYS = [
+        'setName' => 'metatemplate-metavarsonpage-set',
+        'varName' => 'metatemplate-metavarsonpage-varname',
+        'varValue' => 'metatemplate-metavarsonpage-varvalue',
+        'parseOnLoad' => 'metatemplate-metavarsonpage-parseonload',
+    ];
     private $headers;
+    private $pageId;
 
     /**
      * Creates a new instance of the MetaVarsPager class.
@@ -13,11 +18,14 @@ class MetaVarsPager extends TablePager
      * @param mixed $limit The number of results to list.
      *
      */
-    public function __construct(IContextSource $context, $conds, $limit)
+    public function __construct(IContextSource $context, int $pageId, int $limit)
     {
-        $this->conds = $conds;
+        $this->pageId = $pageId;
         $this->mLimit = $limit;
         $this->mDefaultDirection = false;
+        foreach (self::HEADER_KEYS as $key => $val) {
+            $this->headers[$key] = $this->msg($val)->text();
+        }
 
         // TablePager doesn't handle two-key offsets and doesn't seem to support simple numerical offsets either.
         // This seemed like an acceptable trade-off, since it offers the added benefit of always showing
@@ -29,20 +37,6 @@ class MetaVarsPager extends TablePager
 
     public function getFieldNames(): array
     {
-
-        if (is_null($this->headers)) {
-            $this->headers = [
-                'setName' => 'metatemplate-metavarsonpage-set',
-                'varName' => 'metatemplate-metavarsonpage-varname',
-                'varValue' => 'metatemplate-metavarsonpage-varvalue',
-                'parseOnLoad' => 'metatemplate-metavarsonpage-parseonload',
-            ];
-
-            foreach ($this->headers as $key => $val) {
-                $this->headers[$key] = $this->msg($val)->text();
-            }
-        }
-
         return $this->headers;
     }
 
@@ -69,19 +63,7 @@ class MetaVarsPager extends TablePager
 
     function getQueryInfo(): array
     {
-        return [
-            'tables' => [MetaTemplateSql::SET_TABLE, MetaTemplateSql::DATA_TABLE],
-            'fields' => [
-                'setName',
-                'varName',
-                'varValue',
-                'parseOnLoad',
-            ],
-            'conds' => $this->conds,
-            'join_conds' => [
-                MetaTemplateSql::DATA_TABLE => ['INNER JOIN', MetaTemplateSql::SET_TABLE . '.setId=' . MetaTemplateSql::DATA_TABLE . '.setId'],
-            ]
-        ];
+        return MetaTemplateSql::getInstance()->loadQuery($this->pageId, null, [], true);
     }
 
     public function getTableClass(): string
@@ -101,6 +83,6 @@ class MetaVarsPager extends TablePager
 
     public function isFieldSortable($name): bool
     {
-        return $name !== MetaTemplateSql::DATA_TABLE . '.varValue';
+        return true; // $name !== MetaTemplateSql::DATA_TABLE . '.varValue';
     }
 }

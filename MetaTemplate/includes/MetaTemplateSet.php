@@ -15,7 +15,7 @@ class MetaTemplateSet
      * @var MetaTemplateVariable[];
      *
      */
-    private $variables;
+    private $variables = [];
 
     /**
      * Creates an instance of the MetaTemplateSet class.
@@ -53,10 +53,10 @@ class MetaTemplateSet
      * @return void
      *
      */
-    public function addVariable($varName, $value, $parseOnLoad): void
+    public function addVariable($name, $value, $parseOnLoad): void
     {
-        if (!isset($this->variables[$varName])) {
-            $this->variables[$varName] = new MetaTemplateVariable($value, $parseOnLoad);
+        if (!isset($this->variables[$name])) {
+            $this->variables[$name] = new MetaTemplateVariable($value, $parseOnLoad);
         }
     }
 

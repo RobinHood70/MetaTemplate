@@ -39,7 +39,7 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 		MetaTemplateCategoryViewer::VAR_CATPAGE => [0, 'catpage'],
 		MetaTemplateCategoryViewer::VAR_CATREDIRECT => [0, 'catredirect'],
 		MetaTemplateCategoryViewer::VAR_CATSKIP => [0, 'catskip'],
-		MetaTemplateCategoryViewer::VAR_CATSORTKEY => [0, 'catsortkey'],
+		// MetaTemplateCategoryViewer::VAR_CATSORTKEY => [0, 'catsortkey'],
 		MetaTemplateCategoryViewer::VAR_CATTEXTPOST => [0, 'cattextpost'],
 		MetaTemplateCategoryViewer::VAR_CATTEXTPRE => [0, 'cattextpre'],
 	]);

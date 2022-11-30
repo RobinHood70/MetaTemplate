@@ -8,11 +8,29 @@ use Wikimedia\Rdbms\IDatabase;
  */
 class MetaTemplateSql
 {
-    private const OLDSET_TABLE = 'mt_save_set';
-    private const OLDDATA_TABLE = 'mt_save_data';
-
     public const DATA_TABLE = 'mtSaveData';
     public const SET_TABLE = 'mtSaveSet';
+
+    public const FIELD_PAGE_ID = 'pageId';
+    public const FIELD_PARSE_ON_LOAD = 'parseOnLoad';
+    public const FIELD_REV_ID = 'revId';
+    public const FIELD_SET_ID = 'setId';
+    public const FIELD_SET_NAME = 'setName';
+    public const FIELD_VAR_NAME = 'varName';
+    public const FIELD_VAR_VALUE = 'varValue';
+
+    public const DATA_PARSE_ON_LOAD = self::DATA_TABLE . '.' . self::FIELD_PARSE_ON_LOAD;
+    public const DATA_SET_ID = self::DATA_TABLE . '.' . self::FIELD_SET_ID;
+    public const DATA_VAR_NAME = self::DATA_TABLE . '.' . self::FIELD_VAR_NAME;
+    public const DATA_VAR_VALUE = self::DATA_TABLE . '.' . self::FIELD_VAR_VALUE;
+
+    public const SET_PAGE_ID = self::SET_TABLE . '.' . self::FIELD_PAGE_ID;
+    public const SET_REV_ID = self::SET_TABLE . '.' . self::FIELD_REV_ID;
+    public const SET_SET_ID = self::SET_TABLE . '.' . self::FIELD_SET_ID;
+    public const SET_SET_NAME = self::SET_TABLE . '.' . self::FIELD_SET_NAME;
+
+    private const OLDSET_TABLE = 'mt_save_set';
+    private const OLDDATA_TABLE = 'mt_save_data';
 
     /** @var MetaTemplateSql */
     private static $instance;
@@ -63,17 +81,17 @@ class MetaTemplateSql
     {
         list($tables, $joinConds, $options) = self::baseQuery();
         $fields = [
-            self::SET_TABLE . '.pageId',
-            self::SET_TABLE . '.setName',
-            self::DATA_TABLE . '.varName',
-            self::DATA_TABLE . '.varValue',
-            self::DATA_TABLE . '.parseOnLoad'
+            self::SET_PAGE_ID,
+            self::SET_SET_NAME,
+            self::DATA_VAR_NAME,
+            self::DATA_VAR_VALUE,
+            self::DATA_PARSE_ON_LOAD
         ];
 
-        $conds = [self::SET_TABLE . '.pageId' => $pageIds];
+        $conds = [self::SET_PAGE_ID => $pageIds];
 
         if (!empty($varNames)) {
-            $conds['varName'] = $varNames;
+            $conds[self::DATA_VAR_NAME] = $varNames;
         }
 
         // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
@@ -81,21 +99,24 @@ class MetaTemplateSql
 
         $retval = [];
         for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
-            $pageId = $row['pageId'];
+            $pageId = $row[self::FIELD_PAGE_ID];
             if (!isset($retval[$pageId])) {
                 $retval[$pageId] = [];
             }
 
             $page = &$retval[$pageId];
-            $setName = $row['setName'];
+            $setName = $row[self::FIELD_SET_NAME];
             if (!isset($page[$setName])) {
-                /** @var MetaTemplateSet $set */
                 $set = new MetaTemplateSet($setName);
                 $page[$setName] = $set;
             }
 
             $set = $page[$setName];
-            $set->addVariable($row['varName'], $row['varValue'], $row['parseOnLoad']);
+            $set->addVariable(
+                $row[self::FIELD_VAR_NAME],
+                $row[self::FIELD_VAR_VALUE],
+                $row[self::FIELD_PARSE_ON_LOAD]
+            );
         }
 
         return $retval;
@@ -114,7 +135,7 @@ class MetaTemplateSql
         $pageId = $title->getArticleID();
 
         // Assumes cascading is in effect to delete DATA_TABLE rows.
-        $this->dbWrite->delete(self::SET_TABLE, ['pageId' => $pageId]);
+        $this->dbWrite->delete(self::SET_TABLE, [self::FIELD_PAGE_ID => $pageId]);
         self::$pagesPurged[$pageId] = true;
         $this->recursiveInvalidateCache($title);
     }
@@ -134,22 +155,22 @@ class MetaTemplateSql
     {
         list($tables, $joinConds, $options) = self::baseQuery();
         $fields = [
-            'varName',
-            'varValue',
-            'parseOnLoad'
+            self::FIELD_VAR_NAME,
+            self::FIELD_VAR_VALUE,
+            self::FIELD_PARSE_ON_LOAD
         ];
 
         if (is_null($setName)) {
-            $fields[] = 'setName';
+            $fields[] = self::FIELD_SET_NAME;
         }
 
-        $conds = ['pageId' => $pageId];
+        $conds = [self::SET_PAGE_ID => $pageId];
         if (!is_null($setName)) {
-            $conds['setName'] = $setName;
+            $conds[self::SET_SET_NAME] = $setName;
         }
 
         if (count($varNames)) {
-            $conds['varName'] = $varNames;
+            $conds[self::DATA_VAR_NAME] = $varNames;
         }
 
         // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
@@ -188,10 +209,10 @@ class MetaTemplateSql
         $data = [];
         foreach ($newSet->getVariables() as $key => $var) {
             $data[] = [
-                'setId' => $setId,
-                'varName' => $key,
-                'varValue' => $var->getValue(),
-                'parseOnLoad' => $var->getParseOnLoad()
+                self::FIELD_SET_ID => $setId,
+                self::FIELD_VAR_NAME => $key,
+                self::FIELD_VAR_VALUE => $var->getValue(),
+                self::FIELD_PARSE_ON_LOAD => $var->getParseOnLoad()
             ];
         }
 
@@ -206,18 +227,18 @@ class MetaTemplateSql
             'page.page_id',
             'page.page_title',
             'page.page_namespace',
-            self::SET_TABLE . '.setId',
-            self::SET_TABLE . '.revId',
-            self::SET_TABLE . '.setName',
-            self::DATA_TABLE . '.varName',
-            self::DATA_TABLE . '.varValue',
-            self::DATA_TABLE . '.parseOnLoad'
+            self::SET_SET_ID,
+            self::SET_REV_ID,
+            self::SET_SET_NAME,
+            self::DATA_VAR_NAME,
+            self::DATA_VAR_VALUE,
+            self::DATA_PARSE_ON_LOAD
         ];
 
-        $joinConds[self::SET_TABLE] = ['JOIN', ['page.page_id=' . self::SET_TABLE . '.pageId']];
+        $joinConds[self::SET_TABLE] = ['JOIN', ['page.page_id=' . self::SET_PAGE_ID]];
 
         $varNames = array_merge(array_keys($named), array_keys($translations));
-        $conds = [self::DATA_TABLE . '.varName' => $varNames];
+        $conds = [self::DATA_VAR_NAME => $varNames];
         if ($namespace >= 0) {
             $conds['page.page_namespace'] = $namespace;
         }
@@ -226,9 +247,9 @@ class MetaTemplateSql
         foreach ($named as $key => $value) {
             $dataName = 'data' . $data;
             $tables[$dataName] = self::DATA_TABLE;
-            $joinConds[$dataName] = ['JOIN', [self::SET_TABLE . '.setId=' . $dataName . '.setId']];
-            $conds[$dataName . '.varName'] = $key;
-            $conds[$dataName . '.varValue'] = $value;
+            $joinConds[$dataName] = ['JOIN', [self::SET_SET_ID . "=$dataName.setId"]];
+            $conds[$dataName . '.' . self::FIELD_VAR_NAME] = $key;
+            $conds[$dataName . '.' . self::FIELD_VAR_VALUE] = $value;
             $data++;
         }
 
@@ -238,21 +259,21 @@ class MetaTemplateSql
         $retval = [];
         for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
             // The key only serves to provide a quick, unique index as we iterate. After that, it's discarded.
-            $key = str_pad($row['page_id'], 8, '0', STR_PAD_LEFT) . '_' . $row['setName'];
+            $key = str_pad($row['page_id'], 8, '0', STR_PAD_LEFT) . '_' . $row[self::FIELD_SET_NAME];
             if (!isset($retval[$key])) {
                 $retval[$key] = [
                     'namespace' => $row['page_namespace'],
                     'pagename' => $row['page_title'],
-                    'set' => $row['setName']
+                    'set' => $row[self::FIELD_SET_NAME]
                 ];
             }
 
             // Look up the name to use. If database returns a variable we don't have a translation for, just use the
             // name as is.
-            $varName = $translations[$row['varName']] ?? $row['varName'];
+            $varName = $translations[$row[self::FIELD_VAR_NAME]] ?? $row[self::FIELD_VAR_NAME];
             // Because the final result will always be parsed, we don't need to worry about parsing it here; we can
             // just include the value verbatim.
-            $retval[$key][$varName] = $row['varValue'];
+            $retval[$key][$varName] = $row[self::FIELD_VAR_VALUE];
         }
 
         // RHshow($retval);
@@ -274,25 +295,25 @@ class MetaTemplateSql
         // logFunctionText("($pageId)");
         list($tables, $joinConds, $options) = self::baseQuery();
         $fields = [
-            self::SET_TABLE . '.setId',
-            'revId',
-            'setName',
-            'varName',
-            'varValue',
-            'parseOnLoad',
+            self::SET_SET_ID,
+            self::SET_SET_NAME,
+            self::SET_REV_ID,
+            self::DATA_VAR_NAME,
+            self::DATA_VAR_VALUE,
+            self::DATA_PARSE_ON_LOAD
         ];
 
-        $conds = ['pageId' => $pageId];
+        $conds = [self::SET_PAGE_ID => $pageId];
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         $row = $this->dbRead->fetchRow($result);
         if (!$row) {
             return null;
         }
 
-        $retval = new MetaTemplateSetCollection($pageId, $row['revId']);
+        $retval = new MetaTemplateSetCollection($pageId, $row[self::FIELD_REV_ID]);
         while ($row) {
-            $set =  $retval->getOrCreateSet($row['setId'], $row['setName']);
-            $set->addVariable($row['varName'], $row['varValue'], $row['parseOnLoad']);
+            $set =  $retval->getOrCreateSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
+            $set->addVariable($row[self::FIELD_VAR_NAME], $row[self::FIELD_VAR_VALUE], $row[self::FIELD_PARSE_ON_LOAD]);
             $row = $this->dbRead->fetchRow($result);
         }
 
@@ -347,8 +368,8 @@ class MetaTemplateSql
     {
         $this->dbRead->update(
             self::SET_TABLE,
-            ['pageId' => $newid],
-            ['pageId' => $oldid]
+            [self::FIELD_PAGE_ID => $newid],
+            [self::FIELD_PAGE_ID => $oldid]
         );
     }
 
@@ -366,7 +387,7 @@ class MetaTemplateSql
         $db = $updater->getDB();
         if (!$db->tableExists(self::OLDDATA_TABLE)) {
             $updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
-            $updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+            $updater->addExtensionUpdate([$this, 'migrateSet']);
         }
     }
 
@@ -381,10 +402,10 @@ class MetaTemplateSql
      */
     public function migrateSetTable(DatabaseUpdater $updater, string $dir): void
     {
-        $db = $updater->getDB();
+        $db = $this->dbWrite;
         if (!$db->tableExists(self::OLDSET_TABLE)) {
             $updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
-            $updater->addExtensionUpdate([__CLASS__, 'migrateSet']);
+            $updater->addExtensionUpdate([[$this, 'migrateSet']]);
         }
     }
 
@@ -408,19 +429,20 @@ class MetaTemplateSql
                 $updater->addExtensionTable(MetaTemplateSql::SET_TABLE, "$dir/sql/create-" . MetaTemplateSql::SET_TABLE . '.sql');
             }
 
-            $updater->addExtensionUpdate([[__CLASS__, 'migrateSetTable'], $dir]);
+            $instance = self::getInstance();
+            $updater->addExtensionUpdate([[$instance, 'migrateSetTable'], $dir]);
 
             if (!$db->tableExists(MetaTemplateSql::DATA_TABLE)) {
                 $updater->addExtensionTable(MetaTemplateSql::DATA_TABLE, "$dir/sql/create-" . MetaTemplateSql::DATA_TABLE . '.sql');
             }
 
-            $updater->addExtensionUpdate([[__CLASS__, 'migrateDataTable'], $dir]);
+            $updater->addExtensionUpdate([[$instance, 'migrateDataTable'], $dir]);
         }
     }
 
     public function pageIdLimiter(int $id): array
     {
-        return [MetaTemplateSql::SET_TABLE . '.pageId' => $id];
+        return [MetaTemplateSql::SET_PAGE_ID => $id];
     }
 
     /**
@@ -451,14 +473,14 @@ class MetaTemplateSql
 
         $result = $this->dbRead->select(
             self::SET_TABLE,
-            ['pageId'],
-            ['pageId' => $linkIds],
+            [self::FIELD_PAGE_ID],
+            [self::FIELD_PAGE_ID => $linkIds],
             __METHOD__
         );
 
         $recursiveIds = [];
         for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-            $recursiveIds[] = $row['pageId'];
+            $recursiveIds[] = $row[self::FIELD_PAGE_ID];
         }
 
         foreach ($linkIds as $linkId) {
@@ -466,14 +488,13 @@ class MetaTemplateSql
                 self::$pagesPurged[$linkId] = true;
                 $title = Title::newFromID($linkId);
                 if (isset($recursiveIds[$linkId])) {
+                    $prefText = $title->getPrefixedText();
                     $job = new RefreshLinksJob(
                         $title,
                         [
                             'table' => $templateLinks,
                             'recursive' => true,
-                        ] + Job::newRootJobParams(
-                            "refreshlinks:{$templateLinks}:{$title->getPrefixedText()}"
-                        )
+                        ] + Job::newRootJobParams("refreshlinks:$templateLinks:$prefText")
                     );
 
                     JobQueueGroup::singleton()->push($job);
@@ -567,10 +588,10 @@ class MetaTemplateSql
 
         $joinConds = [
             self::DATA_TABLE =>
-            ['JOIN', [self::SET_TABLE . '.setId=' . self::DATA_TABLE . '.setId']]
+            ['JOIN', [self::SET_SET_ID . '=' . self::DATA_SET_ID]]
         ];
 
-        $options = ['ORDER BY' => 'revId'];
+        $options = ['ORDER BY' => [self::SET_PAGE_ID, self::SET_SET_NAME, self::SET_REV_ID]];
 
         return [$tables, $joinConds, $options];
     }
@@ -589,7 +610,7 @@ class MetaTemplateSql
         // writeFile('  Deletes: ', count($deletes));
         if (count($deletes)) {
             // Assumes cascading is in effect, so doesn't delete DATA_TABLE entries.
-            $this->dbWrite->delete(self::SET_TABLE, ['setId' => $deletes]);
+            $this->dbWrite->delete(self::SET_TABLE, [self::FIELD_SET_ID => $deletes]);
         }
 
         $pageId = $upserts->getPageId();
@@ -597,9 +618,9 @@ class MetaTemplateSql
         // writeFile('  Inserts: ', count($inserts));
         foreach ($upserts->getInserts() as $newSet) {
             $this->dbWrite->insert(self::SET_TABLE, [
-                'setName' => $newSet->getSetName(),
-                'pageId' => $pageId,
-                'revId' => $newRevId
+                self::FIELD_PAGE_ID => $pageId,
+                self::FIELD_SET_NAME => $newSet->getSetName(),
+                self::FIELD_REV_ID => $newRevId
             ]);
             $setId = $this->dbWrite->insertId();
             $this->insertData($setId, $newSet);
@@ -622,13 +643,13 @@ class MetaTemplateSql
             ) {
                 $this->dbWrite->update(
                     self::SET_TABLE,
-                    ['revId' => $newRevId],
+                    [self::FIELD_REV_ID => $newRevId],
                     [
                         // setId uniquely identifies the set, but setName and pageId are part of the primary key, so we
                         // add them here for better indexing.
-                        'setName' => $oldSet->getSetName(),
-                        'pageId' => $upserts->getPageId(),
-                        'setId' => $setId
+                        self::FIELD_PAGE_ID => $upserts->getPageId(),
+                        self::FIELD_SET_NAME => $oldSet->getSetName(),
+                        self::FIELD_SET_ID => $setId
                     ]
                 );
             }
@@ -662,12 +683,12 @@ class MetaTemplateSql
                     $this->dbWrite->update(
                         self::DATA_TABLE,
                         [
-                            'varValue' => $newValue->getValue(),
-                            'parseOnLoad' => $newValue->getParseOnLoad()
+                            self::FIELD_VAR_VALUE => $newValue->getValue(),
+                            self::FIELD_PARSE_ON_LOAD => $newValue->getParseOnLoad()
                         ],
                         [
-                            'setId' => $setId,
-                            'varName' => $varName
+                            self::FIELD_SET_ID => $setId,
+                            self::FIELD_VAR_NAME => $varName
                         ]
                     );
                 }
@@ -686,8 +707,8 @@ class MetaTemplateSql
 
         if (count($deletes)) {
             $this->dbWrite->delete(self::DATA_TABLE, [
-                'setId' => $setId,
-                'varName' => $deletes
+                self::FIELD_SET_ID => $setId,
+                self::FIELD_VAR_NAME => $deletes
             ]);
         }
     }

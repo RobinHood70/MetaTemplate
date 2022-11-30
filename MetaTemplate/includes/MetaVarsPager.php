@@ -2,10 +2,10 @@
 class MetaVarsPager extends TablePager
 {
     private const HEADER_KEYS = [
-        'setName' => 'metatemplate-metavarsonpage-set',
-        'varName' => 'metatemplate-metavarsonpage-varname',
-        'varValue' => 'metatemplate-metavarsonpage-varvalue',
-        'parseOnLoad' => 'metatemplate-metavarsonpage-parseonload',
+        MetaTemplateSql::FIELD_SET_NAME => 'metatemplate-metavarsonpage-set',
+        MetaTemplateSql::FIELD_VAR_NAME => 'metatemplate-metavarsonpage-varname',
+        MetaTemplateSql::FIELD_VAR_VALUE => 'metatemplate-metavarsonpage-varvalue',
+        MetaTemplateSql::FIELD_PARSE_ON_LOAD => 'metatemplate-metavarsonpage-parseonload'
     ];
     private $headers;
     private $pageId;
@@ -43,9 +43,9 @@ class MetaVarsPager extends TablePager
     function formatValue($name, $value): string
     {
         switch ($name) {
-            case 'parseOnLoad':
+            case MetaTemplateSql::FIELD_PARSE_ON_LOAD:
                 return $value ? 'Yes' : '';
-            case 'setName':
+            case MetaTemplateSql::FIELD_SET_NAME:
                 return Html::rawElement(
                     'span',
                     [
@@ -54,7 +54,7 @@ class MetaVarsPager extends TablePager
                     ],
                     $value
                 );
-            case 'varValue':
+            case MetaTemplateSql::FIELD_VAR_VALUE:
                 return str_replace("\n", "<br>", $value);
             default:
                 return htmlspecialchars($value);
@@ -73,16 +73,16 @@ class MetaVarsPager extends TablePager
 
     public function getDefaultSort(): string
     {
-        return MetaTemplateSql::SET_TABLE . '.setName';
+        return MetaTemplateSql::SET_SET_NAME;
     }
 
     public function getExtraSortFields(): array
     {
-        return [MetaTemplateSql::DATA_TABLE . '.varName'];
+        return [MetaTemplateSql::DATA_VAR_NAME];
     }
 
     public function isFieldSortable($name): bool
     {
-        return true; // $name !== MetaTemplateSql::DATA_TABLE . '.varValue';
+        return true; // $name !== MetaTemplateSql::DATA_VAR_VALUE;
     }
 }

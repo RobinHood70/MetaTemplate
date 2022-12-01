@@ -198,7 +198,7 @@ class MetaTemplateData
 			}
 		}
 
-		$set = $magicArgs[self::NA_SET];
+		$set = $magicArgs[self::NA_SET] ?? '';
 		$value = implode("\n", $values);
 		$var = new MetaTemplateVariable($value, false);
 		self::addPageVariables(

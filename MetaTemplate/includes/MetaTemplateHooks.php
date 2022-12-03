@@ -88,6 +88,15 @@ class MetaTemplateHooks
 		}
 	}
 
+	public static function onMetaTemplateDoLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values): bool
+	{
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+			return MetaTemplateCategoryViewer::onMetaTemplateDoLoadMain($parser, $frame, $magicArgs, $values);
+		}
+
+		return false;
+	}
+
 	// Initial table setup/modifications from v1.
 	/**
 	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces

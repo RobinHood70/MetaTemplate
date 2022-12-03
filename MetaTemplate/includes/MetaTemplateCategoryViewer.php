@@ -3,9 +3,9 @@
 use Wikimedia\Rdbms\IResultWrapper;
 
 /** @todo For now, this code is sufficient, but like its predecessor, it can produce incorrect counts of items in the
- *  category, sometimes leading to unnecessary "refreshCounts" jobs (see CategoryViewer->getMessageCounts). Try moving the set entries to an array of their
- *  own, to be retrieved after the parent entry is done. This will remove them from consideration for the cound and
- *  allow things to work as intended.
+ *  category, sometimes leading to unnecessary "refreshCounts" jobs (see CategoryViewer->getMessageCounts). Try moving
+ *  the set entries to an array of their own, to be retrieved after the parent entry is done. This will remove them
+ *  from consideration for the count and allow things to work as intended.
  */
 class MetaTemplateCategoryViewer extends CategoryViewer
 {
@@ -13,6 +13,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public const NA_PAGE = 'metatemplate-page';
     public const NA_SORTKEY = 'metatemplate-sortkey';
     public const NA_SUBCAT = 'metatemplate-subcat';
+
     public const VAR_CATANCHOR = 'metatemplate-catanchor';
     public const VAR_CATGROUP = 'metatemplate-catgroup';
     public const VAR_CATLABEL = 'metatemplate-catlabel';
@@ -28,6 +29,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     private const CV_FILE = 'file';
     private const CV_PAGE = 'page';
     private const CV_SUBCAT = 'subcat';
+
+    private const KEY_BULK_LOAD = MetaTemplate::KEY_METATEMPLATE . '#bulkLoad';
+    private const KEY_CPT_LOAD = MetaTemplate::KEY_METATEMPLATE . '#loadViaCPT';
 
     /** @var ?MagicWordArray */
     private static $catArgs = null;
@@ -93,14 +97,41 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
         // All communication with #load and its results is done via the parser's ExtensionData commands so as not to
         // corrupt anything in the frame.
-        $output->setExtensionData(MetaTemplate::KEY_CPT_LOAD, true);
+        $output->setExtensionData(self::KEY_CPT_LOAD, true);
 
         // If a #load is present, this will parse it in a special bulk-loading mode and return the results in
-        // $parser-->getExtensionData(MetaTemplate::KEY_BULK_LOAD).
+        // $parser-->getExtensionData(self::KEY_BULK_LOAD).
         self::$parser->recursiveTagParse($content, $frame);
-        $output->setExtensionData(MetaTemplate::KEY_CPT_LOAD, null);
+        $output->setExtensionData(self::KEY_CPT_LOAD, null);
 
         return '';
+    }
+
+    /**
+     * This variant of #load strictly pulls out the values to be pre-loaded. It's made active temporarily while
+     * doCatPageTemplate() is being evaluated, then reverts immediately after.
+     *
+     * @param Parser $parser The parser in use.
+     * @param PPFrame $frame The frame in use.
+     * @param array $magicArgs Function arguments (`case=any` is the only one used here).
+     * @param array $values All other function arguments. These are the ones that are evaluted for pre-loading.
+     *
+     * @return bool Whether the function ran or not. The only way this will return false is if it's called outside of
+     *              #load, in which case it will revert to the normal #load routine.
+     *
+     */
+    public static function onMetaTemplateDoLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values): bool
+    {
+        if (!($parser->getOutput()->getExtensionData(self::KEY_CPT_LOAD) ?? false)) {
+            return false;
+        }
+
+        $translations = MetaTemplate::getVariableTranslations($frame, $values, MetaTemplateData::SAVE_VARNAME_WIDTH);
+        $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+        $varsToLoad = MetaTemplateData::getVarList($frame, $translations, $anyCase);
+        $parser->getOutput()->setExtensionData(MetaTemplate::KEY_PRELOADED, $varsToLoad);
+
+        return true;
     }
 
     public static function hasTemplate(): bool
@@ -134,21 +165,22 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public static function onDoCategoryQuery(string $type, IResultWrapper $result)
     {
-        if (!self::$parser) {
-            return;
+        $pageSets = [];
+        if (self::$parser) {
+            if ($result->numRows() > 0) {
+                for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
+                    $pageSets[$row['page_id']] = [];
+                }
+
+                $result->rewind();
+                MetaTemplateSql::getInstance()->catQuery($pageSets);
+                self::$parser->getOutput()->setExtensionData(self::KEY_BULK_LOAD, $pageSets);
+            } else {
+                self::$parser->getOutput()->setExtensionData(self::KEY_BULK_LOAD, null);
+            }
         }
 
-        $pageIds = [];
-        for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-            $pageIds[] = $row['page_id'];
-        }
-
-        $result->rewind();
-
-        $retval = empty($pageIds)
-            ? null
-            : $retval = MetaTemplateSql::getInstance()->catQuery($pageIds);
-        self::$parser->getOutput()->setExtensionData(MetaTemplate::KEY_BULK_LOAD, $retval);
+        return $pageSets;
     }
 
     public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)
@@ -159,11 +191,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
                 ? self::CV_PAGE
                 : null);
         if (!$this->showGallery && !is_null($type)) {
-            $retsets = $this->processTemplate($type, $title, $sortkey, $pageLength, $isRedirect);
-            foreach ($retsets as $retvals) {
-                $this->imgsNoGallery[] = $retvals['link'];
-                $this->imgsNoGallery_start_char[] = $retvals['start_char'];
-            }
+            $retset = $this->processTemplate($type, $title, $sortkey, $pageLength, $isRedirect);
+            $this->imgsNoGallery[] = $retset['link'];
+            $this->imgsNoGallery_start_char[] = $retset['start_char'];
         } else {
             parent::addImage($title, $sortkey, $pageLength, $isRedirect);
         }
@@ -172,11 +202,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public function addPage($title, $sortkey, $pageLength, $isRedirect = false)
     {
         if (isset(self::$templates[self::CV_PAGE])) {
-            $retsets = $this->processTemplate(self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
-            foreach ($retsets as $retvals) {
-                $this->articles[] = $retvals['link'];
-                $this->articles_start_char[] = $retvals['start_char'];
-            }
+            $retset = $this->processTemplate(self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
+            $this->articles[] = $retset['link'];
+            $this->articles_start_char[] = $retset['start_char'];
         } else {
             parent::addPage($title, $sortkey, $pageLength, $isRedirect);
         }
@@ -186,11 +214,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     {
         if (isset(self::$templates[self::CV_SUBCAT])) {
             $title = $cat->getTitle();
-            $retsets = $this->processTemplate(self::CV_SUBCAT, $title, $sortkey, $pageLength);
-            foreach ($retsets as $retvals) {
-                $this->children[] = $retvals['link'];
-                $this->children_start_char[] = $retvals['start_char'];
-            }
+            $retset = $this->processTemplate(self::CV_SUBCAT, $title, $sortkey, $pageLength);
+            $this->children[] = $retset['link'];
+            $this->children_start_char[] = $retset['start_char'];
         } else {
             parent::addSubcategoryObject($cat, $sortkey, $pageLength);
         }
@@ -198,21 +224,24 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public function finaliseCategoryState()
     {
-        self::$parser->getOutput()->setExtensionData(MetaTemplate::KEY_BULK_LOAD, null);
+        self::$parser->getOutput()->setExtensionData(self::KEY_BULK_LOAD, null);
     }
 
-    private static function createFrame(Title $title, string $set, string $sortkey, int $pageLength): PPTemplateFrame_Hash
+    private static function createFrame(Title $title, MetaTemplateSet $set, string $sortkey, int $pageLength): PPTemplateFrame_Hash
     {
         $frame = self::$frame->newChild([], $title);
         MetaTemplate::setVar($frame, self::$mwPagelength->getSynonym(0), strval($pageLength));
         MetaTemplate::setVar($frame, self::$mwPagename->getSynonym(0), $title->getFullText());
-        MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $set);
+        MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $set->getSetName());
         MetaTemplate::setVar($frame, self::$mwSortkey->getSynonym(0), explode("\n", $sortkey)[0]);
+        foreach ($set->getVariables() as $varName => $varValue) {
+            MetaTemplate::setVar($frame, $varName, $varValue->getValue());
+        }
 
         return $frame;
     }
 
-    private function parseCatVariables(string $type, Title $title, string $templateOutput, bool $isRedirect, string $sortkey, array $args): array
+    private function parseCatVariables(string $type, Title $title, string $templateOutput, bool $isRedirect, array $args): array
     {
         // RHshow('Args: ', $args);
         $catPage = isset($args[self::VAR_CATPAGE])
@@ -245,14 +274,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
             $link .= ' ' . $args[self::VAR_CATTEXTPOST];
         }
 
-        $catGroup = $args[self::VAR_CATGROUP] ?? $type === self::CV_SUBCAT
-            ? $this->getSubcategorySortChar($catPage, $sortkey)
-            : self::$contLang->convert($this->collation->getFirstLetter($sortkey));
-
-        return [
-            'start_char' => $catGroup,
-            'link' => $link
-        ];
+        return [$catPage, $link];
     }
 
     private function processTemplate(string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
@@ -262,64 +284,59 @@ class MetaTemplateCategoryViewer extends CategoryViewer
             return [];
         }
 
-        $frame = self::createFrame($title, '', $sortkey, $pageLength);
         $output = self::$parser->getOutput();
-        self::$parser->recursiveTagParse($template, $frame);
-        $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
-        if (!empty($args[self::VAR_CATSKIP])) {
-            return [];
-        }
+        $allPages = $output->getExtensionData(self::KEY_BULK_LOAD) ?? false;
 
-        $allPages = $output->getExtensionData(MetaTemplate::KEY_BULK_LOAD) ?? false;
+        /** @var MetaTemplateSet[] $setsFound */
         $setsFound = $allPages[$title->getArticleID()] ?? null;
+
         // RHshow('Sets found: ', count($setsFound), "\n", $setsFound);
+        $defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
+        unset($setsFound['']);
+        ksort($setsFound, SORT_NATURAL);
+        // RHshow('Sets found sorted: ', count($setsFound), "\n", $setsFound);
 
-        $setList = [];
-        $hasSets = is_array($setsFound);
-        $hasDefaultSpace = $hasSets && isset($setsFound['']);
-        $runOnce = !$hasSets || (count($setsFound) === 1 && $hasDefaultSpace);
-        // RHshow($title->getFullText(), " - Has sets: $hasSets\nHas default space: $hasDefaultSpace\nRun once: $runOnce");
-        if ($runOnce || !$hasDefaultSpace) {
-            // There's no #load in the template, so return a single node with the appropriate values.
-            $defaultSet = self::$parser->recursiveTagParse($template, $frame);
-            $entry = $this->parseCatVariables($type, $title, $defaultSet, $isRedirect, $sortkey, $args);
-            if ($runOnce) {
-                return [$entry];
-            }
+        [$templateOutput, $args] = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength);
+        [$catPage, $text] = $this->parseCatVariables($type, $title, $templateOutput, $isRedirect, $args);
+        $catGroup = $args[self::VAR_CATGROUP] ?? $type === self::CV_SUBCAT
+            ? $this->getSubcategorySortChar($catPage, $sortkey)
+            : self::$contLang->convert($this->collation->getFirstLetter($sortkey));
 
-            $setList[] = $entry;
-        }
-
-        // The code below adds multiple entries to a category listing where there would normally be only one, but
-        // the code in the base CategoryViewer just works on an arbitrary array of entries, presumably to handle
-        // the final set of category items being smaller than all others, so it has no issues with the extra
-        // entries.
-        /** @var MetaTemplateSet $setValues */
-        foreach ($setsFound as $set => $setValues) {
-            // RHshow('Set: ', is_null($set) ? '<null>' : "'$set'", ' => ', $setValues);
-            $frame = $this->createFrame($title, $set, $sortkey, $pageLength);
-            foreach ($setValues as $setKey => $setValue) {
-                $varValue = $setValue->getValue();
-                if ($setValue->getParseOnLoad()) {
-                    $varValue = self::$parser->preprocessToDom($varValue());
-                    $varValue = $frame->expand($varValue);
+        if (empty($args[self::VAR_CATSKIP] ?? false) && count($setsFound)) {
+            // The code below adds multiple entries to a category listing where there would normally be only one, but
+            // the code in the base CategoryViewer just works on an arbitrary array of entries, presumably to handle
+            // the final set of category items being smaller than all others, so it has no issues with the extra
+            // entries.
+            $atStart = true;
+            /** @var MetaTemplateSet $setValues */
+            foreach (array_values($setsFound) as $setValues) {
+                // RHshow("Set: $set => ", $setValues);
+                [$templateOutput, $args] = $this->parseCatPageTemplate($template, $title, $setValues, $sortkey, $pageLength);
+                if ($args[self::VAR_CATSKIP] ?? false) {
+                    break;
                 }
 
-                if ($varValue !== false) {
-                    MetaTemplate::setVar($frame, $setKey, $varValue);
+                $text .= $this->parseCatVariables($type, $title, $templateOutput, $isRedirect, $args)[1];
+                if ($atStart) {
+                    $atStart = false;
                 }
-            }
-
-            $templateOutput = self::$parser->recursiveTagParse($template, $frame);
-            $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
-
-            if (!($args[self::VAR_CATSKIP] ?? false)) {
-                $parsed = $this->parseCatVariables($type, $title, $templateOutput, $isRedirect, $sortkey, $args);
-                $setList[$set] = $parsed;
             }
         }
 
-        ksort($setList, SORT_NATURAL);
-        return $setList;
+        return [
+            'start_char' => $catGroup,
+            'link' => $text
+        ];
+    }
+
+    private function parseCatPageTemplate(string $template, Title $title, MetaTemplateSet $set, string $sortkey, int $pageLength)
+    {
+        $frame = self::createFrame($title, $set, $sortkey, $pageLength);
+        $templateOutput = self::$parser->recursiveTagParse($template, $frame);
+        $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
+
+        return empty($args[self::VAR_CATSKIP])
+            ? [$templateOutput, $args]
+            : ['', []];
     }
 }

@@ -47,6 +47,7 @@
 		"CategoryViewer::doCategoryQuery": "MetaTemplateHooks::onDoCategoryQuery",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
+		"MetaTemplateDoLoadMain": "MetaTemplateHooks::onMetaTemplateDoLoadMain",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
 		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",

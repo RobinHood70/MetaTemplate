@@ -35,6 +35,19 @@ class MetaTemplateVariable
      * @return bool Whether the value in this instance needs to be parsed.
      *
      */
+    public function getParsedValue(Parser $parser, PPFrame $frame): string
+    {
+        return $this->parseOnLoad
+            ? $frame->expand($parser->preprocessToDom($this->value))
+            : $this->value;
+    }
+
+    /**
+     * Gets whether the value in this instance needs to be parsed.
+     *
+     * @return bool Whether the value in this instance needs to be parsed.
+     *
+     */
     public function getParseOnLoad(): bool
     {
         return $this->parseOnLoad;

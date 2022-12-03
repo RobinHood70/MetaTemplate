@@ -10,8 +10,6 @@ class MetaTemplate
     const KEY_METATEMPLATE = '@metatemplate';
 
     // Shared between CPT and #load, so needs a shared home in case one or the other is disabled.
-    const KEY_BULK_LOAD = self::KEY_METATEMPLATE . '#bulkLoad';
-    const KEY_CPT_LOAD = self::KEY_METATEMPLATE . '#loadViaCPT';
     const KEY_PRELOADED = MetaTemplate::KEY_METATEMPLATE . '#preloaded';
 
     const NA_NESTLEVEL = 'metatemplate-nestlevel';
@@ -414,10 +412,11 @@ class MetaTemplate
     }
 
     /**
-     * Splits a variable list of the form 'x=>xPrime' to a proper associative array.
+     * Splits a variable list of the form 'x->xPrime' to a proper associative array.
      *
      * @param PPFrame $frame The frame in use.
      * @param array $variables The list of variables to work on.
+     * @param ?int $trimLength The maximum number of characters allowed for variable names.
      *
      * @return array
      *

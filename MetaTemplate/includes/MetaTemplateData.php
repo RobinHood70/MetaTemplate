@@ -5,28 +5,28 @@
  */
 class MetaTemplateData
 {
-	const NA_NAMESPACE = 'metatemplate-namespace';
-	const NA_ORDER = 'metatemplate-order';
-	const NA_PAGELENGTH = 'metatemplate-pagelength';
-	const NA_PAGENAME = 'metatemplate-pagename';
-	const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
-	const NA_SET = 'metatemplate-set';
+	public const NA_NAMESPACE = 'metatemplate-namespace';
+	public const NA_ORDER = 'metatemplate-order';
+	public const NA_PAGELENGTH = 'metatemplate-pagelength';
+	public const NA_PAGENAME = 'metatemplate-pagename';
+	public const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
+	public const NA_SET = 'metatemplate-set';
 
-	const PF_LISTSAVED = 'metatemplate-listsaved';
-	const PF_LOAD = 'metatemplate-load';
-	const PF_PRELOAD = 'metatemplate-preload';
-	const PF_SAVE = 'metatemplate-save';
+	public const PF_LISTSAVED = 'metatemplate-listsaved';
+	public const PF_LOAD = 'metatemplate-load';
+	public const PF_PRELOAD = 'metatemplate-preload';
+	public const PF_SAVE = 'metatemplate-save';
 
-	const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
+	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
+
+	public const SAVE_SETNAME_WIDTH = 50;
+	public const SAVE_VARNAME_WIDTH = 50;
 
 	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
 	private const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
 	private const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
 
 	private const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
-
-	private static $saveArgNameWidth = 50;
-	private static $setNameWidth = 50;
 
 	/**
 	 * Queries the database based on the conditions provided and creates a list of templates, one for each row in the
@@ -69,7 +69,7 @@ class MetaTemplateData
 			$var = $preload[self::KEY_PRELOAD] ?? false;
 			if ($var) {
 				// $unnamed goes last in array_merge so specified parameters override #preload defaults.
-				$unnamed = array_merge(explode("\n", $var->getValue()), $unnamed);
+				$unnamed = array_merge(explode("\n", $var->getValue($parser, $frame)), $unnamed);
 			}
 		}
 
@@ -77,7 +77,7 @@ class MetaTemplateData
 		$namespace = $magicArgs[self::NA_NAMESPACE] ?? null;
 		$namespace = is_null($namespace) ? -1 : $language->getNsIndex($namespace);
 
-		$translations = MetaTemplate::getVariableTranslations($frame, $unnamed, self::$saveArgNameWidth);
+		$translations = MetaTemplate::getVariableTranslations($frame, $unnamed, self::SAVE_VARNAME_WIDTH);
 		$items = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $named, $translations);
 
 		$orderNames = $magicArgs[self::NA_ORDER] ?? null;
@@ -123,47 +123,10 @@ class MetaTemplateData
 			self::NA_SET
 		);
 
-		$output = $parser->getOutput();
-		$unfiltered = $output->getExtensionData(MetaTemplate::KEY_CPT_LOAD) ?? false;
-		$titleText = array_shift($values);
-		if (!$unfiltered) {
-			if (!$helper->checkIfs($frame, $magicArgs)) {
-				return;
-			}
+		array_shift($values);
 
-			$titleText = $frame->expand($titleText);
-			$loadTitle = Title::newFromText($titleText);
-			if (!$loadTitle || !$loadTitle->canExist()) {
-				return;
-			}
-
-			$page = WikiPage::factory($loadTitle);
-			self::trackPage($output, $page);
-		}
-
-		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
-		$anyCase = $helper->checkAnyCase($magicArgs);
-		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::$saveArgNameWidth);
-		$varsToLoad = self::getVarList($frame, $translations, $anyCase);
-		if ($unfiltered) {
-			$output->setExtensionData(MetaTemplate::KEY_PRELOADED, $varsToLoad);
-		} else {
-			$preloaded = $output->getExtensionData(MetaTemplate::KEY_PRELOADED) ?? null;
-			if ($preloaded) {
-				$varsToLoad = array_diff($varsToLoad, $preloaded);
-			}
-		}
-
-		// If all variables to load are already defined or this is a bulk-load run, skip loading altogether.
-		if (!$varsToLoad || $unfiltered) {
-			return;
-		}
-
-		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::$setNameWidth);
-		$result = self::getResult($parser, $page, $set, $varsToLoad);
-		$pageId = $page->getId();
-		if (isset($result[$pageId])) {
-			self::parseResult($result[$pageId], $parser, $frame, $translations, $anyCase);
+		if (!Hooks::run('MetaTemplateDoLoadMain', [$parser, $frame, $magicArgs, $values])) {
+			self::doLoadMain($parser, $frame, $magicArgs, $values);
 		}
 	}
 
@@ -259,7 +222,7 @@ class MetaTemplateData
 
 		$varsToSave = [];
 		$output = $parser->getOutput();
-		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::$saveArgNameWidth);
+		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $srcName => $destName) {
 			$output->setExtensionData(self::KEY_PARSEONLOAD, true);
 			$varValue = MetaTemplate::getVar($frame, $srcName, $anyCase);
@@ -291,7 +254,7 @@ class MetaTemplateData
 
 		// RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
 		$output->setExtensionData(self::KEY_PARSEONLOAD, false); // Probably not necessary, but just in case...
-		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::$setNameWidth);
+		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
 		self::addPageVariables($title, $output, $set, $varsToSave);
 	}
 
@@ -330,6 +293,28 @@ class MetaTemplateData
 	public static function getPageVariables(ParserOutput $output): ?MetaTemplateSetCollection
 	{
 		return $output->getExtensionData(self::KEY_SAVE);
+	}
+
+	/**
+	 * Gets the list of variables for #load to load.
+	 *
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $translations The variables to load as a translation matrix.
+	 * @param bool $anyCase Whether to load variables case-insensitively.
+	 *
+	 * @return array
+	 *
+	 */
+	public static function getVarList(PPFrame $frame, array $translations, bool $anyCase): array
+	{
+		$varsToLoad = [];
+		foreach ($translations as $srcName => $destName) {
+			if (MetaTemplate::getVar($frame, $destName, $anyCase) === false) {
+				$varsToLoad[] = $srcName;
+			}
+		}
+
+		return $varsToLoad;
 	}
 
 	/**
@@ -445,6 +430,47 @@ class MetaTemplateData
 		return $retval;
 	}
 
+	private static function doLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
+	{
+		$helper = ParserHelper::getInstance();
+		$titleText = array_shift($values);
+		if (!$helper->checkIfs($frame, $magicArgs)) {
+			return;
+		}
+
+		$titleText = $frame->expand($titleText);
+		$loadTitle = Title::newFromText($titleText);
+		if (!$loadTitle || !$loadTitle->canExist()) {
+			return;
+		}
+
+		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
+		$output = $parser->getOutput();
+		$page = WikiPage::factory($loadTitle);
+		// RHshow($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
+		$output->addTemplate($loadTitle, $page->getId(), $page->getLatest());
+
+		$anyCase = $helper->checkAnyCase($magicArgs);
+		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
+		$varsToLoad = self::getVarList($frame, $translations, $anyCase);
+		$preloaded = $output->getExtensionData(MetaTemplate::KEY_PRELOADED) ?? null;
+		if ($preloaded) {
+			$varsToLoad = array_diff($varsToLoad, $preloaded);
+		}
+
+		// If all variables to load are already defined or this is a bulk-load run, skip loading altogether.
+		if (!$varsToLoad) {
+			return;
+		}
+
+		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
+		$result = self::getResult($parser, $frame, $page, $set, $varsToLoad);
+		$pageId = $page->getId();
+		if (isset($result[$pageId])) {
+			self::parseResult($result[$pageId], $parser, $frame, $translations, $anyCase);
+		}
+	}
+
 	/**
 	 * Gets the #load results from the current page or its redirect.
 	 *
@@ -457,48 +483,26 @@ class MetaTemplateData
 	 * @return ?array The array of loaded variables.
 	 *
 	 */
-	private static function getResult(Parser $parser, WikiPage $page, ?string $set, array $varsToLoad): ?array
+	private static function getResult(Parser $parser, PPFrame $frame, WikiPage $page, ?string $set, array $varsToLoad): ?array
 	{
 		$result = [];
 		$title = $page->getTitle();
 		$articleId = $title->getArticleID();
 		$output = $parser->getOutput();
 		$result = $parser->getTitle()->getFullText() === $title->getFullText()
-			? self::loadFromOutput($output, $set, $varsToLoad) // $set == null should never happen, but don't crash if it does
+			? self::loadFromOutput($parser, $frame, $set, $varsToLoad) // $set == null should never happen, but don't crash if it does
 			: self::loadFromDatabase($articleId, $set, $varsToLoad);
 
 		// If no results were returned and the page is a redirect, see if there are variables on the target page.
 		if (!$result && $title->isRedirect()) {
 			$page = WikiPage::factory($page->getRedirectTarget());
-			self::trackPage($output, $page);
+			$output->addTemplate($page->getTitle(), $page->getId(), $page->getLatest());
 			$result = $parser->getTitle()->getFullText() === $title->getFullText()
-				? self::loadFromOutput($output, $set, $varsToLoad)
+				? self::loadFromOutput($parser, $frame, $set, $varsToLoad)
 				: self::loadFromDatabase($articleId, $set, $varsToLoad);
 		}
 
 		return $result;
-	}
-
-	/**
-	 * Gets the list of variables for #load to load.
-	 *
-	 * @param PPFrame $frame The frame in use.
-	 * @param array $translations The variables to load as a translation matrix.
-	 * @param bool $anyCase Whether to load variables case-insensitively.
-	 *
-	 * @return array
-	 *
-	 */
-	private static function getVarList(PPFrame $frame, array $translations, bool $anyCase): array
-	{
-		$varsToLoad = [];
-		foreach ($translations as $srcName => $destName) {
-			if (MetaTemplate::getVar($frame, $destName, $anyCase) === false) {
-				$varsToLoad[] = $srcName;
-			}
-		}
-
-		return $varsToLoad;
 	}
 
 	private static function parseResult(array $result, Parser $parser, PPFrame $frame, array $translations, bool $anyCase)
@@ -584,7 +588,7 @@ class MetaTemplateData
 
 		// Track the page here rather than letting the output do it, since the template should be tracked even if it
 		// doesn't exist.
-		self::trackPage($parser->getOutput(), $page);
+		$parser->getOutput()->addTemplate($templateTitle, $page->getId(), $page->getLatest());
 		if (!$page->exists()) {
 			return $helper->error('metatemplate-listsaved-template-missing', $template);
 		}
@@ -667,9 +671,9 @@ class MetaTemplateData
 	 * @return ?array
 	 *
 	 */
-	private static function loadFromOutput(ParserOutput $output, string $setName, array $varNames): ?array
+	private static function loadFromOutput(Parser $parser, PPFrame $frame, string $setName, array $varNames): ?array
 	{
-		$pageVars = self::getPageVariables($output);
+		$pageVars = self::getPageVariables($parser->getOutput());
 		if (!$pageVars) {
 			return null; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
 		}
@@ -686,7 +690,7 @@ class MetaTemplateData
 		if ($vars) {
 			$vars = array_diff($vars, $varNames);
 			foreach ($vars as $var) {
-				$retval[] = $var->getValue();
+				$retval[] = $var->getValue($parser, $frame);
 			}
 		}
 
@@ -724,19 +728,5 @@ class MetaTemplateData
 		}
 
 		return false;
-	}
-
-	/**
-	 * Adds the page to What Links Here as a transclusion.
-	 *
-	 * @param ParserOutput $output The current parer's output object.
-	 * @param WikiPage $page The page to track.
-	 *
-	 * @return void
-	 *
-	 */
-	private static function trackPage(ParserOutput $output, WikiPage $page): void
-	{
-		$output->addTemplate($page->getTitle(), $page->getId(), $page->getLatest());
 	}
 }

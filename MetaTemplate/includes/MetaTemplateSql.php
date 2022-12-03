@@ -77,9 +77,9 @@ class MetaTemplateSql
         return self::$instance;
     }
 
-    public function catQuery(array $pageIds, ?array $varNames = [])
+    public function catQuery(array &$pageSets, ?array $varNames = []): void
     {
-        list($tables, $joinConds, $options) = self::baseQuery();
+        [$tables, $joinConds, $options] = self::baseQuery();
         $fields = [
             self::SET_PAGE_ID,
             self::SET_SET_NAME,
@@ -88,24 +88,19 @@ class MetaTemplateSql
             self::DATA_PARSE_ON_LOAD
         ];
 
-        $conds = [self::SET_PAGE_ID => $pageIds];
+        $conds = (empty($pageSets))
+            ? []
+            : [self::SET_PAGE_ID => array_keys($pageSets)];
 
         if (!empty($varNames)) {
             $conds[self::DATA_VAR_NAME] = $varNames;
         }
 
-        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
         $rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
-
-        $retval = [];
         for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
             $pageId = $row[self::FIELD_PAGE_ID];
-            if (!isset($retval[$pageId])) {
-                $retval[$pageId] = [];
-            }
-
-            $page = &$retval[$pageId];
             $setName = $row[self::FIELD_SET_NAME];
+            $page = &$pageSets[$pageId];
             if (!isset($page[$setName])) {
                 $set = new MetaTemplateSet($setName);
                 $page[$setName] = $set;
@@ -118,8 +113,6 @@ class MetaTemplateSql
                 $row[self::FIELD_PARSE_ON_LOAD]
             );
         }
-
-        return $retval;
     }
 
     /**

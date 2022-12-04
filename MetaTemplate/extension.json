@@ -22,6 +22,7 @@
 	"AutoloadClasses": {
 		"MetaTemplate": "includes/MetaTemplate.php",
 		"MetaTemplateCategoryPage": "includes/MetaTemplateCategoryPage.php",
+		"MetaTemplateCategoryVars": "includes/MetaTemplateCategoryVars.php",
 		"MetaTemplateCategoryViewer": "includes/MetaTemplateCategoryViewer.php",
 		"MetaTemplateData": "includes/MetaTemplateData.php",
 		"MetaTemplateFrameRoot": "includes/MetaTemplateFrameRoot.php",

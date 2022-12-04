@@ -9,6 +9,12 @@ use Wikimedia\Rdbms\IResultWrapper;
  */
 class MetaTemplateCategoryViewer extends CategoryViewer
 {
+    // CategoryViewer does not define these despite wide-spread internal usage in later versions, so we do. If that
+    // changes in the future, these can be removed and the code altered, or they can be made synonyms for the CV names.
+    public const CV_FILE = 'file';
+    public const CV_PAGE = 'page';
+    public const CV_SUBCAT = 'subcat';
+
     public const NA_IMAGE = 'metatemplate-image';
     public const NA_PAGE = 'metatemplate-page';
     public const NA_SORTKEY = 'metatemplate-sortkey';
@@ -24,20 +30,11 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public const VAR_CATTEXTPOST = 'metatemplate-cattextpost';
     public const VAR_CATTEXTPRE = 'metatemplate-cattextpre';
 
-    // CategoryViewer does not define these despite wide-spread internal usage in later versions, so we do. If that
-    // changes in the future, these can be removed and the code altered, or they can be made synonyms for the CV names.
-    private const CV_FILE = 'file';
-    private const CV_PAGE = 'page';
-    private const CV_SUBCAT = 'subcat';
-
     private const KEY_BULK_LOAD = MetaTemplate::KEY_METATEMPLATE . '#bulkLoad';
     private const KEY_CPT_LOAD = MetaTemplate::KEY_METATEMPLATE . '#loadViaCPT';
 
     /** @var ?MagicWordArray */
     private static $catArgs = null;
-
-    /** @var ?MagicWordArray */
-    private static $catParams = null;
 
     /** @var Language */
     private static $contLang = null;
@@ -142,17 +139,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public static function init()
     {
         self::$catArgs = new MagicWordArray([self::NA_IMAGE, self::NA_PAGE, self::NA_SUBCAT]);
-        self::$catParams = new MagicWordArray([
-            self::VAR_CATANCHOR,
-            self::VAR_CATGROUP,
-            self::VAR_CATLABEL,
-            self::VAR_CATPAGE,
-            self::VAR_CATREDIRECT,
-            self::VAR_CATSKIP,
-            // self::VAR_CATSORTKEY,
-            self::VAR_CATTEXTPOST,
-            self::VAR_CATTEXTPRE
-        ]);
 
         // While we could just import the global $wgContLang here, the global function still works and isn't deprecated
         // as of MediaWiki 1.40. In 1.32, however, MediaWiki introduces the method used on the commented out line, and
@@ -190,10 +176,11 @@ class MetaTemplateCategoryViewer extends CategoryViewer
             : (isset(self::$templates[self::CV_PAGE])
                 ? self::CV_PAGE
                 : null);
-        if (!$this->showGallery && !is_null($type)) {
-            $retset = $this->processTemplate($type, $title, $sortkey, $pageLength, $isRedirect);
-            $this->imgsNoGallery[] = $retset['link'];
-            $this->imgsNoGallery_start_char[] = $retset['start_char'];
+        $template = self::$templates[$type] ?? null;
+        if (!$this->showGallery && !is_null($type) && !is_null($template)) {
+            [$group, $link]  = $this->processTemplate($template, $type, $title, $sortkey, $pageLength, $isRedirect);
+            $this->imgsNoGallery[] = $link;
+            $this->imgsNoGallery_start_char[] = $group;
         } else {
             parent::addImage($title, $sortkey, $pageLength, $isRedirect);
         }
@@ -201,10 +188,12 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public function addPage($title, $sortkey, $pageLength, $isRedirect = false)
     {
-        if (isset(self::$templates[self::CV_PAGE])) {
-            $retset = $this->processTemplate(self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
-            $this->articles[] = $retset['link'];
-            $this->articles_start_char[] = $retset['start_char'];
+        $type = self::CV_PAGE;
+        $template = self::$templates[$type] ?? null;
+        if (!is_null($template)) {
+            [$group, $link]  = $this->processTemplate($template, self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
+            $this->articles[] = $link;
+            $this->articles_start_char[] = $group;
         } else {
             parent::addPage($title, $sortkey, $pageLength, $isRedirect);
         }
@@ -212,11 +201,13 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public function addSubcategoryObject(Category $cat, $sortkey, $pageLength)
     {
-        if (isset(self::$templates[self::CV_SUBCAT])) {
+        $type = self::CV_SUBCAT;
+        $template = self::$templates[$type] ?? null;
+        if (!is_null($template)) {
             $title = $cat->getTitle();
-            $retset = $this->processTemplate(self::CV_SUBCAT, $title, $sortkey, $pageLength);
-            $this->children[] = $retset['link'];
-            $this->children_start_char[] = $retset['start_char'];
+            [$group, $link] = $this->processTemplate($template, self::CV_SUBCAT, $title, $sortkey, $pageLength);
+            $this->children[] = $link;
+            $this->children_start_char[] = $group;
         } else {
             parent::addSubcategoryObject($cat, $sortkey, $pageLength);
         }
@@ -241,49 +232,8 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         return $frame;
     }
 
-    private function parseCatVariables(string $type, Title $title, string $templateOutput, bool $isRedirect, array $args): array
+    private function processTemplate(string $template, string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
     {
-        // RHshow('Args: ', $args);
-        $catPage = isset($args[self::VAR_CATPAGE])
-            ? Title::newFromText($args[self::VAR_CATPAGE])
-            : $title;
-
-        $catAnchor = $args[self::VAR_CATANCHOR] ?? '';
-        if (strLen($catAnchor) && $catAnchor[0] === '#') {
-            $catAnchor = substr($catAnchor, 1);
-        }
-
-        if (!empty($catAnchor)) {
-            $catPage = $catPage->createFragmentTarget($catAnchor);
-        }
-
-        // Take full text of catpagetemplate ($templateOutput) only if #catlabel is not defined. If that's blank,
-        // use the normal text.
-        $catLabel = $args[self::VAR_CATLABEL] ??
-            ($templateOutput === ''
-                ? $catPage->getFullText()
-                : $templateOutput);
-
-        $catRedirect = $args[self::VAR_CATREDIRECT] ?? $isRedirect;
-        $link = $this->generateLink($type, $catPage, $catRedirect, $catLabel);
-        if (isset($args[self::VAR_CATTEXTPRE])) {
-            $link = $args[self::VAR_CATTEXTPRE] . ' ' . $link;
-        }
-
-        if (isset($args[self::VAR_CATTEXTPOST])) {
-            $link .= ' ' . $args[self::VAR_CATTEXTPOST];
-        }
-
-        return [$catPage, $link];
-    }
-
-    private function processTemplate(string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
-    {
-        $template = self::$templates[$type] ?? '';
-        if (!strlen($template)) {
-            return [];
-        }
-
         $output = self::$parser->getOutput();
         $allPages = $output->getExtensionData(self::KEY_BULK_LOAD) ?? false;
 
@@ -296,47 +246,44 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         ksort($setsFound, SORT_NATURAL);
         // RHshow('Sets found sorted: ', count($setsFound), "\n", $setsFound);
 
-        [$templateOutput, $args] = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength);
-        [$catPage, $text] = $this->parseCatVariables($type, $title, $templateOutput, $isRedirect, $args);
-        $catGroup = $args[self::VAR_CATGROUP] ?? $type === self::CV_SUBCAT
-            ? $this->getSubcategorySortChar($catPage, $sortkey)
-            : self::$contLang->convert($this->collation->getFirstLetter($sortkey));
+        $catVars = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength, $isRedirect);
+        if (!$catVars->catSkip) {
+            $text = $this->generateMetaLink($catVars, $type, $isRedirect);
+            if (count($setsFound)) {
+                $atStart = true;
+                /** @var MetaTemplateSet $setValues */
+                foreach (array_values($setsFound) as $setValues) {
+                    // RHshow("Set: $set => ", $setValues);
+                    $setVar = $this->parseCatPageTemplate($template, $title, $setValues, $sortkey, 0, $isRedirect);
+                    if (!$setVar->catSkip) {
+                        $text .= (empty($setVar->catAnchor))
+                            ? $setVar->catLabel
+                            : $this->generateMetaLink($setVar, $type, $isRedirect);
+                    }
 
-        if (empty($args[self::VAR_CATSKIP] ?? false) && count($setsFound)) {
-            // The code below adds multiple entries to a category listing where there would normally be only one, but
-            // the code in the base CategoryViewer just works on an arbitrary array of entries, presumably to handle
-            // the final set of category items being smaller than all others, so it has no issues with the extra
-            // entries.
-            $atStart = true;
-            /** @var MetaTemplateSet $setValues */
-            foreach (array_values($setsFound) as $setValues) {
-                // RHshow("Set: $set => ", $setValues);
-                [$templateOutput, $args] = $this->parseCatPageTemplate($template, $title, $setValues, $sortkey, $pageLength);
-                if ($args[self::VAR_CATSKIP] ?? false) {
-                    break;
-                }
-
-                $text .= $this->parseCatVariables($type, $title, $templateOutput, $isRedirect, $args)[1];
-                if ($atStart) {
-                    $atStart = false;
+                    if ($atStart) {
+                        $atStart = false;
+                    }
                 }
             }
         }
 
-        return [
-            'start_char' => $catGroup,
-            'link' => $text
-        ];
+        return [$catVars->getCatGroup($this, $type, self::$contLang), $text];
     }
 
-    private function parseCatPageTemplate(string $template, Title $title, MetaTemplateSet $set, string $sortkey, int $pageLength)
+    public function generateMetaLink(MetaTemplateCategoryVars $cv, string $type, bool $isRedirect): string
+    {
+        $link = $this->generateLink($type, $cv->catPage, $isRedirect, $cv->catLabel);
+        return $cv->catTextPre . $link . $cv->catTextPost;
+    }
+
+    private function parseCatPageTemplate(string $template, Title $title, MetaTemplateSet $set, string $sortkey, int $pageLength, bool $isRedirect): MetaTemplateCategoryVars
     {
         $frame = self::createFrame($title, $set, $sortkey, $pageLength);
         $templateOutput = self::$parser->recursiveTagParse($template, $frame);
-        $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
-
+        $retval = new MetaTemplateCategoryVars($frame, $title, $templateOutput, $sortkey, $isRedirect);
         return empty($args[self::VAR_CATSKIP])
-            ? [$templateOutput, $args]
-            : ['', []];
+            ? $retval
+            : null;
     }
 }

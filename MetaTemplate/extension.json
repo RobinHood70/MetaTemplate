@@ -11,6 +11,8 @@
 		"_prefix": "metatemplate",
 		"EnableCatPageTemplate": true,
 		"EnableData": true,
+		"EnableDefine": true,
+		"EnablePageNames": true,
 		"ListsavedMaxTemplateSize": 10000
 	},
 	"license-name": "GPL-2.0-or-later",

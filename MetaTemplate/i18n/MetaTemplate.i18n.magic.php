@@ -3,26 +3,22 @@
 // While it's good form to do this anyway, this line MUST be here or the entire wiki will come crashing to a halt
 // whenever you try to add new magic words.
 $magicWords = [];
+$magicWords['en'] = [];
 
-$magicWords['en'] = [
-	MetaTemplate::NA_NESTLEVEL => [0, 'nestlevel'],
-	MetaTemplate::NA_SHIFT => [0, 'shift', 'shiftdown'],
+if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+	$magicWords['en'] = array_merge($magicWords['en'], [
+		MetaTemplate::NA_NESTLEVEL => [0, 'nestlevel'],
 
-	MetaTemplate::PF_DEFINE => [0, 'define'],
-	MetaTemplate::PF_FULLPAGENAMEx => [1, 'FULLPAGENAMEx'],
-	MetaTemplate::PF_INHERIT => [0, 'inherit'],
-	MetaTemplate::PF_LOCAL => [0, 'local'],
-	MetaTemplate::PF_NAMESPACEx => [1, 'NAMESPACEx'],
-	MetaTemplate::PF_PAGENAMEx => [1, 'PAGENAMEx'],
-	MetaTemplate::PF_PREVIEW => [0, 'preview'],
-	MetaTemplate::PF_RETURN => [0, 'return'],
-	MetaTemplate::PF_UNSET => [0, 'unset'],
+		MetaTemplate::PF_FULLPAGENAMEx => [1, 'FULLPAGENAMEx'],
+		MetaTemplate::PF_NAMESPACEx => [1, 'NAMESPACEx'],
+		MetaTemplate::PF_PAGENAMEx => [1, 'PAGENAMEx'],
 
-	MetaTemplate::VR_FULLPAGENAME0 => [1, 'FULLPAGENAME0'],
-	MetaTemplate::VR_NAMESPACE0 => [1, 'NAMESPACE0'],
-	MetaTemplate::VR_NESTLEVEL => [1, 'NESTLEVEL'],
-	MetaTemplate::VR_PAGENAME0 => [1, 'PAGENAME0'],
-];
+		MetaTemplate::VR_FULLPAGENAME0 => [1, 'FULLPAGENAME0'],
+		MetaTemplate::VR_NAMESPACE0 => [1, 'NAMESPACE0'],
+		MetaTemplate::VR_NESTLEVEL => [1, 'NESTLEVEL'],
+		MetaTemplate::VR_PAGENAME0 => [1, 'PAGENAME0']
+	]);
+}
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 	$magicWords['en'] = array_merge($magicWords['en'], [
@@ -36,12 +32,20 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 		MetaTemplateCategoryViewer::VAR_CATANCHOR => [0, 'catanchor'],
 		MetaTemplateCategoryViewer::VAR_CATGROUP => [0, 'catgroup'],
 		MetaTemplateCategoryViewer::VAR_CATLABEL => [0, 'catlabel'],
-		MetaTemplateCategoryViewer::VAR_CATPAGE => [0, 'catpage'],
 		MetaTemplateCategoryViewer::VAR_CATREDIRECT => [0, 'catredirect'],
 		MetaTemplateCategoryViewer::VAR_CATSKIP => [0, 'catskip'],
 		// MetaTemplateCategoryViewer::VAR_CATSORTKEY => [0, 'catsortkey'],
 		MetaTemplateCategoryViewer::VAR_CATTEXTPOST => [0, 'cattextpost'],
 		MetaTemplateCategoryViewer::VAR_CATTEXTPRE => [0, 'cattextpre'],
+
+		MetaTemplateCategoryViewer::VAR_SETANCHOR => [0, 'setanchor'],
+		MetaTemplateCategoryViewer::VAR_SETLABEL => [0, 'setlabel'],
+		MetaTemplateCategoryViewer::VAR_SETPAGE => [0, 'setpage'],
+		MetaTemplateCategoryViewer::VAR_SETREDIRECT => [0, 'setredirect'],
+		MetaTemplateCategoryViewer::VAR_SETSKIP => [0, 'setskip'],
+		// MetaTemplateCategoryViewer::VAR_SETSORTKEY => [0, 'setsortkey'],
+		MetaTemplateCategoryViewer::VAR_SETTEXTPOST => [0, 'settextpost'],
+		MetaTemplateCategoryViewer::VAR_SETTEXTPRE => [0, 'settextpre'],
 	]);
 }
 
@@ -60,5 +64,18 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 		MetaTemplateData::PF_SAVE => [0, 'save'],
 
 		MetaTemplateData::TG_SAVEMARKUP => [0, 'savemarkup'],
+	]);
+}
+
+if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)) {
+	$magicWords['en'] = array_merge($magicWords['en'], [
+		MetaTemplate::NA_SHIFT => [0, 'shift', 'shiftdown'],
+
+		MetaTemplate::PF_DEFINE => [0, 'define'],
+		MetaTemplate::PF_INHERIT => [0, 'inherit'],
+		MetaTemplate::PF_LOCAL => [0, 'local'],
+		MetaTemplate::PF_PREVIEW => [0, 'preview'],
+		MetaTemplate::PF_RETURN => [0, 'return'],
+		MetaTemplate::PF_UNSET => [0, 'unset'],
 	]);
 }

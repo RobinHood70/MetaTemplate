@@ -124,10 +124,12 @@ class MetaTemplateHooks
 	 */
 	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds): void
 	{
-		$aCustomVariableIds[] = MetaTemplate::VR_FULLPAGENAME0;
-		$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
-		$aCustomVariableIds[] = MetaTemplate::VR_NESTLEVEL;
-		$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+			$aCustomVariableIds[] = MetaTemplate::VR_FULLPAGENAME0;
+			$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
+			$aCustomVariableIds[] = MetaTemplate::VR_NESTLEVEL;
+			$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
+		}
 	}
 
 	/**
@@ -235,6 +237,10 @@ class MetaTemplateHooks
 	 */
 	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame): bool
 	{
+		if (!MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+			return true;
+		}
+
 		switch ($magicWordId) {
 			case MetaTemplate::VR_FULLPAGENAME0:
 				$ret = MetaTemplate::doFullPageNameX($parser, $frame, null);
@@ -279,21 +285,26 @@ class MetaTemplateHooks
 	 */
 	private static function initParserFunctions(Parser $parser): void
 	{
-		$parser->setFunctionHook(MetaTemplate::PF_DEFINE, 'MetaTemplate::doDefine', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(MetaTemplate::PF_FULLPAGENAMEx, 'MetaTemplate::doFullPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH);
-		$parser->setFunctionHook(MetaTemplate::PF_INHERIT, 'MetaTemplate::doInherit', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(MetaTemplate::PF_LOCAL, 'MetaTemplate::doLocal', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(MetaTemplate::PF_NAMESPACEx, 'MetaTemplate::doNamespaceX', SFH_OBJECT_ARGS | SFH_NO_HASH);
-		$parser->setFunctionHook(MetaTemplate::PF_PAGENAMEx, 'MetaTemplate::doPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH);
-		$parser->setFunctionHook(MetaTemplate::PF_PREVIEW, 'MetaTemplate::doPreview', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', SFH_OBJECT_ARGS);
-		$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
-
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) && MetaTemplateSql::getInstance()->tablesExist()) {
 			$parser->setFunctionHook(MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_PRELOAD, 'MetaTemplateData::doPreload', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS);
+		}
+
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)) {
+			$parser->setFunctionHook(MetaTemplate::PF_DEFINE, 'MetaTemplate::doDefine', SFH_OBJECT_ARGS);
+			$parser->setFunctionHook(MetaTemplate::PF_INHERIT, 'MetaTemplate::doInherit', SFH_OBJECT_ARGS);
+			$parser->setFunctionHook(MetaTemplate::PF_LOCAL, 'MetaTemplate::doLocal', SFH_OBJECT_ARGS);
+			$parser->setFunctionHook(MetaTemplate::PF_PREVIEW, 'MetaTemplate::doPreview', SFH_OBJECT_ARGS);
+			$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', SFH_OBJECT_ARGS);
+			$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
+		}
+
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+			$parser->setFunctionHook(MetaTemplate::PF_FULLPAGENAMEx, 'MetaTemplate::doFullPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH);
+			$parser->setFunctionHook(MetaTemplate::PF_NAMESPACEx, 'MetaTemplate::doNamespaceX', SFH_OBJECT_ARGS | SFH_NO_HASH);
+			$parser->setFunctionHook(MetaTemplate::PF_PAGENAMEx, 'MetaTemplate::doPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH);
 		}
 	}
 

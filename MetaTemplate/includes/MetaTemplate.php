@@ -4,34 +4,40 @@ use MediaWiki\MediaWikiServices;
 
 /**
  * An extension to add data persistence and variable manipulation to MediaWiki.
+ *
+ * At this point, the code could easily be split into four separate extensions based on the SSTNG constants, but at as
+ * they're likely to all be used together, with the possible exception of the Define group as of MW 1.35, it seems
+ * easier to keep them together for easier maintenance.
  */
 class MetaTemplate
 {
-    const KEY_METATEMPLATE = '@metatemplate';
+    public const KEY_METATEMPLATE = '@metatemplate';
 
     // Shared between CPT and #load, so needs a shared home in case one or the other is disabled.
-    const KEY_PRELOADED = MetaTemplate::KEY_METATEMPLATE . '#preloaded';
+    public const KEY_PRELOADED = MetaTemplate::KEY_METATEMPLATE . '#preloaded';
 
-    const NA_NESTLEVEL = 'metatemplate-nestlevel';
-    const NA_SHIFT = 'metatemplate-shift';
+    public const NA_NESTLEVEL = 'metatemplate-nestlevel';
+    public const NA_SHIFT = 'metatemplate-shift';
 
-    const PF_DEFINE = 'metatemplate-define';
-    const PF_FULLPAGENAMEx = 'metatemplate-fullpagenamex';
-    const PF_INHERIT = 'metatemplate-inherit';
-    const PF_LOCAL = 'metatemplate-local';
-    const PF_NAMESPACEx = 'metatemplate-namespacex';
-    const PF_PAGENAMEx = 'metatemplate-pagenamex';
-    const PF_PREVIEW = 'metatemplate-preview';
-    const PF_RETURN = 'metatemplate-return';
-    const PF_UNSET = 'metatemplate-unset';
+    public const PF_DEFINE = 'metatemplate-define';
+    public const PF_FULLPAGENAMEx = 'metatemplate-fullpagenamex';
+    public const PF_INHERIT = 'metatemplate-inherit';
+    public const PF_LOCAL = 'metatemplate-local';
+    public const PF_NAMESPACEx = 'metatemplate-namespacex';
+    public const PF_PAGENAMEx = 'metatemplate-pagenamex';
+    public const PF_PREVIEW = 'metatemplate-preview';
+    public const PF_RETURN = 'metatemplate-return';
+    public const PF_UNSET = 'metatemplate-unset';
 
-    const STTNG_ENABLEDATA = 'EnableData';
-    const STTNG_ENABLECPT = 'EnableCatPageTemplate';
+    public const STTNG_ENABLECPT = 'EnableCatPageTemplate';
+    public const STTNG_ENABLEDATA = 'EnableData';
+    public const STTNG_ENABLEDEFINE = 'EnableDefine';
+    public const STTNG_ENABLEPAGENAMES = 'EnablePageNames';
 
-    const VR_FULLPAGENAME0 = 'metatemplate-fullpagename0';
-    const VR_NAMESPACE0 = 'metatemplate-namespace0';
-    const VR_NESTLEVEL = 'metatemplate-nestlevel';
-    const VR_PAGENAME0 = 'metatemplate-pagename0';
+    public const VR_FULLPAGENAME0 = 'metatemplate-fullpagename0';
+    public const VR_NAMESPACE0 = 'metatemplate-namespace0';
+    public const VR_NESTLEVEL = 'metatemplate-nestlevel';
+    public const VR_PAGENAME0 = 'metatemplate-pagename0';
 
     private static $config;
 
@@ -452,17 +458,20 @@ class MetaTemplate
      */
     public static function init(): void
     {
-        ParserHelper::getInstance()->cacheMagicWords([
-            self::NA_NESTLEVEL,
-            self::NA_SHIFT,
-        ]);
+        if (self::can(self::STTNG_ENABLECPT)) {
+            MetaTemplateCategoryViewer::init();
+        }
 
         if (self::can(self::STTNG_ENABLEDATA)) {
             MetaTemplateData::init();
         }
 
-        if (self::can(self::STTNG_ENABLECPT)) {
-            MetaTemplateCategoryViewer::init();
+        if (self::can(self::STTNG_ENABLEDEFINE)) {
+            ParserHelper::getInstance()->cacheMagicWords([self::NA_SHIFT]);
+        }
+
+        if (self::can(self::STTNG_ENABLEPAGENAMES)) {
+            ParserHelper::getInstance()->cacheMagicWords([self::NA_NESTLEVEL]);
         }
     }
 

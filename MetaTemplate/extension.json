@@ -52,6 +52,7 @@
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"MetaTemplateDoLoadMain": "MetaTemplateHooks::onMetaTemplateDoLoadMain",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
+		"OutputPageParserOutput": "MetaTemplateHooks::onOutputPageParserOutput",
 		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",

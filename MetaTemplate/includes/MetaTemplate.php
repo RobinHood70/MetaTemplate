@@ -507,18 +507,18 @@ class MetaTemplate
         }
 
         self::unsetVar($frame, $varName, $anyCase, false);
-        if ($value instanceof PPNode) {
+        if (is_null($value)) {
+            MetaTemplate::unsetVar($frame, $varName, $anyCase);
+        } elseif ($value instanceof PPNode) {
             // Value is a node, so leave node as it is and expand value for text.
             $valueNode = $value;
             $valueText = $frame->expand($value);
-        } else {
-            if (!is_string($value)) {
-                $value = ParserHelper::getInstance()->error('metatemplate-setvar-notrecognized', $value, $varName);
-            }
-
+        } elseif (is_string($value)) {
             // Value is a string, so create node and leave text as is.
             $valueNode = new PPNode_Hash_Text([$value], 0);
             $valueText = $value;
+        } else {
+            $value = ParserHelper::getInstance()->error('metatemplate-setvar-notrecognized', $value, $varName);
         }
 
         $args[$varName] = $valueNode;

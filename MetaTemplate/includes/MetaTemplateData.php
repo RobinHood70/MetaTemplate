@@ -125,9 +125,8 @@ class MetaTemplateData
 
 		array_shift($values);
 
-		if (!Hooks::run('MetaTemplateDoLoadMain', [$parser, $frame, $magicArgs, $values])) {
-			self::doLoadMain($parser, $frame, $magicArgs, $values);
-		}
+		!Hooks::run('MetaTemplateBeforeLoadMain', [$parser, $frame, $magicArgs, $values]);
+		self::doLoadMain($parser, $frame, $magicArgs, $values);
 	}
 
 	/**

@@ -76,8 +76,12 @@ class MetaTemplateHooks
 	 */
 	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): void
 	{
-		if ($title->getNamespace() === NS_CATEGORY && MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			$article = new MetaTemplateCategoryPage($title);
+		if ($title->getNamespace() === NS_CATEGORY) {
+			if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+				$article = new MetaTemplateCategoryPage($title);
+			} elseif (class_exists('CategoryTreeCategoryPage', false)) {
+				$article = new CategoryTreeCategoryPage($title);
+			}
 		}
 	}
 
@@ -88,13 +92,11 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function onMetaTemplateDoLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values): bool
+	public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
 	{
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			return MetaTemplateCategoryViewer::onMetaTemplateDoLoadMain($parser, $frame, $magicArgs, $values);
+			MetaTemplateCategoryViewer::onMetaTemplateBeforeLoadMain($parser, $frame, $magicArgs, $values);
 		}
-
-		return false;
 	}
 
 	// Initial table setup/modifications from v1.
@@ -152,6 +154,11 @@ class MetaTemplateHooks
 		 */
 		$bypassVars[] = 'ns_base';
 		$bypassVars[] = 'ns_id';
+	}
+
+	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput)
+	{
+		MetaTemplateCategoryViewer::init($parserOutput);
 	}
 
 	/**
@@ -318,7 +325,7 @@ class MetaTemplateHooks
 	private static function initTagFunctions(Parser $parser): void
 	{
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateCategoryPage::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
+			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
 		}
 
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {

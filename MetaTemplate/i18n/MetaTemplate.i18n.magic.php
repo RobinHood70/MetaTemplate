@@ -22,19 +22,16 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 	$magicWords['en'] = array_merge($magicWords['en'], [
-		MetaTemplateCategoryPage::TG_CATPAGETEMPLATE => [0, 'catpagetemplate'],
 
 		MetaTemplateCategoryViewer::NA_IMAGE => [0, 'image'],
 		MetaTemplateCategoryViewer::NA_PAGE => [0, 'page'],
 		MetaTemplateCategoryViewer::NA_SORTKEY => [0, 'sortkey'],
 		MetaTemplateCategoryViewer::NA_SUBCAT => [0, 'subcat'],
 
-		MetaTemplateCategoryViewer::VAR_CATANCHOR => [0, 'catanchor'],
+		MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE => [0, 'catpagetemplate'],
+
 		MetaTemplateCategoryViewer::VAR_CATGROUP => [0, 'catgroup'],
 		MetaTemplateCategoryViewer::VAR_CATLABEL => [0, 'catlabel'],
-		MetaTemplateCategoryViewer::VAR_CATREDIRECT => [0, 'catredirect'],
-		MetaTemplateCategoryViewer::VAR_CATSKIP => [0, 'catskip'],
-		// MetaTemplateCategoryViewer::VAR_CATSORTKEY => [0, 'catsortkey'],
 		MetaTemplateCategoryViewer::VAR_CATTEXTPOST => [0, 'cattextpost'],
 		MetaTemplateCategoryViewer::VAR_CATTEXTPRE => [0, 'cattextpre'],
 
@@ -42,8 +39,9 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 		MetaTemplateCategoryViewer::VAR_SETLABEL => [0, 'setlabel'],
 		MetaTemplateCategoryViewer::VAR_SETPAGE => [0, 'setpage'],
 		MetaTemplateCategoryViewer::VAR_SETREDIRECT => [0, 'setredirect'],
+		MetaTemplateCategoryViewer::VAR_SETSEPARATOR => [0, 'setseparator'],
 		MetaTemplateCategoryViewer::VAR_SETSKIP => [0, 'setskip'],
-		// MetaTemplateCategoryViewer::VAR_SETSORTKEY => [0, 'setsortkey'],
+		MetaTemplateCategoryViewer::VAR_SETSORTKEY => [0, 'setsortkey'],
 		MetaTemplateCategoryViewer::VAR_SETTEXTPOST => [0, 'settextpost'],
 		MetaTemplateCategoryViewer::VAR_SETTEXTPRE => [0, 'settextpre'],
 	]);

@@ -2,12 +2,10 @@
 
 class MetaTemplateCategoryPage extends CategoryPage
 {
-    const TG_CATPAGETEMPLATE = 'metatemplate-catpagetemplate';
-
     function closeShowCategory()
     {
         $this->mCategoryViewerClass = MetaTemplateCategoryViewer::hasTemplate()
-            ? 'MetaTemplateCategoryViewer'
+            ? MetaTemplateCategoryViewer::class
             : (class_exists('CategoryTreeCategoryViewer', false)
                 ? 'CategoryTreeCategoryViewer'
                 : 'CategoryViewer');

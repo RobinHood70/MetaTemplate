@@ -75,7 +75,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
     {
-        print_r(__METHOD__);
         if ($parser->getTitle()->getNamespace() !== NS_CATEGORY || !strlen(trim($content))) {
             return '';
         }

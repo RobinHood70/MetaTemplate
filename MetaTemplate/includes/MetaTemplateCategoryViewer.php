@@ -2,11 +2,12 @@
 
 use Wikimedia\Rdbms\IResultWrapper;
 
-/** @todo For now, this code is sufficient, but like its predecessor, it can produce incorrect counts of items in the
- *  category, sometimes leading to unnecessary "refreshCounts" jobs (see CategoryViewer->getMessageCounts). Try moving
- *  the set entries to an array of their own, to be retrieved after the parent entry is done. This will remove them
- *  from consideration for the count and allow things to work as intended.
+/* In theory, this process could be optimized further by subdividing <catpagetemplate> into a section for pages and a
+ * section for sets so that only the set portion is parsed inside the loop at the end of processTemplate(). Given the
+ * syntax changes already being introduced in this version and the extra level of user knowledge that a pages/sets
+ * style would require, I don't think it's especially useful.
  */
+
 class MetaTemplateCategoryViewer extends CategoryViewer
 {
     // CategoryViewer does not define these despite wide-spread internal usage in later versions, so we do. If that
@@ -263,12 +264,17 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
         unset($setsFound['']);
         // RHshow('Sets found, sorted: ', count($setsFound), "\n", $setsFound);
-
         $catVars = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength);
+
+        /* $catGroup does not need sanitizing as MW runs it through htmlspecialchars later in the process.
+         * Unfortunately, that means you can't make links without deriving formatList(), which can then call either
+         * static::columnList() instead of self::columnList() and the same for shortList() so that those two methods
+         * can be statically derived. Are we having fun yet?
+         */
         $catGroup = $catVars->catGroup ?? ($type === self::CV_SUBCAT
             ? $this->getSubcategorySortChar($title, $sortkey)
             : self::$contLang->convert($this->collation->getFirstLetter($sortkey)));
-        $catText = $catVars->catTextPre . $this->generateLink($type, $title, $isRedirect, $catVars->catLabel) . $catVars->catTextPost;
+        $catText = Sanitizer::removeHTMLtags($catVars->catTextPre . $this->generateLink($type, $title, $isRedirect, $catVars->catLabel) . $catVars->catTextPost, null, null, ['a']);
         $texts = [];
         if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
             foreach (array_values($setsFound) as $setkey => $setValues) {
@@ -290,7 +296,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         ksort($texts, SORT_NATURAL);
         $text = implode($catVars->setSeparator, $texts);
         if (strlen($text)) {
-            $text = $catVars->setTextPre . $text . $catVars->setTextPost;
+            $text = Sanitizer::removeHTMLtags($catVars->setTextPre . $text . $catVars->setTextPost, null, null, ['a']);
         }
 
         return [$catGroup, $catText . $text];

@@ -65,12 +65,17 @@ class MetaTemplateCategoryVars
         $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
 
         $this->catGroup = $args[MetaTemplateCategoryViewer::VAR_CATGROUP] ?? null;
-        $this->catLabel = $args[MetaTemplateCategoryViewer::VAR_CATLABEL] ??
-            ($templateOutput === ''
+        $this->catLabel = isset($args[MetaTemplateCategoryViewer::VAR_CATLABEL])
+            ? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_CATLABEL])
+            : ($templateOutput === ''
                 ? $title->getFullText()
-                : $templateOutput);
-        $this->catTextPost = $args[MetaTemplateCategoryViewer::VAR_CATTEXTPOST] ?? '';
-        $this->catTextPre = $args[MetaTemplateCategoryViewer::VAR_CATTEXTPRE] ?? '';
+                : Sanitizer::removeHTMLtags($templateOutput));
+        $this->catTextPost = isset($args[MetaTemplateCategoryViewer::VAR_CATTEXTPOST])
+            ? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_CATTEXTPOST])
+            : '';
+        $this->catTextPre = isset($args[MetaTemplateCategoryViewer::VAR_CATTEXTPRE])
+            ? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_CATTEXTPRE])
+            : '';
         $this->setSkip = $args[MetaTemplateCategoryViewer::VAR_SETSKIP] ?? false;
         if ($this->setSkip) {
             return;
@@ -96,18 +101,29 @@ class MetaTemplateCategoryVars
         // the normal text.
         // Temporarily accepts catlabel as synonymous with setlabel if setlabel is not defined. This is done solely for
         // backwards compatibility and it can be removed once all existing catpagetemplates have been converted.
-        $this->setLabel =
+        $setLabel =
             $args[MetaTemplateCategoryViewer::VAR_SETLABEL] ??
             $args[MetaTemplateCategoryViewer::VAR_CATLABEL] ??
             ($templateOutput === ''
                 ? null
                 : $templateOutput);
+        if (!is_null($setLabel)) {
+            $setLabel = Sanitizer::removeHTMLtags($setLabel);
+        }
+
+        $this->setLabel = $setLabel;
         $this->setRedirect = $args[MetaTemplateCategoryViewer::VAR_SETREDIRECT] ?? null;
-        $this->setSeparator = $args[MetaTemplateCategoryViewer::VAR_SETSEPARATOR] ?? null;
-        $this->setSortKey =
-            $args[MetaTemplateCategoryViewer::VAR_SETSORTKEY] ?? $this->setLabel ??
-            ($this->setPage ?? $title)->getFullText();
-        $this->setTextPost = $args[MetaTemplateCategoryViewer::VAR_SETTEXTPOST] ?? '';
-        $this->setTextPre = $args[MetaTemplateCategoryViewer::VAR_SETTEXTPRE] ?? '';
+        $this->setSeparator = isset($args[MetaTemplateCategoryViewer::VAR_SETSEPARATOR])
+            ? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETSEPARATOR])
+            : null;
+        $this->setSortKey = isset($args[MetaTemplateCategoryViewer::VAR_SETSORTKEY])
+            ? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETSORTKEY])
+            : $setLabel ?? $setPage ?? $title->getFullText();
+        $this->setTextPost = isset($args[MetaTemplateCategoryViewer::VAR_SETTEXTPOST])
+            ? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETTEXTPOST])
+            : '';
+        $this->setTextPre = isset($args[MetaTemplateCategoryViewer::VAR_SETTEXTPRE])
+            ? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETTEXTPRE])
+            : '';
     }
 }

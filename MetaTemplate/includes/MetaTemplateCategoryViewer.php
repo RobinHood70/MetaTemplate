@@ -265,9 +265,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         // RHshow('Sets found, sorted: ', count($setsFound), "\n", $setsFound);
 
         $catVars = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength);
-        $catGroup = $catVars->catGroup ?? $type === self::CV_SUBCAT
+        $catGroup = $catVars->catGroup ?? ($type === self::CV_SUBCAT
             ? $this->getSubcategorySortChar($title, $sortkey)
-            : self::$contLang->convert($this->collation->getFirstLetter($sortkey));
+            : self::$contLang->convert($this->collation->getFirstLetter($sortkey)));
         $catText = $catVars->catTextPre . $this->generateLink($type, $title, $isRedirect, $catVars->catLabel) . $catVars->catTextPost;
         $texts = [];
         if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {

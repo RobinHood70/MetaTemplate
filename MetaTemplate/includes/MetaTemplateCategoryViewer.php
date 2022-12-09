@@ -181,6 +181,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
     {
         if (self::$parserOutput->getExtensionData(self::KEY_CPT_LOAD) ?? false) {
+            unset($values[0]);
             $translations = MetaTemplate::getVariableTranslations($frame, $values, MetaTemplateData::SAVE_VARNAME_WIDTH);
             $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
             $varsToLoad = MetaTemplateData::getVarList($frame, $translations, $anyCase);
@@ -274,7 +275,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $catGroup = $catVars->catGroup ?? ($type === self::CV_SUBCAT
             ? $this->getSubcategorySortChar($title, $sortkey)
             : self::$contLang->convert($this->collation->getFirstLetter($sortkey)));
-        $catText = Sanitizer::removeHTMLtags($catVars->catTextPre . $this->generateLink($type, $title, $isRedirect, $catVars->catLabel) . $catVars->catTextPost, null, null, ['a']);
+        $catText = $catVars->catTextPre . $this->generateLink($type, $title, $isRedirect, $catVars->catLabel) . $catVars->catTextPost;
         $texts = [];
         if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
             foreach (array_values($setsFound) as $setkey => $setValues) {
@@ -296,7 +297,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         ksort($texts, SORT_NATURAL);
         $text = implode($catVars->setSeparator, $texts);
         if (strlen($text)) {
-            $text = Sanitizer::removeHTMLtags($catVars->setTextPre . $text . $catVars->setTextPost, null, null, ['a']);
+            $text = $catVars->setTextPre . $text . $catVars->setTextPost;
         }
 
         return [$catGroup, $catText . $text];

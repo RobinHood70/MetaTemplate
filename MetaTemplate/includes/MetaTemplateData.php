@@ -123,8 +123,6 @@ class MetaTemplateData
 			self::NA_SET
 		);
 
-		array_shift($values);
-
 		!Hooks::run('MetaTemplateBeforeLoadMain', [$parser, $frame, $magicArgs, $values]);
 		self::doLoadMain($parser, $frame, $magicArgs, $values);
 	}
@@ -432,7 +430,8 @@ class MetaTemplateData
 	private static function doLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
 	{
 		$helper = ParserHelper::getInstance();
-		$titleText = array_shift($values);
+		$titleText = $values[0];
+		unset($values[0]);
 		if (!$helper->checkIfs($frame, $magicArgs)) {
 			return;
 		}
@@ -549,15 +548,16 @@ class MetaTemplateData
 			return '';
 		}
 
-		$template = array_shift($values);
-		if (is_null($template)) { // Should be impossible, but better safe than crashy.
+		if (!isset($values[0])) { // Should be impossible, but better safe than crashy.
 			return $helper->error('metatemplate-listsaved-template-empty');
 		}
 
-		$template = trim($frame->expand($template));
+		$template = trim($frame->expand($values[0]));
 		if (!strlen($template)) {
 			return $helper->error('metatemplate-listsaved-template-empty');
 		}
+
+		unset($values[0]);
 
 		/**
 		 * @var array $named

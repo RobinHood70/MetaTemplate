@@ -76,14 +76,11 @@ class MetaTemplateCategoryVars
             return;
         }
 
-        // Temporarily accepts catlabel as synonymous with setlabel if setlabel is missing. This is done solely for backwards compatibility and it can be removed once all existing catpagetemplates have been converted.
         $setPage = $args[MetaTemplateCategoryViewer::VAR_SETPAGE] ?? null;
         $setPage = $setPage === $title->getFullText()
             ? null
             : Title::newFromText($setPage);
-        $setAnchor =
-            $args[MetaTemplateCategoryViewer::VAR_SETANCHOR] ??
-            null;
+        $setAnchor = $args[MetaTemplateCategoryViewer::VAR_SETANCHOR] ?? null;
         if (!empty($setAnchor) && $setAnchor[0] === '#') {
             $setAnchor = substr($setAnchor, 1);
         }
@@ -95,8 +92,10 @@ class MetaTemplateCategoryVars
 
         $this->setPage = $setPage;
 
-        // Take full text of setpagetemplate ($templateOutput) only if #setlabel is not defined. If that's blank,
-        // use the normal text.
+        // Take full text of setpagetemplate ($templateOutput) only if setlabel is not defined. If that's blank, use
+        // the normal text.
+        // Temporarily accepts catlabel as synonymous with setlabel if setlabel is not defined. This is done solely for
+        // backwards compatibility and it can be removed once all existing catpagetemplates have been converted.
         $this->setLabel =
             $args[MetaTemplateCategoryViewer::VAR_SETLABEL] ??
             $args[MetaTemplateCategoryViewer::VAR_CATLABEL] ??
@@ -105,9 +104,10 @@ class MetaTemplateCategoryVars
                 : $templateOutput);
         $this->setRedirect = $args[MetaTemplateCategoryViewer::VAR_SETREDIRECT] ?? null;
         $this->setSeparator = $args[MetaTemplateCategoryViewer::VAR_SETSEPARATOR] ?? null;
-        $this->setSortKey = $args[MetaTemplateCategoryViewer::VAR_SETSORTKEY] ?? $this->setLabel ?? $this->setPage->getFullText();
+        $this->setSortKey =
+            $args[MetaTemplateCategoryViewer::VAR_SETSORTKEY] ?? $this->setLabel ??
+            ($this->setPage ?? $title)->getFullText();
         $this->setTextPost = $args[MetaTemplateCategoryViewer::VAR_SETTEXTPOST] ?? '';
         $this->setTextPre = $args[MetaTemplateCategoryViewer::VAR_SETTEXTPRE] ?? '';
-        // RHshow($title->getFullText(), ' => ', $this->setLabel, ': ', $this->setSortKey);
     }
 }

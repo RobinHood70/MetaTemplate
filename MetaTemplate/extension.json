@@ -50,7 +50,7 @@
 		"CategoryViewer::doCategoryQuery": "MetaTemplateHooks::onDoCategoryQuery",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
-		"MetaTemplateDoLoadMain": "MetaTemplateHooks::onMetaTemplateDoLoadMain",
+		"MetaTemplateBeforeLoadMain": "MetaTemplateHooks::onMetaTemplateBeforeLoadMain",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
 		"OutputPageParserOutput": "MetaTemplateHooks::onOutputPageParserOutput",
 		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",

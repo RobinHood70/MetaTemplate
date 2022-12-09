@@ -92,13 +92,6 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
-	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			MetaTemplateCategoryViewer::onMetaTemplateBeforeLoadMain($parser, $frame, $magicArgs, $values);
-		}
-	}
-
 	// Initial table setup/modifications from v1.
 	/**
 	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
@@ -131,6 +124,26 @@ class MetaTemplateHooks
 			$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
 			$aCustomVariableIds[] = MetaTemplate::VR_NESTLEVEL;
 			$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
+		}
+	}
+
+	/**
+	 * This fires immediately after doLoad extracts its magic words and before the main body of doLoad. This allows
+	 * <catpagetemplate> to intercept the list of variables being loaded and bulk load them for the entire category
+	 * page all at once.
+	 *
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The frame in use.
+	 * @param array $magicArgs The magic arguments provided to doLoad.
+	 * @param array $values All other parameters passed to doLoad.
+	 *
+	 * @return void
+	 *
+	 */
+	public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
+	{
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+			MetaTemplateCategoryViewer::onMetaTemplateBeforeLoadMain($parser, $frame, $magicArgs, $values);
 		}
 	}
 

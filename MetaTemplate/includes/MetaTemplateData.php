@@ -22,6 +22,7 @@ class MetaTemplateData
 	public const SAVE_SETNAME_WIDTH = 50;
 	public const SAVE_VARNAME_WIDTH = 50;
 
+	private const KEY_LISTSAVED_ERROR = MetaTemplate::KEY_METATEMPLATE . '#listSavedErr';
 	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
 	private const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
 	private const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
@@ -55,6 +56,8 @@ class MetaTemplateData
 			return ['text' => $setup, 'noparse' => true];
 		}
 
+		$output = $parser->getOutput();
+		$output->setExtensionData(self::KEY_LISTSAVED_ERROR, false);
 		/**
 		 * @var Title $templateTitle
 		 * @var array $magicArgs
@@ -90,6 +93,13 @@ class MetaTemplateData
 		$templates = self::createTemplates($language, $templateName, $data);
 		$retval = $helper->formatPFForDebug($templates, $magicArgs[ParserHelper::NA_DEBUG] ?? false);
 
+		/** @todo Alter #save to have an internal disable flag so that if a template tries to call #save, it fails
+		 *  silently. */
+		if ($parser->getOutput()->getExtensionData(self::KEY_LISTSAVED_ERROR) ?? false) {
+			$retval = $helper->error('metatemplate-listsaved-template-saveignored', $templateTitle->getFullText());
+		}
+
+		$parser->getOutput()->setExtensionData(self::KEY_LISTSAVED_ERROR, null);
 		return ['text' => $retval, 'noparse' => false];
 	}
 
@@ -214,11 +224,10 @@ class MetaTemplateData
 			return;
 		}
 
+		$output = $parser->getOutput();
 		$anyCase = $helper->checkAnyCase($magicArgs);
 		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
-
 		$varsToSave = [];
-		$output = $parser->getOutput();
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $srcName => $destName) {
 			$output->setExtensionData(self::KEY_PARSEONLOAD, true);
@@ -247,6 +256,11 @@ class MetaTemplateData
 			}
 
 			$varsToSave[$destName] = new MetaTemplateVariable($varValue, $parseOnLoad);
+		}
+
+		// Only flag #listsaved error if all checks were passed and this is active code.
+		if ($output->getExtensionData(self::KEY_LISTSAVED_ERROR) === false) {
+			$output->setExtensionData(self::KEY_LISTSAVED_ERROR, true);
 		}
 
 		// RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
@@ -593,19 +607,9 @@ class MetaTemplateData
 		}
 
 		$maxLen = MetaTemplate::getConfig()->get('ListsavedMaxTemplateSize');
-		$text = $page->getContent()->getNativeData();
-		if ($maxLen > 0) {
-			if (!strlen($text)) {
-				return '';
-			} elseif (strlen($text) > $maxLen) {
-				return $helper->error('metatemplate-listsaved-template-toolong', $template, $maxLen);
-			}
-		}
-
-		$disallowed = explode("\n", wfMessage('metatemplate-listsaved-template-disallowed')->text());
-		foreach ($disallowed as $badWord) {
-			if (strlen($badWord) && strpos($text, $badWord))
-				return $helper->error('metatemplate-listsaved-template-disallowedmessage', $template, $badWord);
+		$size = $templateTitle->getLength();
+		if ($maxLen > 0 && $size > $maxLen) {
+			return $helper->error('metatemplate-listsaved-template-toolong', $template, $maxLen);
 		}
 
 		return [$templateTitle, $magicArgs, $named, $unnamed];

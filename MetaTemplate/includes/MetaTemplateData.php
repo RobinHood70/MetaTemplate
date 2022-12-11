@@ -48,16 +48,14 @@ class MetaTemplateData
 	 *               depending whether it was an error message or a successful call.
 	 *
 	 */
-	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
+	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): string
 	{
 		$helper = ParserHelper::getInstance();
 		$setup = self::listSavedSetup($parser, $frame, $args);
 		if (is_string($setup)) {
-			return ['text' => $setup, 'noparse' => true];
+			return $setup;
 		}
 
-		$output = $parser->getOutput();
-		$output->setExtensionData(self::KEY_LISTSAVED_ERROR, false);
 		/**
 		 * @var Title $templateTitle
 		 * @var array $magicArgs
@@ -79,7 +77,6 @@ class MetaTemplateData
 		$language = $parser->getConverterLanguage();
 		$namespace = $magicArgs[self::NA_NAMESPACE] ?? null;
 		$namespace = is_null($namespace) ? -1 : $language->getNsIndex($namespace);
-
 		$translations = MetaTemplate::getVariableTranslations($frame, $unnamed, self::SAVE_VARNAME_WIDTH);
 		$items = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $named, $translations);
 
@@ -93,14 +90,18 @@ class MetaTemplateData
 		$templates = self::createTemplates($language, $templateName, $data);
 		$retval = $helper->formatPFForDebug($templates, $magicArgs[ParserHelper::NA_DEBUG] ?? false);
 
-		/** @todo Alter #save to have an internal disable flag so that if a template tries to call #save, it fails
-		 *  silently. */
-		if ($parser->getOutput()->getExtensionData(self::KEY_LISTSAVED_ERROR) ?? false) {
-			$retval = $helper->error('metatemplate-listsaved-template-saveignored', $templateTitle->getFullText());
+		$output = $parser->getOutput();
+		$output->setExtensionData(self::KEY_LISTSAVED_ERROR, false);
+
+		$dom = $parser->preprocessToDom($retval);
+		$retval = $frame->expand($dom);
+
+		if ($output->getExtensionData(self::KEY_LISTSAVED_ERROR) ?? false) {
+			$retval = $helper->error('metatemplate-listsaved-template-saveignored', $templateTitle->getFullText()) . $retval;
 		}
 
-		$parser->getOutput()->setExtensionData(self::KEY_LISTSAVED_ERROR, null);
-		return ['text' => $retval, 'noparse' => false];
+		$output->setExtensionData(self::KEY_LISTSAVED_ERROR, null);
+		return $retval;
 	}
 
 	/**
@@ -259,6 +260,7 @@ class MetaTemplateData
 		}
 
 		// Only flag #listsaved error if all checks were passed and this is active code.
+		RHshow('#save: ', $varsToSave, "\n", $output->getExtensionData(self::KEY_LISTSAVED_ERROR) ?? 'null');
 		if ($output->getExtensionData(self::KEY_LISTSAVED_ERROR) === false) {
 			$output->setExtensionData(self::KEY_LISTSAVED_ERROR, true);
 		}

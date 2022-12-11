@@ -5,7 +5,7 @@
 	"metatemplate-listsaved-conditions-missing": "#listsaved error: no conditions provided",
 	"metatemplate-listsaved-template-empty": "#listsaved error: no template provided",
 	"metatemplate-listsaved-template-missing": "#listsaved error: the provided template, $1, doesn't exist",
-	"metatemplate-listsaved-template-saveignored": "Warning: #save in template [[$1:{{PAGENAME:$1}}]] was called inside a #listsaved call and was ignored.\n",
+	"metatemplate-listsaved-template-saveignored": "Warning: #save in template [[$1|{{PAGENAME:$1}}]] was called inside a #listsaved call and was ignored.\n\n",
 	"metatemplate-listsaved-template-toolong": "#listsaved error: the provided template, $1, is longer than $2 {{PLURAL:$2:bytes|byte}}",
 	"metatemplate-metavarsonpage-legend": "List all MetaTemplate variables on a page",
 	"metatemplate-metavarsonpage-no-page": "No page specified.",

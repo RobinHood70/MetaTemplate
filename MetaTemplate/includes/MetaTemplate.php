@@ -599,12 +599,7 @@ class MetaTemplate
      */
     private static function getTitleAtDepth(Parser $parser, PPFrame $frame, ?array $args): ?Title
     {
-        if ($args) {
-            $level = intval($frame->expand($args[0]));
-        } else {
-            $level = 0;
-        }
-
+        $level = intval($frame->expand($args[0]) ?? 0);
         $depth = $frame->depth;
         $level = ($level > 0) ? $depth - $level + 1 : -$level;
         if ($level < $depth) {

@@ -50,7 +50,6 @@ class MetaTemplateData
 	 */
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): string
 	{
-		$helper = ParserHelper::getInstance();
 		$setup = self::listSavedSetup($parser, $frame, $args);
 		if (is_string($setup)) {
 			return $setup;
@@ -88,7 +87,7 @@ class MetaTemplateData
 		$data = self::listSavedSort($items, $orderNames);
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
 		$templates = self::createTemplates($language, $templateName, $data);
-		$retval = $helper->formatPFForDebug($templates, $magicArgs[ParserHelper::NA_DEBUG] ?? false);
+		$retval = ParserHelper::formatPFForDebug($templates, $magicArgs[ParserHelper::NA_DEBUG] ?? false);
 
 		$output = $parser->getOutput();
 		$output->setExtensionData(self::KEY_LISTSAVED_ERROR, false);
@@ -97,7 +96,7 @@ class MetaTemplateData
 		$retval = $frame->expand($dom);
 
 		if ($output->getExtensionData(self::KEY_LISTSAVED_ERROR) ?? false) {
-			$retval = $helper->error('metatemplate-listsaved-template-saveignored', $templateTitle->getFullText()) . $retval;
+			$retval = ParserHelper::error('metatemplate-listsaved-template-saveignored', $templateTitle->getFullText()) . $retval;
 		}
 
 		$output->setExtensionData(self::KEY_LISTSAVED_ERROR, null);
@@ -124,8 +123,7 @@ class MetaTemplateData
 	public static function doLoad(Parser $parser, PPFrame $frame, array $args): void
 	{
 		// RHshow('#load:', $parser->getTitle()->getFullText());
-		$helper = ParserHelper::getInstance();
-		list($magicArgs, $values) = $helper->getMagicArgs(
+		list($magicArgs, $values) = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -154,8 +152,7 @@ class MetaTemplateData
 			return;
 		}
 
-		$helper = ParserHelper::getInstance();
-		list($magicArgs, $values) = $helper->getMagicArgs(
+		list($magicArgs, $values) = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
 			self::NA_SET
@@ -163,7 +160,7 @@ class MetaTemplateData
 
 		$values = [];
 		foreach ($values as $arg) {
-			$value = $helper->getKeyValue($frame, $arg)[1];
+			$value = ParserHelper::getKeyValue($frame, $arg)[1];
 			if (self::nodeIsTextOnly($value)) {
 				$values[] = $frame->expand($value);
 			}
@@ -210,8 +207,7 @@ class MetaTemplateData
 			return;
 		}
 
-		$helper = ParserHelper::getInstance();
-		list($magicArgs, $values) = $helper->getMagicArgs(
+		list($magicArgs, $values) = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -221,12 +217,12 @@ class MetaTemplateData
 			self::NA_SAVEMARKUP
 		);
 
-		if (!$helper->checkIfs($frame, $magicArgs) || count($values) == 0) {
+		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) == 0) {
 			return;
 		}
 
 		$output = $parser->getOutput();
-		$anyCase = $helper->checkAnyCase($magicArgs);
+		$anyCase = ParserHelper::checkAnyCase($magicArgs);
 		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
 		$varsToSave = [];
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
@@ -242,7 +238,7 @@ class MetaTemplateData
 				// The value of saveParseOnLoad changed during expansion, meaning that there are <savemarkup> tags
 				// present.
 				$parseOnLoad = true;
-				$varValue = $helper->getStripState($parser)->unstripGeneral($varValue);
+				$varValue = VersionHelper::getInstance()->getStripState($parser)->unstripGeneral($varValue);
 			} else {
 				$parseOnLoad = $saveMarkup;
 			}
@@ -338,7 +334,7 @@ class MetaTemplateData
 	 */
 	public static function init(): void
 	{
-		ParserHelper::getInstance()->cacheMagicWords([
+		ParserHelper::cacheMagicWords([
 			self::NA_NAMESPACE,
 			self::NA_ORDER,
 			self::NA_PAGENAME,
@@ -445,10 +441,9 @@ class MetaTemplateData
 
 	private static function doLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
 	{
-		$helper = ParserHelper::getInstance();
 		$titleText = $values[0];
 		unset($values[0]);
-		if (!$helper->checkIfs($frame, $magicArgs)) {
+		if (!ParserHelper::checkIfs($frame, $magicArgs)) {
 			return;
 		}
 
@@ -464,7 +459,7 @@ class MetaTemplateData
 		// RHshow($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		$output->addTemplate($loadTitle, $page->getId(), $page->getLatest());
 
-		$anyCase = $helper->checkAnyCase($magicArgs);
+		$anyCase = ParserHelper::checkAnyCase($magicArgs);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		$varsToLoad = self::getVarList($frame, $translations, $anyCase);
 		$preloaded = $output->getExtensionData(MetaTemplate::KEY_PRELOADED) ?? null;
@@ -547,8 +542,7 @@ class MetaTemplateData
 	 */
 	private static function listSavedSetup(Parser $parser, PPFrame $frame, array $args)
 	{
-		$helper = ParserHelper::getInstance();
-		list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+		list($magicArgs, $values) = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
 			ParserHelper::NA_CASE,
@@ -560,17 +554,17 @@ class MetaTemplateData
 			self::NA_SET
 		);
 
-		if (!$helper->checkIfs($frame, $magicArgs)) {
+		if (!ParserHelper::checkIfs($frame, $magicArgs)) {
 			return '';
 		}
 
 		if (!isset($values[0])) { // Should be impossible, but better safe than crashy.
-			return $helper->error('metatemplate-listsaved-template-empty');
+			return ParserHelper::error('metatemplate-listsaved-template-empty');
 		}
 
 		$template = trim($frame->expand($values[0]));
 		if (!strlen($template)) {
-			return $helper->error('metatemplate-listsaved-template-empty');
+			return ParserHelper::error('metatemplate-listsaved-template-empty');
 		}
 
 		unset($values[0]);
@@ -578,9 +572,9 @@ class MetaTemplateData
 		/**
 		 * @var array $named
 		 * @var array $unnamed */
-		list($named, $unnamed) = $helper->splitNamedArgs($frame, $values);
+		list($named, $unnamed) = ParserHelper::splitNamedArgs($frame, $values);
 		if (!count($named)) {
-			return $helper->error('metatemplate-listsaved-conditions-missing');
+			return ParserHelper::error('metatemplate-listsaved-conditions-missing');
 		}
 
 		foreach ($named as $key => &$value) {
@@ -593,25 +587,25 @@ class MetaTemplateData
 
 		$templateTitle = Title::newFromText($template, NS_TEMPLATE);
 		if (!$templateTitle) {
-			return $helper->error('metatemplate-listsaved-template-missing', $template);
+			return ParserHelper::error('metatemplate-listsaved-template-missing', $template);
 		}
 
 		$page = WikiPage::factory($templateTitle);
 		if (!$page) {
-			return $helper->error('metatemplate-listsaved-template-missing', $template);
+			return ParserHelper::error('metatemplate-listsaved-template-missing', $template);
 		}
 
 		// Track the page here rather than letting the output do it, since the template should be tracked even if it
 		// doesn't exist.
 		$parser->getOutput()->addTemplate($templateTitle, $page->getId(), $page->getLatest());
 		if (!$page->exists()) {
-			return $helper->error('metatemplate-listsaved-template-missing', $template);
+			return ParserHelper::error('metatemplate-listsaved-template-missing', $template);
 		}
 
 		$maxLen = MetaTemplate::getConfig()->get('ListsavedMaxTemplateSize');
 		$size = $templateTitle->getLength();
 		if ($maxLen > 0 && $size > $maxLen) {
-			return $helper->error('metatemplate-listsaved-template-toolong', $template, $maxLen);
+			return ParserHelper::error('metatemplate-listsaved-template-toolong', $template, $maxLen);
 		}
 
 		return [$templateTitle, $magicArgs, $named, $unnamed];

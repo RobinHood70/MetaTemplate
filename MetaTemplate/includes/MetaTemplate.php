@@ -149,8 +149,7 @@ class MetaTemplate
             return;
         }
 
-        $helper = ParserHelper::getInstance();
-        list($magicArgs, $values) = $helper->getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -158,11 +157,11 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (!$values || !$helper->checkIfs($frame, $magicArgs)) {
+        if (!$values || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
 
-        $anyCase = $helper->checkAnyCase($magicArgs);
+        $anyCase = ParserHelper::checkAnyCase($magicArgs);
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
             if (self::getVar($frame, $destName, $anyCase) === false && isset($frame->parent)) {
@@ -232,7 +231,7 @@ class MetaTemplate
         $retval = $frame->depth;
         $args = $frame->getNamedArguments();
         if (!is_null($args)) {
-            $magicArgs = ParserHelper::getInstance()->getMagicArgs($frame, $args, self::NA_NESTLEVEL)[0];
+            $magicArgs = ParserHelper::getMagicArgs($frame, $args, self::NA_NESTLEVEL)[0];
             if (isset($magicArgs[self::NA_NESTLEVEL])) {
                 $retval = $frame->expand($magicArgs[self::NA_NESTLEVEL]);
             }
@@ -306,8 +305,7 @@ class MetaTemplate
             return;
         }
 
-        $helper = ParserHelper::getInstance();
-        list($magicArgs, $values) = $helper->getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -315,11 +313,11 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (!$values || !$helper->checkIfs($frame, $magicArgs)) {
+        if (!$values || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
 
-        $anyCase = $helper->checkAnyCase($magicArgs);
+        $anyCase = ParserHelper::checkAnyCase($magicArgs);
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
             $varValue = self::getVar($frame, $srcName, false);
@@ -346,7 +344,7 @@ class MetaTemplate
      */
     public static function doUnset(Parser $parser, PPFrame $frame, array $args): void
     {
-        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -355,11 +353,11 @@ class MetaTemplate
             self::NA_SHIFT
         );
 
-        if (!count($values) || !ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+        if (!count($values) || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
 
-        $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+        $anyCase = ParserHelper::checkAnyCase($magicArgs);
         $shift = boolval($magicArgs[self::NA_SHIFT] ?? false);
         foreach ($values as $value) {
             $varName = $frame->expand($value);
@@ -467,11 +465,11 @@ class MetaTemplate
         }
 
         if (self::can(self::STTNG_ENABLEDEFINE)) {
-            ParserHelper::getInstance()->cacheMagicWords([self::NA_SHIFT]);
+            ParserHelper::cacheMagicWords([self::NA_SHIFT]);
         }
 
         if (self::can(self::STTNG_ENABLEPAGENAMES)) {
-            ParserHelper::getInstance()->cacheMagicWords([self::NA_NESTLEVEL]);
+            ParserHelper::cacheMagicWords([self::NA_NESTLEVEL]);
         }
     }
 
@@ -518,7 +516,7 @@ class MetaTemplate
             $valueNode = new PPNode_Hash_Text([$value], 0);
             $valueText = $value;
         } else {
-            $value = ParserHelper::getInstance()->error('metatemplate-setvar-notrecognized', $value, $varName);
+            $value = ParserHelper::error('metatemplate-setvar-notrecognized', $value, $varName);
         }
 
         $args[$varName] = $valueNode;
@@ -540,7 +538,7 @@ class MetaTemplate
      */
     private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
     {
-        list($magicArgs, $values) = ParserHelper::getInstance()->getMagicArgs(
+        list($magicArgs, $values) = ParserHelper::getMagicArgs(
             $frame,
             $args,
             ParserHelper::NA_CASE,
@@ -548,12 +546,12 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
-        if (!ParserHelper::getInstance()->checkIfs($frame, $magicArgs)) {
+        if (!ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
 
         $name = trim($frame->expand($values[0]));
-        $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+        $anyCase = ParserHelper::checkAnyCase($magicArgs);
 
         // Since assignments are typically numerous, try to take the most efficient route possible. Only non-optimal
         // route is if a value exists with the same case, it will be unset/reset despite not needing it.

@@ -62,7 +62,7 @@ class MetaTemplateCategoryVars
         }
 
         // While these aren't actually attributes, the function does exactly what's needed.
-        $args = ParserHelper::getInstance()->transformAttributes($frame->getArguments(), self::$catParams);
+        $args = ParserHelper::transformAttributes($frame->getArguments(), self::$catParams);
 
         $this->catGroup = $args[MetaTemplateCategoryViewer::VAR_CATGROUP] ?? null;
         $this->catLabel = isset($args[MetaTemplateCategoryViewer::VAR_CATLABEL])

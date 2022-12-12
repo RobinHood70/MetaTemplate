@@ -87,7 +87,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $output->setExtensionData(self::KEY_PARSER, $parser);
         $output->setExtensionData(self::KEY_FRAME, $frame);
 
-        $attributes = ParserHelper::getInstance()->transformAttributes($attributes, self::$catArgs);
+        $attributes = ParserHelper::transformAttributes($attributes, self::$catArgs);
         $none = !isset($attributes[self::NA_IMAGE]) && !isset($attributes[self::NA_PAGE]) && !isset($attributes[self::NA_SUBCAT]);
         if (isset($attributes[self::NA_IMAGE]) || $none) {
             self::$templates[self::CV_FILE] = $content;
@@ -183,7 +183,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         if (self::$parserOutput->getExtensionData(self::KEY_CPT_LOAD) ?? false) {
             unset($values[0]);
             $translations = MetaTemplate::getVariableTranslations($frame, $values, MetaTemplateData::SAVE_VARNAME_WIDTH);
-            $anyCase = ParserHelper::getInstance()->checkAnyCase($magicArgs);
+            $anyCase = ParserHelper::checkAnyCase($magicArgs);
             $varsToLoad = MetaTemplateData::getVarList($frame, $translations, $anyCase);
             self::$parserOutput->setExtensionData(MetaTemplate::KEY_PRELOADED, $varsToLoad);
         }

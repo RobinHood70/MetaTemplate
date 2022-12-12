@@ -338,11 +338,11 @@ class MetaTemplateHooks
 	private static function initTagFunctions(Parser $parser): void
 	{
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
+			ParserHelper::setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
 		}
 
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
-			ParserHelper::getInstance()->setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+			ParserHelper::setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		}
 	}
 }

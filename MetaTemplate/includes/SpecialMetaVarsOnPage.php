@@ -18,29 +18,24 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
- * @file
  * @ingroup SpecialPage
  */
 
 /**
  * A special page that lists existing blocks
  *
- * @ingroup SpecialPage
+ * @internal This class used SpecialBlockList.php as a starting point. Compare with that class for future updates.
  */
 class SpecialMetaVarsOnPage extends SpecialPage
 {
-    /**
-     * The name of the page to look at.
-     *
-     * @var Page
-     */
-    private $pageName;
+    private const METAVARS_ID = 'MetaVarsOnPage';
 
     private $limit;
+    private $pageName;
 
     function __construct()
     {
-        parent::__construct('MetaVarsOnPage');
+        parent::__construct(self::METAVARS_ID);
     }
 
     public function execute($subPage): void
@@ -48,13 +43,12 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $this->setHeaders();
         $this->outputHeader();
         $out = $this->getOutput();
-        $lang = $this->getLanguage();
         $out->addModuleStyles('mediawiki.special');
-
         $request = $this->getRequest();
         $this->pageName = $request->getVal('page', $subPage);
         $this->limit = intval($request->getVal('limit', 50));
 
+        $lang = $this->getLanguage();
         $fields = [
             'Page' => [
                 'type' => 'text',
@@ -77,13 +71,13 @@ class SpecialMetaVarsOnPage extends SpecialPage
             ],
         ];
 
-        $form = new HTMLForm($fields, $this->getContext());
-        $form->setMethod('get');
-        $form->setWrapperLegendMsg('metatemplate-metavarsonpage-legend');
-        $form->setSubmitTextMsg('metatemplate-metavarsonpage-submit');
-        $form->prepareForm();
-
-        $form->displayForm('');
+        HTMLForm::factory('ooui', $fields, $this->getContext())
+            ->setMethod('get')
+            ->setFormIdentifier(self::METAVARS_ID)
+            ->setWrapperLegendMsg('metatemplate-metavarsonpage-legend')
+            ->setSubmitTextMsg('metatemplate-metavarsonpage-submit')
+            ->prepareForm()
+            ->displayForm(false);
         $this->showList();
     }
 
@@ -96,17 +90,19 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $title = Title::newFromText($this->pageName);
         $out = $this->getOutput();
 
-        if ($title && $title->canExist()) {
-            // RHshow($title->getFullText(), ' (', $title->getArticleID(), ')');
-            $pager = new MetaVarsPager($this->getContext(), $title->getArticleId(), $this->limit);
-            if ($pager->getNumRows()) {
-                $out->addParserOutput($pager->getFullOutput());
-            } else {
-                $out->addWikiMsg('metatemplate-metavarsonpage-no-results');
-            }
-        } else {
+        if (!$title || !$title->canExist()) {
             $out->addWikiMsg('metatemplate-metavarsonpage-no-page');
+            return;
         }
+
+        // RHshow($title->getFullText(), ' (', $title->getArticleID(), ')');
+        $pager = new MetaVarsPager($this->getContext(), $title->getArticleId(), $this->limit);
+        if (!$pager->getNumRows()) {
+            $out->addWikiMsg('metatemplate-metavarsonpage-no-results');
+            return;
+        }
+
+        $out->addParserOutput($pager->getFullOutput());
     }
 
     protected function getGroupName(): string

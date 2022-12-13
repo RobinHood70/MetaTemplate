@@ -1,13 +1,20 @@
 <?php
+
+/**
+ * Table paging class for SpecialMetaVarsOnPage.
+ *
+ * @todo This version is a little wonky due to the fact that there is no single-field unique key, and even if there
+ * were, it would probably cause sorting confusion. The only way around it would seem to be to override the low-level
+ * functions to brute-force this to either use a multi-key id or, probably easier, to support a traditional offset.
+ *
+ */
 class MetaVarsPager extends TablePager
 {
-    private const HEADER_KEYS = [
-        MetaTemplateSql::FIELD_SET_NAME => 'metatemplate-metavarsonpage-set',
-        MetaTemplateSql::FIELD_VAR_NAME => 'metatemplate-metavarsonpage-varname',
-        MetaTemplateSql::FIELD_VAR_VALUE => 'metatemplate-metavarsonpage-varvalue',
-        MetaTemplateSql::FIELD_PARSE_ON_LOAD => 'metatemplate-metavarsonpage-parseonload'
-    ];
-    private $headers;
+    private const METAVARS_SET = 'metatemplate-metavarsonpage-set';
+    private const METAVARS_VARNAME = 'metatemplate-metavarsonpage-varname';
+    private const METAVARS_VARVALUE = 'metatemplate-metavarsonpage-varvalue';
+    private const METAVARS_PARSEONLOAD = 'metatemplate-metavarsonpage-parseonload';
+
     private $pageId;
 
     /**
@@ -23,21 +30,27 @@ class MetaVarsPager extends TablePager
         $this->pageId = $pageId;
         $this->mLimit = $limit;
         $this->mDefaultDirection = false;
-        foreach (self::HEADER_KEYS as $key => $val) {
-            $this->headers[$key] = $this->msg($val)->text();
-        }
 
-        // TablePager doesn't handle two-key offsets and doesn't seem to support simple numerical offsets either.
-        // This seemed like an acceptable trade-off, since it offers the added benefit of always showing
-        // an entire set. The drawback is that if limit is set to less than the number of keys in the set,
-        // you'll never get anywhere.
+        // TablePager doesn't handle two-key offsets and doesn't seem to support simple numerical offsets either. This
+        // seemed like an acceptable trade-off, since it offers the added benefit of always showing an entire set. The
+        // drawback is that if limit is set to less than the number of keys in the set, you'll never get anywhere.
         $this->mIncludeOffset = true;
         parent::__construct($context);
     }
 
     public function getFieldNames(): array
     {
-        return $this->headers;
+        static $headers = null;
+        if (!isset($headers)) {
+            $headers = [
+                MetaTemplateSql::FIELD_SET_NAME => $this->msg(self::METAVARS_SET)->text(),
+                MetaTemplateSql::FIELD_VAR_NAME => $this->msg(self::METAVARS_VARNAME)->text(),
+                MetaTemplateSql::FIELD_VAR_VALUE => $this->msg(self::METAVARS_VARVALUE)->text(),
+                MetaTemplateSql::FIELD_PARSE_ON_LOAD => $this->msg(self::METAVARS_PARSEONLOAD)->text()
+            ];
+        }
+
+        return $headers;
     }
 
     function formatValue($name, $value): string
@@ -49,7 +62,7 @@ class MetaVarsPager extends TablePager
                 return Html::rawElement(
                     'span',
                     [
-                        'class' => 'metatemplate-metavarsonpage-set',
+                        'class' => self::METAVARS_SET,
                         'style' => 'white-space:nowrap;'
                     ],
                     $value
@@ -83,6 +96,6 @@ class MetaVarsPager extends TablePager
 
     public function isFieldSortable($name): bool
     {
-        return true; // $name !== MetaTemplateSql::DATA_VAR_VALUE;
+        return true;
     }
 }

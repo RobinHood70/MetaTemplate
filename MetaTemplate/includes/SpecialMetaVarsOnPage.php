@@ -49,7 +49,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $this->limit = intval($request->getVal('limit', 50));
 
         $lang = $this->getLanguage();
-        $fields = [
+        $descriptor = [
             'Page' => [
                 'type' => 'text',
                 'name' => 'page',
@@ -71,7 +71,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
             ],
         ];
 
-        HTMLForm::factory('ooui', $fields, $this->getContext())
+        HTMLForm::factory('ooui', $descriptor, $this->getContext())
             ->setMethod('get')
             ->setFormIdentifier(self::METAVARS_ID)
             ->setWrapperLegendMsg('metatemplate-metavarsonpage-legend')

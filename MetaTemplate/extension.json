@@ -36,7 +36,8 @@
 		"MetaTemplateUpserts": "includes/MetaTemplateUpserts.php",
 		"MetaTemplateVariable": "includes/MetaTemplateVariable.php",
 		"MetaVarsPager": "includes/MetaVarsPager.php",
-		"SpecialMetaVarsOnPage": "includes/SpecialMetaVarsOnPage.php"
+		"SpecialMetaVarsOnPage": "includes/SpecialMetaVarsOnPage.php",
+		"SpecialPagesWithMetaVar": "includes/SpecialPagesWithMetaVar.php"
 	},
 	"ConfigRegistry": {
 		"metatemplate": "MetaTemplate::configBuilder"
@@ -66,6 +67,7 @@
 		]
 	},
 	"SpecialPages": {
-		"MetaVarsOnPage": "SpecialMetaVarsOnPage"
+		"MetaVarsOnPage": "SpecialMetaVarsOnPage",
+		"PagesWithMetaVar": "SpecialPagesWithMetaVar"
 	}
 }

@@ -2,6 +2,7 @@
 
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\IResultWrapper;
 
 /**
  * Handles all SQL-related functions for MetaTemplate.
@@ -131,6 +132,89 @@ class MetaTemplateSql
         $this->dbWrite->delete(self::SET_TABLE, [self::FIELD_PAGE_ID => $pageId]);
         self::$pagesPurged[$pageId] = true;
         $this->recursiveInvalidateCache($title);
+    }
+
+    public function getNamespaces(): IResultWrapper
+    {
+        /** @todo Change to all namespaces. Leaving as is for now only to get things up and running before changing anything. */
+        $tables = [self::SET_TABLE, 'page'];
+        $fields = ['DISTINCT page_namespace'];
+        $options = ['ORDER BY' => 'page_namespace'];
+        $joinConds = [self::SET_TABLE => ['INNER JOIN', self::SET_PAGE_ID . '=' . 'page.page_id']];
+
+        return $this->dbRead->select($tables, $fields, '', __METHOD__, $options, $joinConds);
+    }
+
+    /**
+     * Gets a list of the most-used Metatemplate variables.
+     *
+     * @param int $limit The number of variables to get.
+     *
+     * @return ?IResultWrapper
+     *
+     */
+    public function getPopularVariables(int $limit): ?IResultWrapper
+    {
+        $table = MetaTemplateSql::DATA_TABLE;
+        $fields = [MetaTemplateSql::DATA_VAR_NAME];
+        $conds = MetaTemplateSql::DATA_VAR_NAME . ' NOT LIKE \'@%\'';
+        $options = [
+            'GROUP BY' => MetaTemplateSql::DATA_VAR_NAME,
+            'ORDER BY' => 'COUNT(*) DESC',
+            'LIMIT' => $limit
+        ];
+
+        $retval = $this->dbRead->select(
+            $table,
+            $fields,
+            $conds,
+            __METHOD__,
+            $options
+        );
+
+        return $retval ? $retval : null;
+    }
+
+    public function getPageswWithMetaVarsQueryInfo(?string $nsNum, ?string $setName, ?string $varName): array
+    {
+        $tables = [MetaTemplateSql::SET_TABLE, 'page'];
+        $fields = [
+            'page.page_id',
+            'page.page_namespace',
+            'page.page_title',
+            'page.page_len',
+            'page.page_is_redirect',
+            'page.page_latest',
+            self::SET_SET_NAME,
+        ];
+
+        $conds = [];
+        $joinConds = [self::SET_TABLE => ['INNER JOIN', 'page.page_id = ' . self::SET_PAGE_ID]];
+        $setName = $setName ?? '*';
+        if ($setName === '*' || isset($this->varName)) {
+            $tables[] = MetaTemplateSql::DATA_TABLE;
+            $fields[] = MetaTemplateSql::DATA_VAR_NAME;
+            $fields[] = MetaTemplateSql::DATA_VAR_VALUE;
+            $conds[self::DATA_VAR_NAME] =  $varName;
+            $joinConds[MetaTemplateSql::DATA_TABLE] = ['INNER JOIN', self::SET_SET_ID . ' = ' . self::DATA_SET_ID];
+        }
+
+        if ($setName === ':') {
+            $conds[self::SET_SET_NAME] = '';
+        } elseif ($setName !== '*') {
+            $conds[self::SET_SET_NAME] = $setName;
+        }
+
+        if ($nsNum !== null && $nsNum !== 'all') {
+            $conds['page_namespace'] = $nsNum;
+        }
+
+        return [
+            'tables' => $tables,
+            'fields' => $fields,
+            'conds' => $conds,
+            'join_conds' => $joinConds
+        ];
     }
 
     /**

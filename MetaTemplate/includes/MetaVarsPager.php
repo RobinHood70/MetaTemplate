@@ -10,11 +10,6 @@
  */
 class MetaVarsPager extends TablePager
 {
-    private const METAVARS_SET = 'metatemplate-metavarsonpage-set';
-    private const METAVARS_VARNAME = 'metatemplate-metavarsonpage-varname';
-    private const METAVARS_VARVALUE = 'metatemplate-metavarsonpage-varvalue';
-    private const METAVARS_PARSEONLOAD = 'metatemplate-metavarsonpage-parseonload';
-
     private $pageId;
 
     /**
@@ -43,10 +38,10 @@ class MetaVarsPager extends TablePager
         static $headers = null;
         if (!isset($headers)) {
             $headers = [
-                MetaTemplateSql::FIELD_SET_NAME => $this->msg(self::METAVARS_SET)->text(),
-                MetaTemplateSql::FIELD_VAR_NAME => $this->msg(self::METAVARS_VARNAME)->text(),
-                MetaTemplateSql::FIELD_VAR_VALUE => $this->msg(self::METAVARS_VARVALUE)->text(),
-                MetaTemplateSql::FIELD_PARSE_ON_LOAD => $this->msg(self::METAVARS_PARSEONLOAD)->text()
+                MetaTemplateSql::FIELD_SET_NAME => $this->msg('metatemplate-pageswithmetavar-set')->text(),
+                MetaTemplateSql::FIELD_VAR_NAME => $this->msg('metatemplate-pageswithmetavar-varname')->text(),
+                MetaTemplateSql::FIELD_VAR_VALUE => $this->msg('metatemplate-pageswithmetavar-varvalue')->text(),
+                MetaTemplateSql::FIELD_PARSE_ON_LOAD => $this->msg('metatemplate-pageswithmetavar-parseonload')->text(),
             ];
         }
 
@@ -62,7 +57,7 @@ class MetaVarsPager extends TablePager
                 return Html::rawElement(
                     'span',
                     [
-                        'class' => self::METAVARS_SET,
+                        'class' => 'pageswithmetavar-set',
                         'style' => 'white-space:nowrap;'
                     ],
                     $value
@@ -81,7 +76,7 @@ class MetaVarsPager extends TablePager
 
     public function getTableClass(): string
     {
-        return 'TablePager metatemplate-metavarsonpage';
+        return 'TablePager pageswithmetavar-tablepager';
     }
 
     public function getDefaultSort(): string

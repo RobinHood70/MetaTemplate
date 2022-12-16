@@ -180,6 +180,14 @@ class MetaTemplateCategoryViewer extends CategoryViewer
      */
     public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
     {
+        if (self::$parserOutput === null) {
+            $parserOutput = $parser->getOutput();
+            self::$parserOutput = $parserOutput;
+            self::$parser = self::$parser ?? $parser;
+            self::$frame = self::$frame ?? $frame;
+            self::$templates = $parserOutput->getExtensionData(self::KEY_TEMPLATES);
+        }
+
         if (self::$parserOutput->getExtensionData(self::KEY_CPT_LOAD) ?? false) {
             unset($values[0]);
             $translations = MetaTemplate::getVariableTranslations($frame, $values, MetaTemplateData::SAVE_VARNAME_WIDTH);
@@ -244,10 +252,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $frame = self::$frame->newChild([], $title);
         MetaTemplate::setVar($frame, self::$mwPagelength->getSynonym(0), strval($pageLength));
         MetaTemplate::setVar($frame, self::$mwPagename->getSynonym(0), $title->getFullText());
-        MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $set->getSetName());
+        MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $set->setName);
         MetaTemplate::setVar($frame, self::$mwSortkey->getSynonym(0), explode("\n", $sortkey)[0]);
-        foreach ($set->getVariables() as $varName => $varValue) {
-            MetaTemplate::setVar($frame, $varName, $varValue->getValue());
+        foreach ($set->variables as $varName => $varValue) {
+            MetaTemplate::setVar($frame, $varName, $varValue->value);
         }
 
         return $frame;
@@ -279,7 +287,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $texts = [];
         if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
             foreach (array_values($setsFound) as $setkey => $setValues) {
-                // RHshow('Set: ', $setValues->getSetName(), ' => ', $setValues);
+                // RHshow('Set: ', $setValues->setName, ' => ', $setValues);
                 $setVars = $this->parseCatPageTemplate($template, $title, $setValues, null, -1);
                 if ($setVars) {
                     $texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)

@@ -22,10 +22,11 @@ class MetaTemplateData
 	public const SAVE_SETNAME_WIDTH = 50;
 	public const SAVE_VARNAME_WIDTH = 50;
 
+	public const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
+
 	private const KEY_LISTSAVED_ERROR = MetaTemplate::KEY_METATEMPLATE . '#listSavedErr';
 	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
 	private const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
-	private const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
 
 	private const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
 
@@ -63,14 +64,12 @@ class MetaTemplateData
 		 */
 		list($templateTitle, $magicArgs, $named, $unnamed) = $setup;
 		$articleId = $templateTitle->getArticleID();
-		$set = $magicArgs[self::NA_SET] ?? null;
-		$preload = self::loadFromDatabase($articleId, $set, [self::KEY_PRELOAD]);
-		if ($preload && count($preload) === 1) {
-			$var = $preload[self::KEY_PRELOAD] ?? false;
-			if ($var) {
-				// $unnamed goes last in array_merge so specified parameters override #preload defaults.
-				$unnamed = array_merge(explode("\n", $var->getValue($parser, $frame)), $unnamed);
-			}
+		$preload = new MetaTemplateSet($magicArgs[self::NA_SET] ?? '', [self::KEY_PRELOAD]);
+		MetaTemplateSql::getInstance()->loadTableVariables($articleId, $preload);
+		$var = reset($preload->variables);
+		if ($var !== false) {
+			// $unnamed goes last in array_merge so specified parameters override #preload defaults.
+			$unnamed = array_merge(explode("\n", $var->value), $unnamed);
 		}
 
 		$language = $parser->getConverterLanguage();
@@ -169,11 +168,11 @@ class MetaTemplateData
 		$set = $magicArgs[self::NA_SET] ?? '';
 		$value = implode("\n", $values);
 		$var = new MetaTemplateVariable($value, false);
-		self::addPageVariables(
+		self::addToSet(
 			$parser->getTitle(),
 			$parser->getOutput(),
 			$set,
-			[MetaTemplate::KEY_METATEMPLATE . self::KEY_PRELOAD => $var]
+			[self::KEY_PRELOAD => $var]
 		);
 	}
 
@@ -256,15 +255,15 @@ class MetaTemplateData
 		}
 
 		// Only flag #listsaved error if all checks were passed and this is active code.
-		RHshow('#save: ', $varsToSave, "\n", $output->getExtensionData(self::KEY_LISTSAVED_ERROR) ?? 'null');
+		// RHshow('#save: ', $varsToSave, "\n", $output->getExtensionData(self::KEY_LISTSAVED_ERROR) ?? 'null');
 		if ($output->getExtensionData(self::KEY_LISTSAVED_ERROR) === false) {
 			$output->setExtensionData(self::KEY_LISTSAVED_ERROR, true);
 		}
 
 		// RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
 		$output->setExtensionData(self::KEY_PARSEONLOAD, false); // Probably not necessary, but just in case...
-		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
-		self::addPageVariables($title, $output, $set, $varsToSave);
+		$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
+		self::addToSet($title, $output, $setName, $varsToSave);
 	}
 
 	/**
@@ -292,38 +291,23 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Gets the accumulated variables that have been #saved throughout the entire page.
-	 *
-	 * @param ParserOutput $output The current parser's output object.
-	 *
-	 * @return ?MetaTemplateSetCollection
-	 *
-	 */
-	public static function getPageVariables(ParserOutput $output): ?MetaTemplateSetCollection
-	{
-		return $output->getExtensionData(self::KEY_SAVE);
-	}
-
-	/**
 	 * Gets the list of variables for #load to load.
 	 *
 	 * @param PPFrame $frame The frame in use.
 	 * @param array $translations The variables to load as a translation matrix.
 	 * @param bool $anyCase Whether to load variables case-insensitively.
 	 *
-	 * @return array
+	 * @return array The variables to load with the values in the key. This is to allow functions like array_diff_key,
+	 *               which is significantly faster than array_diff.
 	 *
 	 */
 	public static function getVarList(PPFrame $frame, array $translations, bool $anyCase): array
 	{
-		$varsToLoad = [];
 		foreach ($translations as $srcName => $destName) {
-			if (MetaTemplate::getVar($frame, $destName, $anyCase) === false) {
-				$varsToLoad[] = $srcName;
-			}
+			$varList[$srcName] = MetaTemplate::getVar($frame, $destName, $anyCase);
 		}
 
-		return $varsToLoad;
+		return $varList;
 	}
 
 	/**
@@ -344,20 +328,6 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Sets the variables in the collection for the current page.
-	 *
-	 * @param ParserOutput $output The current parser's output object.
-	 * @param ?MetaTemplateSetCollection $value
-	 *
-	 * @return void
-	 *
-	 */
-	public static function setPageVariables(ParserOutput $output, ?MetaTemplateSetCollection $value = null): void
-	{
-		$output->setExtensionData(self::KEY_SAVE, $value);
-	}
-
-	/**
 	 * Adds the provided list of variables to the set provided and to the parser output.
 	 *
 	 * @param WikiPage $page The page the variables should be added to.
@@ -367,7 +337,7 @@ class MetaTemplateData
 	 *
 	 * @return void
 	 */
-	private static function addPageVariables(Title $title, ParserOutput $output, string $setName, array $variables): void
+	private static function addToSet(Title $title, ParserOutput $output, string $setName, array $variables): void
 	{
 		// RHshow('addVars: ', $variables);
 		if (!count($variables)) {
@@ -377,14 +347,14 @@ class MetaTemplateData
 		$page = WikiPage::factory($title);
 		$pageId = $page->getId();
 		$revId = $page->getLatest();
-		$pageVars = self::getPageVariables($output);
+		/** @var MetaTemplateSetCollection $pageVars */
+		$pageVars = $output->getExtensionData(self::KEY_SAVE);
 		if (!$pageVars) {
 			$pageVars = new MetaTemplateSetCollection($pageId, $revId);
-			self::setPageVariables($output, $pageVars);
+			$output->setExtensionData(self::KEY_SAVE, $pageVars);
 		}
 
-		$set = $pageVars->getOrCreateSet(0, $setName);
-		$set->addVariables($variables);
+		$pageVars->addToSet(0, $setName, $variables);
 	}
 
 	/**
@@ -459,12 +429,13 @@ class MetaTemplateData
 		// RHshow($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		$output->addTemplate($loadTitle, $page->getId(), $page->getLatest());
 
-		$anyCase = ParserHelper::checkAnyCase($magicArgs);
+		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
+		$anyCase = ParserHelper::checkAnyCase($magicArgs);
 		$varsToLoad = self::getVarList($frame, $translations, $anyCase);
 		$preloaded = $output->getExtensionData(MetaTemplate::KEY_PRELOADED) ?? null;
 		if ($preloaded) {
-			$varsToLoad = array_diff($varsToLoad, $preloaded);
+			$varsToLoad = array_diff_key($varsToLoad, $preloaded);
 		}
 
 		// If all variables to load are already defined or this is a bulk-load run, skip loading altogether.
@@ -472,12 +443,14 @@ class MetaTemplateData
 			return;
 		}
 
-		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
-		$result = self::getResult($parser, $frame, $page, $set, $varsToLoad);
-		$pageId = $page->getId();
-		if (isset($result[$pageId])) {
-			self::parseResult($result[$pageId], $parser, $frame, $translations, $anyCase);
+		$setToLoad = new MetaTemplateSet($set, $varsToLoad, $anyCase);
+		$success = self::getResult($parser, $page, $setToLoad);
+		if ($success) {
+			RHshow('Before: ', $setToLoad);
+			RHshow($frame->getArguments());
+			self::updateFromSet($setToLoad, $parser, $frame);
 		}
+		RHshow($frame->getArguments());
 	}
 
 	/**
@@ -486,46 +459,46 @@ class MetaTemplateData
 	 * @param Parser $parser The parser in use.
 	 * @param Title $loadTitle The title to load results from.
 	 * @param WikiPage $page The page version of the previous title.
-	 * @param string|null $set
+	 * @param MetaTemplateSet $set
 	 * @param array $varsToLoad
 	 *
-	 * @return ?array The array of loaded variables.
+	 * @return bool True if variables were loaded.
 	 *
 	 */
-	private static function getResult(Parser $parser, PPFrame $frame, WikiPage $page, ?string $set, array $varsToLoad): ?array
+	private static function getResult(Parser $parser, WikiPage $page, MetaTemplateSet &$set): bool
 	{
-		$result = [];
 		$title = $page->getTitle();
 		$articleId = $title->getArticleID();
 		$output = $parser->getOutput();
-		$result = $parser->getTitle()->getFullText() === $title->getFullText()
-			? self::loadFromOutput($parser, $frame, $set, $varsToLoad) // $set == null should never happen, but don't crash if it does
-			: self::loadFromDatabase($articleId, $set, $varsToLoad);
+		$success = $parser->getTitle()->getFullText() === $title->getFullText()
+			? self::loadFromOutput($output, $set) // $set == null should never happen, but don't crash if it does
+			: MetaTemplateSql::getInstance()->loadTableVariables($articleId, $set);
 
 		// If no results were returned and the page is a redirect, see if there are variables on the target page.
-		if (!$result && $title->isRedirect()) {
+		if (!$success && $title->isRedirect()) {
 			$page = WikiPage::factory($page->getRedirectTarget());
 			$output->addTemplate($page->getTitle(), $page->getId(), $page->getLatest());
-			$result = $parser->getTitle()->getFullText() === $title->getFullText()
-				? self::loadFromOutput($parser, $frame, $set, $varsToLoad)
-				: self::loadFromDatabase($articleId, $set, $varsToLoad);
+			$success = $parser->getTitle()->getFullText() === $title->getFullText()
+				? self::loadFromOutput($output, $set)
+				: MetaTemplateSql::getInstance()->loadTableVariables($articleId, $set);
 		}
 
-		return $result;
+		return $success;
 	}
 
-	private static function parseResult(array $result, Parser $parser, PPFrame $frame, array $translations, bool $anyCase)
+	private static function updateFromSet(MetaTemplateSet $set, Parser $parser, PPFrame $frame)
 	{
-		foreach ($result as $varName => $var) {
-			$varValue = $var->getValue();
-			if ($var->getParseOnLoad()) {
+		foreach ($set->variables as $varName => $var) {
+			$varValue = $var->value;
+			if ($var->parseOnLoad) {
 				$varValue = $parser->preprocessToDom($varValue);
 				$varValue = $frame->expand($varValue);
 				// RHshow('Parse on load: ', $value);
 			}
 
 			if ($varValue !== false) {
-				MetaTemplate::setVar($frame, $translations[$varName], $varValue, $anyCase);
+				RHshow($varName, ' = ', $varValue);
+				MetaTemplate::setVar($frame, $varName, $varValue, $set->anyCase);
 			}
 		}
 	}
@@ -644,56 +617,42 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Retrieves the requested set of variables from the database.
-	 *
-	 * @param int $pageId The current page ID.
-	 * @param string $setName The set to load.
-	 * @param array $varNames The variables to load.
-	 *
-	 * @return ?MetaTemplateVariable[]
-	 *
-	 */
-	private static function	loadFromDatabase(int $pageId, ?string $setName, array $varNames): ?array
-	{
-		return $pageId > 0
-			? MetaTemplateSql::getInstance()->loadTableVariables($pageId, $setName, $varNames)
-			: null;
-	}
-
-	/**
 	 * Retrieves the requested set of variables already on the page as though they had been loaded from the database.
 	 *
 	 * @param ParserOutput $output The current ParserOutput object.
 	 * @param string $setName The set to load.
 	 * @param array $varNames The variables to load.
 	 *
-	 * @return ?array
+	 * @return bool True if variables were loaded.
 	 *
 	 */
-	private static function loadFromOutput(Parser $parser, PPFrame $frame, string $setName, array $varNames): ?array
+	private static function loadFromOutput(ParserOutput $output, MetaTemplateSet &$set): bool
 	{
-		$pageVars = self::getPageVariables($parser->getOutput());
+		/** @var MetaTemplateSetCollection $pageVars */
+		$pageVars = $output->getExtensionData(self::KEY_SAVE);
 		if (!$pageVars) {
-			return null; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
+			return false; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
 		}
 
 		// RHshow('Page Variables: ', $pageVars);
-		$set = $pageVars->getSet($setName);
-		if (!$set) {
-			return null;
+		$pageSet = $pageVars->sets[$set->setName];
+		if (!$pageSet) {
+			return false;
 		}
 
-		// RHshow('Set: ', $set);
-		$vars = $set->getVariables();
-		$retval = [];
-		if ($vars) {
-			$vars = array_diff($vars, $varNames);
-			foreach ($vars as $var) {
-				$retval[] = $var->getValue($parser, $frame);
+		$retval = false;
+		// RHshow('Page Set: ', $pageSet);
+		if ($set->variables) {
+			foreach ($set->variables as $varName => &$var) {
+				if ($var === false) {
+					$copy = $pageSet->variables[$varName];
+					$var = new MetaTemplateVariable($copy->value, $copy->parseOnLoad);
+					$retval = true;
+				}
 			}
 		}
 
-		return [$retval];
+		return $retval;
 	}
 
 	/**

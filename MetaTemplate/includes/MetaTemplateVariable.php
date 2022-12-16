@@ -7,14 +7,14 @@ class MetaTemplateVariable
      *
      * @var bool
      */
-    private $parseOnLoad;
+    public $parseOnLoad;
 
     /**
      * $value
      *
      * @var string
      */
-    private $value;
+    public $value;
 
     /**
      * Creates a new instance of the MetaTemplateVariable class to store a variable's data.
@@ -27,40 +27,5 @@ class MetaTemplateVariable
     {
         $this->parseOnLoad = $parseOnLoad;
         $this->value = $value;
-    }
-
-    /**
-     * Gets whether the value in this instance needs to be parsed.
-     *
-     * @return bool Whether the value in this instance needs to be parsed.
-     *
-     */
-    public function getParsedValue(Parser $parser, PPFrame $frame): string
-    {
-        return $this->parseOnLoad
-            ? $frame->expand($parser->preprocessToDom($this->value))
-            : $this->value;
-    }
-
-    /**
-     * Gets whether the value in this instance needs to be parsed.
-     *
-     * @return bool Whether the value in this instance needs to be parsed.
-     *
-     */
-    public function getParseOnLoad(): bool
-    {
-        return $this->parseOnLoad;
-    }
-
-    /**
-     * The variable's value.
-     *
-     * @return mixed
-     *
-     */
-    public function getValue()
-    {
-        return $this->value;
     }
 }

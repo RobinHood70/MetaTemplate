@@ -78,6 +78,15 @@ class MetaTemplateSql
         return self::$instance;
     }
 
+    /**
+     * [Description for catQuery]
+     *
+     * @param array $pageSets
+     * @param ?string[] $varNames
+     *
+     * @return void
+     *
+     */
     public function catQuery(array &$pageSets, ?array $varNames = []): void
     {
         [$tables, $joinConds, $options] = self::baseQuery();
@@ -101,6 +110,7 @@ class MetaTemplateSql
         for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
             $pageId = $row[self::FIELD_PAGE_ID];
             $setName = $row[self::FIELD_SET_NAME];
+            /** @var MetaTemplateSet[] $page */
             $page = &$pageSets[$pageId];
             if (!isset($page[$setName])) {
                 $set = new MetaTemplateSet($setName);
@@ -228,7 +238,7 @@ class MetaTemplateSql
      *
      * @return array Array of tables, fields, conditions, options, and join conditions for a query, mirroring the
      *               parameters to IDatabase->select.
-     */ public function loadQuery(int $pageId, ?string $setName, array $varNames, bool $textNames): ?array
+     */ public function loadQuery(int $pageId, MetaTemplateSet $set, bool $textNames): ?array
     {
         list($tables, $joinConds, $options) = self::baseQuery();
         $fields = [
@@ -237,17 +247,17 @@ class MetaTemplateSql
             self::FIELD_PARSE_ON_LOAD
         ];
 
+        $conds = [self::SET_PAGE_ID => $pageId];
+
+        $setName = $set->setName;
         if (is_null($setName)) {
             $fields[] = self::FIELD_SET_NAME;
-        }
-
-        $conds = [self::SET_PAGE_ID => $pageId];
-        if (!is_null($setName)) {
+        } else {
             $conds[self::SET_SET_NAME] = $setName;
         }
 
-        if (count($varNames)) {
-            $conds[self::DATA_VAR_NAME] = $varNames;
+        if (count($set->variables)) {
+            $conds[self::DATA_VAR_NAME] = $set->variables;
         }
 
         // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
@@ -284,12 +294,12 @@ class MetaTemplateSql
     public function insertData($setId, MetaTemplateSet $newSet): void
     {
         $data = [];
-        foreach ($newSet->getVariables() as $key => $var) {
+        foreach ($newSet->variables as $key => $var) {
             $data[] = [
                 self::FIELD_SET_ID => $setId,
                 self::FIELD_VAR_NAME => $key,
-                self::FIELD_VAR_VALUE => $var->getValue(),
-                self::FIELD_PARSE_ON_LOAD => $var->getParseOnLoad()
+                self::FIELD_VAR_VALUE => $var->value,
+                self::FIELD_PARSE_ON_LOAD => $var->parseOnLoad
             ];
         }
 
@@ -389,7 +399,7 @@ class MetaTemplateSql
 
         $retval = new MetaTemplateSetCollection($pageId, $row[self::FIELD_REV_ID]);
         while ($row) {
-            $set =  $retval->getOrCreateSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
+            $set =  $retval->addToSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
             $set->addVariable($row[self::FIELD_VAR_NAME], $row[self::FIELD_VAR_VALUE], $row[self::FIELD_PARSE_ON_LOAD]);
             $row = $this->dbRead->fetchRow($result);
         }
@@ -406,27 +416,32 @@ class MetaTemplateSql
      *
      * @return ?MetaTemplateVariable[][]
      */
-    public function loadTableVariables($pageId, ?string $setName, $varNames = []): ?array
+    public function loadTableVariables($pageId, MetaTemplateSet &$set): bool
     {
-        $retval = [];
-        list($tables, $fields, $conds, $options, $joinConds) = $this->loadQuery($pageId, $setName, $varNames, false);
+        if (!$pageId <= 0) {
+            return false;
+        }
+
+        list($tables, $fields, $conds, $options, $joinConds) = $this->loadQuery($pageId, $set, false);
         // RHlogFunctionText($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         if (!$result || !$result->numRows()) {
-            return null;
+            return false;
         }
 
+        $retval = false;
         $setName = $setName ?? '';
-        $sets = [];
-        $row = $result->fetchRow();
-        while ($row) {
+        for ($row = $result->fetchRow(); $row; $result->fetchRow()) {
+            RHshow($row);
             // Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
             // will overwrite the older values.
-            extract($row);
+            $varValue = $row[self::FIELD_VAR_VALUE];
+            $parseOnLoad = $row[self::FIELD_PARSE_ON_LOAD];
             $var = new MetaTemplateVariable($varValue, $parseOnLoad);
-            $retval[$setName][$varName] = $var;
-            $sets[] = $setName;
+            $varName = $row[self::FIELD_VAR_NAME];
+            $set->variables[$varName] = $var;
             $row = $result->fetchRow();
+            $retval = true;
         }
 
         return $retval;
@@ -603,21 +618,22 @@ class MetaTemplateSql
 
         $title = $parser->getTitle();
         $output = $parser->getOutput();
-        $vars = MetaTemplateData::getPageVariables($output);
+        /** @var MetaTemplateSetCollection $vars */
+        $vars = $output->getExtensionData(MetaTemplateData::KEY_SAVE);
         if (!$parser->getRevisionId()) {
             return;
         }
 
         // RHwriteFile("Saving:\n", $vars);
         // MetaTemplateData::setPageVariables($output, null);
-        if (!$vars || $vars->isEmpty()) {
+        if (!$vars || empty($vars->sets)) {
             // RHwriteFile('Empty Vars: ', $title->getFullText());
             // If there are no variables on the page at all, check if there were to begin with. If so, delete them.
             if ($this->loadPageVariables($title->getArticleID())) {
                 // RHwriteFile('Delete Vars: ', $title->getFullText());
                 $this->deleteVariables($title);
             }
-        } else if ($vars->getRevId() === -1) {
+        } else if ($vars->revId === -1) {
             // The above check will only be satisfied on Template-space pages that use #save.
             // RHwriteFile('Save Template: ', $title->getFullText());
             $this->recursiveInvalidateCache($title);
@@ -635,7 +651,7 @@ class MetaTemplateSql
             }
         }
 
-        MetaTemplateData::setPageVariables($output, null);
+        $output->setExtensionData(MetaTemplateData::KEY_SAVE, null);
     }
 
     /**
@@ -690,13 +706,13 @@ class MetaTemplateSql
             $this->dbWrite->delete(self::SET_TABLE, [self::FIELD_SET_ID => $deletes]);
         }
 
-        $pageId = $upserts->getPageId();
+        $pageId = $upserts->pageId;
         $newRevId = $upserts->getNewRevId();
         // writeFile('  Inserts: ', count($inserts));
         foreach ($upserts->getInserts() as $newSet) {
             $this->dbWrite->insert(self::SET_TABLE, [
                 self::FIELD_PAGE_ID => $pageId,
-                self::FIELD_SET_NAME => $newSet->getSetName(),
+                self::FIELD_SET_NAME => $newSet->setName,
                 self::FIELD_REV_ID => $newRevId
             ]);
             $setId = $this->dbWrite->insertId();
@@ -724,8 +740,8 @@ class MetaTemplateSql
                     [
                         // setId uniquely identifies the set, but setName and pageId are part of the primary key, so we
                         // add them here for better indexing.
-                        self::FIELD_PAGE_ID => $upserts->getPageId(),
-                        self::FIELD_SET_NAME => $oldSet->getSetName(),
+                        self::FIELD_PAGE_ID => $upserts->pageId,
+                        self::FIELD_SET_NAME => $oldSet->setName,
                         self::FIELD_SET_ID => $setId
                     ]
                 );
@@ -746,22 +762,22 @@ class MetaTemplateSql
     private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet): void
     {
         // RHshow('Update Set Data');
-        $oldVars = &$oldSet->getVariables();
-        $newVars = $newSet->getVariables();
+        $oldVars = &$oldSet->variables;
+        $newVars = $newSet->variables;
         $deletes = [];
         foreach ($oldVars as $varName => $oldValue) {
             if (isset($newVars[$varName])) {
                 $newValue = $newVars[$varName];
                 // RHwriteFile($oldVars[$varName]);
                 if ($oldValue != $newValue) {
-                    // RHwriteFile("Updating $varName from {$oldValue->getValue()} to {$newValue->getValue()}");
+                    // RHwriteFile("Updating $varName from {$oldValue->value} to {$newValue->value}");
                     // Makes the assumption that most of the time, only a few columns are being updated, so does not
                     // attempt to batch the operation in any way.
                     $this->dbWrite->update(
                         self::DATA_TABLE,
                         [
-                            self::FIELD_VAR_VALUE => $newValue->getValue(),
-                            self::FIELD_PARSE_ON_LOAD => $newValue->getParseOnLoad()
+                            self::FIELD_VAR_VALUE => $newValue->value,
+                            self::FIELD_PARSE_ON_LOAD => $newValue->parseOnLoad
                         ],
                         [
                             self::FIELD_SET_ID => $setId,
@@ -777,7 +793,7 @@ class MetaTemplateSql
         }
 
         if (count($newVars)) {
-            $insertSet = new MetaTemplateSet($newSet->getSetName());
+            $insertSet = new MetaTemplateSet($newSet->setName);
             $insertSet->addVariables($newVars);
             $this->insertData($setId, $insertSet);
         }

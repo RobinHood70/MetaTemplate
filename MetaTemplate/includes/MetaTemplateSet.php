@@ -3,11 +3,19 @@
 class MetaTemplateSet
 {
     /**
+     * Whether the set should allow case-insensitive compares.
+     * @internal It's useful to have this travel with the set when used alongside #load().
+     *
+     * @var ?bool
+     */
+    public $anyCase;
+
+    /**
      * $setName
      *
-     * @var string
+     * @var ?string
      */
-    private $setName;
+    public $setName;
 
     /**
      * $variables
@@ -15,7 +23,7 @@ class MetaTemplateSet
      * @var MetaTemplateVariable[];
      *
      */
-    private $variables = [];
+    public $variables = [];
 
     /**
      * Creates an instance of the MetaTemplateSet class.
@@ -23,15 +31,17 @@ class MetaTemplateSet
      * @param mixed $setName The name of the set to create.
      *
      */
-    public function __construct($setName)
+    public function __construct(?string $setName = null, ?array $variables = [], ?bool $anyCase = null)
     {
         $this->setName = $setName;
+        $this->addVariables($variables);
+        $this->anyCase = $anyCase;
     }
 
     /**
      * Add an entire associated array to the list of variables.
      *
-     * @param array $data The data to add. This should be a string => MetaTemplateVariable array.
+     * @param MetaTemplateVariable[] $data The data to add. This should be a string => MetaTemplateVariable array.
      *
      * @return void
      *
@@ -39,6 +49,10 @@ class MetaTemplateSet
     public function addVariables(array $data): void
     {
         foreach ($data as $key => $value) {
+            if (!($value instanceof MetaTemplateVariable)) {
+                throw new Exception('Invalid variable.');
+            }
+
             $this->variables[$key] = $value;
         }
     }
@@ -58,27 +72,5 @@ class MetaTemplateSet
         if (!isset($this->variables[$name])) {
             $this->variables[$name] = new MetaTemplateVariable($value, $parseOnLoad);
         }
-    }
-
-    /**
-     * Gets the name of the set.
-     *
-     * @return string
-     *
-     */
-    public function getSetName(): string
-    {
-        return $this->setName;
-    }
-
-    /**
-     * Gets the entire list of variables for the set.
-     *
-     * @return MetaTemplateVariable[]
-     *
-     */
-    public function getVariables(): array
-    {
-        return $this->variables;
     }
 }

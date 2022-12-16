@@ -23,8 +23,8 @@ class MetaTemplateUpserts
      */
     public function __construct(?MetaTemplateSetCollection $oldData, ?MetaTemplateSetCollection $newData)
     {
-        $oldSets = $oldData ? $oldData->getSets() : null;
-        $newSets = $newData ? $newData->getSets() : null;
+        $oldSets = $oldData ? $oldData->sets : null;
+        $newSets = $newData ? $newData->sets : null;
 
         // Do not change to identity operator - object identity is a reference compare, which will fail.
         if ($oldSets == $newSets) {
@@ -32,11 +32,11 @@ class MetaTemplateUpserts
         }
 
         if ($oldData) {
-            $this->pageId = $oldData->getPageId();
-            $this->oldRevId = $oldData->getRevId();
+            $this->pageId = $oldData->pageId;
+            $this->oldRevId = $oldData->revId;
             foreach ($oldSets as $setName => $oldSet) {
                 if (!isset($newSets[$setName])) {
-                    $this->deletes[] = $oldData->getSetId($setName);
+                    $this->deletes[] = $oldData->setIds[$setName];
                 }
             }
 
@@ -48,14 +48,14 @@ class MetaTemplateUpserts
         }
 
         if ($newData) {
-            $this->pageId = $newData->getPageId(); // Possibly redundant, but if both collections are present, both page IDs will be the same.
-            $this->newRevId = $newData->getRevId();
+            $this->pageId = $newData->pageId; // Possibly redundant, but if both collections are present, both page IDs will be the same.
+            $this->newRevId = $newData->revId;
             if ($newSets) {
                 foreach ($newSets as $setName => $newSet) {
                     $oldSet = $oldSets[$setName] ?? null;
                     if ($oldSet) {
                         // All sets are checked for updates as long as an old set existed, since transcluded info may have changed values.
-                        $this->updates[$oldData->getSetId($setName)] = [$oldSet, $newSet];
+                        $this->updates[$oldData->setIds[$setName]] = [$oldSet, $newSet];
                     } else {
                         $this->inserts[] = $newSet;
                     }

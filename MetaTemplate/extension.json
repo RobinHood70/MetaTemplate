@@ -21,7 +21,11 @@
 		"MediaWiki": ">= 1.28.0"
 	},
 	"type": "parserhook",
+	"APIPropModules": {
+		"metavars": "ApiQueryMetaVars"
+	},
 	"AutoloadClasses": {
+		"ApiQueryMetaVars": "includes/ApiQueryMetaVars.php",
 		"MetaTemplate": "includes/MetaTemplate.php",
 		"MetaTemplateCategoryPage": "includes/MetaTemplateCategoryPage.php",
 		"MetaTemplateCategoryVars": "includes/MetaTemplateCategoryVars.php",

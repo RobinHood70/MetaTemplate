@@ -65,7 +65,7 @@ class MetaTemplate
     public static function can($setting): bool
     {
         $config = self::getConfig();
-        return boolval($config->get($setting));
+        return (bool)$config->get($setting);
     }
 
     /**
@@ -358,7 +358,7 @@ class MetaTemplate
         }
 
         $anyCase = ParserHelper::checkAnyCase($magicArgs);
-        $shift = boolval($magicArgs[self::NA_SHIFT] ?? false);
+        $shift = (bool)($magicArgs[self::NA_SHIFT] ?? false);
         foreach ($values as $value) {
             $varName = $frame->expand($value);
             self::unsetVar($frame, $varName, $anyCase, $shift);
@@ -496,7 +496,7 @@ class MetaTemplate
             $cache = Numbered/Named Cache to add the fully expanded value to.
         */
         if (ctype_digit($varName)) {
-            $varName = intval($varName);
+            $varName = (int)$varName;
             $args = &$frame->numberedArgs;
             $cache = &$frame->numberedExpansionCache;
         } else {
@@ -599,7 +599,7 @@ class MetaTemplate
     {
         $level = empty($args[0])
             ? 0
-            : intval($frame->expand($args[0]));
+            : (int)$frame->expand($args[0]);
         $depth = $frame->depth;
         $level = ($level > 0) ? $depth - $level + 1 : -$level;
         if ($level < $depth) {

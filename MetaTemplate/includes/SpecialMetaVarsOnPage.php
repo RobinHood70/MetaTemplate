@@ -46,7 +46,7 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $out->addModuleStyles('mediawiki.special');
         $request = $this->getRequest();
         $this->pageName = $request->getVal('page', $subPage);
-        $this->limit = intval($request->getVal('limit', 50));
+        $this->limit = (int)$request->getVal('limit', 50);
 
         $lang = $this->getLanguage();
         $descriptor = [

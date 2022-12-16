@@ -250,7 +250,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     private static function createFrame(Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPTemplateFrame_Hash
     {
         $frame = self::$frame->newChild([], $title);
-        MetaTemplate::setVar($frame, self::$mwPagelength->getSynonym(0), strval($pageLength));
+        MetaTemplate::setVar($frame, self::$mwPagelength->getSynonym(0), $pageLength);
         MetaTemplate::setVar($frame, self::$mwPagename->getSynonym(0), $title->getFullText());
         MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $set->setName);
         MetaTemplate::setVar($frame, self::$mwSortkey->getSynonym(0), explode("\n", $sortkey)[0]);

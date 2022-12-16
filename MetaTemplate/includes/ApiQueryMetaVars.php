@@ -86,7 +86,7 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
         ]);
 
         if ($params[self::KEY_CONTINUE])
-            $this->addWhere(MetaTemplateSql::SET_PAGE_ID . '>=' . intval($params[self::KEY_CONTINUE]));
+            $this->addWhere(MetaTemplateSql::SET_PAGE_ID . '>=' . (int)$params[self::KEY_CONTINUE]);
 
         if ($params[self::KEY_VAR])
             $this->addWhereFld(MetaTemplateSql::DATA_VAR_NAME, $params[self::KEY_VAR]);

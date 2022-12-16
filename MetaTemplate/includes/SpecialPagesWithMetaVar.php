@@ -62,7 +62,7 @@ class SpecialPagesWithMetaVar extends QueryPage
 		$varNames = [];
 		$varRows = MetaTemplateSql::getInstance()->getPopularVariables(25);
 		if ($varRows) {
-			for ($row = $varRows->fetchRow(), $i = 0; $row; $row = $varRows->fetchRow(), $i++) {
+			for ($row = $varRows->fetchRow(), $i = 0; $row; $row = $varRows->fetchRow(), ++$i) {
 				$varName = $row[MetaTemplateSql::FIELD_VAR_NAME];
 				$varNames[$varName] = $varName;
 			}

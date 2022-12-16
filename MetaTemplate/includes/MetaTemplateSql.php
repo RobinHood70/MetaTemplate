@@ -337,7 +337,7 @@ class MetaTemplateSql
             $joinConds[$dataName] = ['JOIN', [self::SET_SET_ID . "=$dataName.setId"]];
             $conds[$dataName . '.' . self::FIELD_VAR_NAME] = $key;
             $conds[$dataName . '.' . self::FIELD_VAR_VALUE] = $value;
-            $data++;
+            ++$data;
         }
 
         // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds));

@@ -446,11 +446,8 @@ class MetaTemplateData
 		$setToLoad = new MetaTemplateSet($set, $varsToLoad, $anyCase);
 		$success = self::getResult($parser, $page, $setToLoad);
 		if ($success) {
-			RHshow('Before: ', $setToLoad);
-			RHshow($frame->getArguments());
 			self::updateFromSet($setToLoad, $parser, $frame);
 		}
-		RHshow($frame->getArguments());
 	}
 
 	/**
@@ -497,7 +494,6 @@ class MetaTemplateData
 			}
 
 			if ($varValue !== false) {
-				RHshow($varName, ' = ', $varValue);
 				MetaTemplate::setVar($frame, $varName, $varValue, $set->anyCase);
 			}
 		}

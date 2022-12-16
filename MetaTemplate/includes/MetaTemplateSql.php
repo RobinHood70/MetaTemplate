@@ -432,7 +432,6 @@ class MetaTemplateSql
         $retval = false;
         $setName = $setName ?? '';
         for ($row = $result->fetchRow(); $row; $result->fetchRow()) {
-            RHshow($row);
             // Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
             // will overwrite the older values.
             $varValue = $row[self::FIELD_VAR_VALUE];

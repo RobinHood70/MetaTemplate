@@ -180,7 +180,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
      */
     public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
     {
-        if (self::$parserOutput === null) {
+        if (is_null(self::$parserOutput)) {
             $parserOutput = $parser->getOutput();
             self::$parserOutput = $parserOutput;
             self::$parser = self::$parser ?? $parser;

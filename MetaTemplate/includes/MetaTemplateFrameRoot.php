@@ -159,7 +159,10 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 	 */
 	public function setTTL($ttl): void
 	{
-		if ($ttl !== null && ($this->ttl === null || $ttl < $this->ttl)) {
+		if (
+			!is_null($ttl) &&
+			(is_null($this->ttl) || $ttl < $this->ttl)
+		) {
 			$this->ttl = $ttl;
 		}
 	}

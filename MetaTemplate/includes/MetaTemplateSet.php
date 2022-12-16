@@ -34,8 +34,10 @@ class MetaTemplateSet
     public function __construct(?string $setName = null, ?array $variables = [], ?bool $anyCase = null)
     {
         $this->setName = $setName;
-        $this->addVariables($variables);
         $this->anyCase = $anyCase;
+        if ($variables) {
+            $this->addVariables($variables);
+        }
     }
 
     /**
@@ -49,8 +51,11 @@ class MetaTemplateSet
     public function addVariables(array $data): void
     {
         foreach ($data as $key => $value) {
-            if (!($value instanceof MetaTemplateVariable)) {
-                throw new Exception('Invalid variable.');
+            if ($value !== false && !($value instanceof MetaTemplateVariable)) {
+                // Auto-convert if the data being added isn't already a MetaTemplateVariable|false. This shouldn't
+                // happen from within MetaTemplate itself, but is not breaking if something does it by accident.
+                $value = new MetaTemplateVariable($value, false);
+                wfWarn(__METHOD__ . ' was passed variables that weren\'t already MetaTemplateVariables.');
             }
 
             $this->variables[$key] = $value;

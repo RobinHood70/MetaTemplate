@@ -11,11 +11,14 @@ use MediaWiki\MediaWikiServices;
  */
 class MetaTemplate
 {
+    public const AV_ANY = 'metatemplate-any';
+
     public const KEY_METATEMPLATE = '@metatemplate';
 
     // Shared between CPT and #load, so needs a shared home in case one or the other is disabled.
     public const KEY_PRELOADED = MetaTemplate::KEY_METATEMPLATE . '#preloaded';
 
+    public const NA_CASE = 'metatemplate-case';
     public const NA_NESTLEVEL = 'metatemplate-nestlevel';
     public const NA_SHIFT = 'metatemplate-shift';
 
@@ -66,6 +69,18 @@ class MetaTemplate
     {
         $config = self::getConfig();
         return (bool)$config->get($setting);
+    }
+
+    /**
+     * Checks the `case` parameter to see if it matches `case=any` or any of the localized equivalents.
+     *
+     * @param array $magicArgs The magic-word arguments as created by getMagicArgs().
+     *
+     * @return bool True if `case=any` or any localized equivalent was found in the argument list.
+     */
+    public static function checkAnyCase(array $magicArgs): bool
+    {
+        return ParserHelper::magicKeyEqualsValue($magicArgs, self::NA_CASE, self::AV_ANY);
     }
 
     /**
@@ -149,10 +164,10 @@ class MetaTemplate
             return;
         }
 
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        [$magicArgs, $values] = ParserHelper::getMagicArgs(
             $frame,
             $args,
-            ParserHelper::NA_CASE,
+            self::NA_CASE,
             ParserHelper::NA_IF,
             ParserHelper::NA_IFNOT
         );
@@ -161,7 +176,7 @@ class MetaTemplate
             return;
         }
 
-        $anyCase = ParserHelper::checkAnyCase($magicArgs);
+        $anyCase = self::checkAnyCase($magicArgs);
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
             if (self::getVar($frame, $destName, $anyCase) === false && isset($frame->parent)) {
@@ -305,10 +320,10 @@ class MetaTemplate
             return;
         }
 
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        [$magicArgs, $values] = ParserHelper::getMagicArgs(
             $frame,
             $args,
-            ParserHelper::NA_CASE,
+            self::NA_CASE,
             ParserHelper::NA_IF,
             ParserHelper::NA_IFNOT
         );
@@ -317,7 +332,7 @@ class MetaTemplate
             return;
         }
 
-        $anyCase = ParserHelper::checkAnyCase($magicArgs);
+        $anyCase = self::checkAnyCase($magicArgs);
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
             $varValue = self::getVar($frame, $srcName, false);
@@ -344,10 +359,10 @@ class MetaTemplate
      */
     public static function doUnset(Parser $parser, PPFrame $frame, array $args): void
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        [$magicArgs, $values] = ParserHelper::getMagicArgs(
             $frame,
             $args,
-            ParserHelper::NA_CASE,
+            self::NA_CASE,
             ParserHelper::NA_IF,
             ParserHelper::NA_IFNOT,
             self::NA_SHIFT
@@ -357,7 +372,7 @@ class MetaTemplate
             return;
         }
 
-        $anyCase = ParserHelper::checkAnyCase($magicArgs);
+        $anyCase = self::checkAnyCase($magicArgs);
         $shift = (bool)($magicArgs[self::NA_SHIFT] ?? false);
         foreach ($values as $value) {
             $varName = $frame->expand($value);
@@ -538,10 +553,10 @@ class MetaTemplate
      */
     private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
     {
-        list($magicArgs, $values) = ParserHelper::getMagicArgs(
+        [$magicArgs, $values] = ParserHelper::getMagicArgs(
             $frame,
             $args,
-            ParserHelper::NA_CASE,
+            self::NA_CASE,
             ParserHelper::NA_IF,
             ParserHelper::NA_IFNOT
         );
@@ -551,7 +566,7 @@ class MetaTemplate
         }
 
         $name = trim($frame->expand($values[0]));
-        $anyCase = ParserHelper::checkAnyCase($magicArgs);
+        $anyCase = self::checkAnyCase($magicArgs);
 
         // Since assignments are typically numerous, try to take the most efficient route possible. Only non-optimal
         // route is if a value exists with the same case, it will be unset/reset despite not needing it.

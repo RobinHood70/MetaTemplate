@@ -3,7 +3,10 @@
 // While it's good form to do this anyway, this line MUST be here or the entire wiki will come crashing to a halt
 // whenever you try to add new magic words.
 $magicWords = [];
-$magicWords['en'] = [];
+$magicWords['en'] = [
+	MetaTemplate::AV_ANY => [0, 'any'],
+	MetaTemplate::NA_CASE => [0, 'case'],
+];
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 	$magicWords['en'] = array_merge($magicWords['en'], [

@@ -191,7 +191,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         if (self::$parserOutput->getExtensionData(self::KEY_CPT_LOAD) ?? false) {
             unset($values[0]);
             $translations = MetaTemplate::getVariableTranslations($frame, $values, MetaTemplateData::SAVE_VARNAME_WIDTH);
-            $anyCase = ParserHelper::checkAnyCase($magicArgs);
+            $anyCase = MetaTemplate::checkAnyCase($magicArgs);
             $varsToLoad = MetaTemplateData::getVarList($frame, $translations, $anyCase);
             self::$parserOutput->setExtensionData(MetaTemplate::KEY_PRELOADED, $varsToLoad);
         }

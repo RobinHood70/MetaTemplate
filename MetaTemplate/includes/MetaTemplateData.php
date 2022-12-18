@@ -62,7 +62,7 @@ class MetaTemplateData
 		 * @var array $named
 		 * @var array $unnamed
 		 */
-		list($templateTitle, $magicArgs, $named, $unnamed) = $setup;
+		[$templateTitle, $magicArgs, $named, $unnamed] = $setup;
 		$articleId = $templateTitle->getArticleID();
 		$preload = new MetaTemplateSet($magicArgs[self::NA_SET] ?? '', [self::KEY_PRELOAD]);
 		MetaTemplateSql::getInstance()->loadTableVariables($articleId, $preload);
@@ -122,10 +122,10 @@ class MetaTemplateData
 	public static function doLoad(Parser $parser, PPFrame $frame, array $args): void
 	{
 		// RHshow('#load:', $parser->getTitle()->getFullText());
-		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+		[$magicArgs, $values] = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
-			ParserHelper::NA_CASE,
+			MetaTemplate::NA_CASE,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
 			self::NA_SET
@@ -151,7 +151,7 @@ class MetaTemplateData
 			return;
 		}
 
-		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+		[$magicArgs, $values] = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
 			self::NA_SET
@@ -206,10 +206,10 @@ class MetaTemplateData
 			return;
 		}
 
-		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+		[$magicArgs, $values] = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
-			ParserHelper::NA_CASE,
+			MetaTemplate::NA_CASE,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
 			self::NA_SET,
@@ -221,7 +221,7 @@ class MetaTemplateData
 		}
 
 		$output = $parser->getOutput();
-		$anyCase = ParserHelper::checkAnyCase($magicArgs);
+		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
 		$varsToSave = [];
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
@@ -431,7 +431,7 @@ class MetaTemplateData
 
 		$set = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
-		$anyCase = ParserHelper::checkAnyCase($magicArgs);
+		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		$varsToLoad = self::getVarList($frame, $translations, $anyCase);
 		$preloaded = $output->getExtensionData(MetaTemplate::KEY_PRELOADED) ?? null;
 		if ($preloaded) {
@@ -511,10 +511,10 @@ class MetaTemplateData
 	 */
 	private static function listSavedSetup(Parser $parser, PPFrame $frame, array $args)
 	{
-		list($magicArgs, $values) = ParserHelper::getMagicArgs(
+		[$magicArgs, $values] = ParserHelper::getMagicArgs(
 			$frame,
 			$args,
-			ParserHelper::NA_CASE,
+			MetaTemplate::NA_CASE,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
 			ParserHelper::NA_DEBUG,
@@ -541,7 +541,7 @@ class MetaTemplateData
 		/**
 		 * @var array $named
 		 * @var array $unnamed */
-		list($named, $unnamed) = ParserHelper::splitNamedArgs($frame, $values);
+		[$named, $unnamed] = ParserHelper::splitNamedArgs($frame, $values);
 		if (!count($named)) {
 			return ParserHelper::error('metatemplate-listsaved-conditions-missing');
 		}

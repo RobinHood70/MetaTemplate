@@ -171,7 +171,9 @@ class MetaTemplateHooks
 
 	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput)
 	{
-		MetaTemplateCategoryViewer::init($parserOutput);
+		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+			MetaTemplateCategoryViewer::init($parserOutput);
+		}
 	}
 
 	/**
@@ -280,7 +282,7 @@ class MetaTemplateHooks
 	}
 
 	/**
-	 * Register's the pre-processor. Note: this will fail in MediaWiki 1.35+.
+	 * Registers the pre-processor. Note: this will fail in MediaWiki 1.35+.
 	 *
 	 * @return void
 	 *
@@ -292,6 +294,15 @@ class MetaTemplateHooks
 		// This should work until at least 1.33 and I'm pretty sure 1.34. As of 1.35, it will fail, and the path
 		// forward is unclear. We might be able to override the Parser class itself with a custom one, or we may have
 		// to modify the source files to insert our own parser and/or preprocessor.
+
+		/*
+		 * We can't use MetaTemplate::can() yet, so for now, this is just automatically registered. Need to see if this
+		 * can be moved somewhere where we can check whether this is wanted or not.
+		 * if (
+		 * 	MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) ||
+		 * 	MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)
+		 * ) {
+		 */
 		global $wgParserConf;
 		$wgParserConf['preprocessorClass'] = "MetaTemplatePreprocessor";
 	}

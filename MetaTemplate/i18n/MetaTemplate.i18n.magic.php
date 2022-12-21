@@ -9,7 +9,7 @@ $magicWords['en'] = [
 ];
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
-	$magicWords['en'] = array_merge($magicWords['en'], [
+	$magicWords['en'] += [
 		MetaTemplate::NA_NESTLEVEL => [0, 'nestlevel'],
 
 		MetaTemplate::PF_FULLPAGENAMEx => [1, 'FULLPAGENAMEx'],
@@ -20,12 +20,11 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 		MetaTemplate::VR_NAMESPACE0 => [1, 'NAMESPACE0'],
 		MetaTemplate::VR_NESTLEVEL => [1, 'NESTLEVEL'],
 		MetaTemplate::VR_PAGENAME0 => [1, 'PAGENAME0']
-	]);
+	];
 }
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-	$magicWords['en'] = array_merge($magicWords['en'], [
-
+	$magicWords['en'] += [
 		MetaTemplateCategoryViewer::NA_IMAGE => [0, 'image'],
 		MetaTemplateCategoryViewer::NA_PAGE => [0, 'page'],
 		MetaTemplateCategoryViewer::NA_SORTKEY => [0, 'sortkey'],
@@ -47,11 +46,11 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 		MetaTemplateCategoryViewer::VAR_SETSORTKEY => [0, 'setsortkey'],
 		MetaTemplateCategoryViewer::VAR_SETTEXTPOST => [0, 'settextpost'],
 		MetaTemplateCategoryViewer::VAR_SETTEXTPRE => [0, 'settextpre'],
-	]);
+	];
 }
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
-	$magicWords['en'] = array_merge($magicWords['en'], [
+	$magicWords['en'] += [
 		MetaTemplateData::NA_NAMESPACE => [0, 'namespace'],
 		MetaTemplateData::NA_ORDER => [0, 'order'],
 		MetaTemplateData::NA_PAGELENGTH => [0, 'pagelength'],
@@ -65,11 +64,11 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 		MetaTemplateData::PF_SAVE => [0, 'save'],
 
 		MetaTemplateData::TG_SAVEMARKUP => [0, 'savemarkup'],
-	]);
+	];
 }
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)) {
-	$magicWords['en'] = array_merge($magicWords['en'], [
+	$magicWords['en'] += [
 		MetaTemplate::NA_SHIFT => [0, 'shift', 'shiftdown'],
 
 		MetaTemplate::PF_DEFINE => [0, 'define'],
@@ -78,5 +77,5 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)) {
 		MetaTemplate::PF_PREVIEW => [0, 'preview'],
 		MetaTemplate::PF_RETURN => [0, 'return'],
 		MetaTemplate::PF_UNSET => [0, 'unset'],
-	]);
+	];
 }

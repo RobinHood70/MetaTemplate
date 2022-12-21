@@ -471,6 +471,7 @@ class MetaTemplate
      */
     public static function init(): void
     {
+        ParserHelper::init();
         if (self::can(self::STTNG_ENABLECPT)) {
             MetaTemplateCategoryViewer::init();
         }

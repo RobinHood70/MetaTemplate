@@ -240,6 +240,17 @@ class MetaTemplateHooks
 	 */
 	public static function onParserFirstCallInit(Parser $parser): void
 	{
+		// This should work up to 1.35. In 1.36, they change mPreprocessor to private. At that point, we can probably
+		// override this through reflection. A more legitimate method might be to override the default Parser class
+		// with a derivative, then override getPreproessor() in the derived class. The only question then is how to get
+		// the derived parser to be the default.
+		if (
+			MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) ||
+			MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)
+		) {
+			$parser->mPreprocessor = new MetaTemplatePreprocessor($parser);
+		}
+
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
 		MetaTemplate::init();
@@ -289,22 +300,7 @@ class MetaTemplateHooks
 	 */
 	public static function onRegister(): void
 	{
-		// TODO: Investigate why preprocessor always running in <noinclude> mode on template save.
-
-		// This should work until at least 1.33 and I'm pretty sure 1.34. As of 1.35, it will fail, and the path
-		// forward is unclear. We might be able to override the Parser class itself with a custom one, or we may have
-		// to modify the source files to insert our own parser and/or preprocessor.
-
-		/*
-		 * We can't use MetaTemplate::can() yet, so for now, this is just automatically registered. Need to see if this
-		 * can be moved somewhere where we can check whether this is wanted or not.
-		 * if (
-		 * 	MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) ||
-		 * 	MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)
-		 * ) {
-		 */
-		global $wgParserConf;
-		$wgParserConf['preprocessorClass'] = "MetaTemplatePreprocessor";
+		RHDebug::noop();
 	}
 
 	/**

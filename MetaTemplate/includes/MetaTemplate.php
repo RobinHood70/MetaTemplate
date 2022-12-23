@@ -2,6 +2,11 @@
 
 use MediaWiki\MediaWikiServices;
 
+require_once(($_SERVER['SERVER_NAME'] ?? null) === 'rob-centos'
+    ? '/var/www/html/uesp/extensions/ParserHelper/ParserHelper.php'
+    : '/home/uesp/www/w/extensions/ParserHelper/ParserHelper.php'
+);
+
 /**
  * An extension to add data persistence and variable manipulation to MediaWiki.
  *

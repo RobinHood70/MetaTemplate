@@ -4,6 +4,11 @@
 // use MediaWiki\DatabaseUpdater;
 use Wikimedia\Rdbms\IResultWrapper;
 
+require_once(($_SERVER['SERVER_NAME'] ?? null) === 'rob-centos'
+	? '/var/www/html/uesp/extensions/ParserHelper/ParserHelper.php'
+	: '/home/uesp/www/w/extensions/ParserHelper/ParserHelper.php'
+);
+
 /** @todo Add {{#define/local/preview:a=b|c=d}} */
 class MetaTemplateHooks
 {

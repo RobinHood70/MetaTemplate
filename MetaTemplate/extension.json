@@ -40,11 +40,8 @@
 		"MetaTemplateUpserts": "includes/MetaTemplateUpserts.php",
 		"MetaTemplateVariable": "includes/MetaTemplateVariable.php",
 		"MetaVarsPager": "includes/MetaVarsPager.php",
-		"ParserHelper": "includes/ParserHelper.php",
-		"RHDebug": "includes/RHDebug.php",
 		"SpecialMetaVarsOnPage": "includes/SpecialMetaVarsOnPage.php",
-		"SpecialPagesWithMetaVar": "includes/SpecialPagesWithMetaVar.php",
-		"VersionHelper": "includes/VersionHelper.php"
+		"SpecialPagesWithMetaVar": "includes/SpecialPagesWithMetaVar.php"
 	},
 	"ConfigRegistry": {
 		"metatemplate": "MetaTemplate::configBuilder"

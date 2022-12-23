@@ -698,7 +698,7 @@ class MetaTemplateSql
      */
     private function saveUpserts(MetaTemplateUpserts $upserts): void
     {
-        $deletes = $upserts->getDeletes();
+        $deletes = $upserts->deletes;
         // writeFile('  Deletes: ', count($deletes));
         if (count($deletes)) {
             // Assumes cascading is in effect, so doesn't delete DATA_TABLE entries.
@@ -706,9 +706,9 @@ class MetaTemplateSql
         }
 
         $pageId = $upserts->pageId;
-        $newRevId = $upserts->getNewRevId();
+        $newRevId = $upserts->newRevId;
         // writeFile('  Inserts: ', count($inserts));
-        foreach ($upserts->getInserts() as $newSet) {
+        foreach ($upserts->inserts as $newSet) {
             $this->dbWrite->insert(self::SET_TABLE, [
                 self::FIELD_PAGE_ID => $pageId,
                 self::FIELD_SET_NAME => $newSet->setName,
@@ -718,7 +718,7 @@ class MetaTemplateSql
             $this->insertData($setId, $newSet);
         }
 
-        $updates = $upserts->getUpdates();
+        $updates = $upserts->updates;
         // writeFile('  Updates: ', count($updates));
         if (count($updates)) {
             foreach ($updates as $setId => $setData) {
@@ -730,9 +730,7 @@ class MetaTemplateSql
                 $this->updateSetData($setId, $oldSet, $newSet);
             }
 
-            if (
-                $upserts->getOldRevId() < $newRevId
-            ) {
+            if ($upserts->oldRevId < $newRevId) {
                 $this->dbWrite->update(
                     self::SET_TABLE,
                     [self::FIELD_REV_ID => $newRevId],

@@ -2,17 +2,17 @@
 class MetaTemplateUpserts
 {
     /** @var int[] */
-    private $deletes = [];
+    public $deletes = [];
 
     /** @var MetaTemplateSet[] */
-    private $inserts = [];
+    public $inserts = [];
 
     /** @var array */ // [int setId, [MetaTemplateSet oldSet, MetaTemplateSet newSet]]
-    private $updates = [];
+    public $updates = [];
 
-    private $newRevId;
-    private $oldRevId;
-    private $pageId;
+    public $newRevId;
+    public $oldRevId;
+    public $pageId;
 
     /**
      * Creates a new instance of the MetaTemplateUpserts class.
@@ -74,61 +74,6 @@ class MetaTemplateUpserts
     }
 
     /**
-     * Gets the deletions that need to be made.
-     *
-     * @return array The insertions that need to be made.
-     *
-     */
-    public function getDeletes(): array
-    {
-        return $this->deletes;
-    }
-
-    /**
-     * Gets the insertions that need to be made.
-     *
-     * @return array The insertions that need to be made.
-     *
-     */
-    public function getInserts(): array
-    {
-        return $this->inserts;
-    }
-
-    /**
-     * Gets the new revision ID.
-     *
-     * @return int The new revision ID.
-     *
-     */
-    public function getNewRevId(): int
-    {
-        return $this->newRevId;
-    }
-
-    /**
-     * Gets the previous revision's ID.
-     *
-     * @return int The previous revision's ID.
-     *
-     */
-    public function getOldRevId(): int
-    {
-        return $this->oldRevId;
-    }
-
-    /**
-     * Gets the page ID.
-     *
-     * @return int The page ID.
-     *
-     */
-    public function getPageId(): int
-    {
-        return $this->pageId;
-    }
-
-    /**
      * Gets the total number of operations for this upsert.
      *
      * @return int The total number of operations for this upsert.
@@ -137,16 +82,5 @@ class MetaTemplateUpserts
     public function getTotal()
     {
         return count($this->deletes) + count($this->inserts) + count($this->updates);
-    }
-
-    /**
-     * Gets the updates that need to be made.
-     *
-     * @return array
-     *
-     */
-    public function getUpdates()
-    {
-        return $this->updates;
     }
 }

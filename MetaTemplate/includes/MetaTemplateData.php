@@ -87,8 +87,8 @@ class MetaTemplateData
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
 		$debug = $magicArgs[ParserHelper::NA_DEBUG] ?? false;
 		$retval = self::createTemplates($language, $templateName, $data, $debug);
+		$output = $parser->getOutput();
 		if (!$debug) {
-			$output = $parser->getOutput();
 			$output->setExtensionData(self::KEY_LISTSAVED_ERROR, false);
 
 			$dom = $parser->preprocessToDom($retval);
@@ -377,6 +377,8 @@ class MetaTemplateData
 	{
 		$retval = '';
 		$lineBreak = '';
+		$open = '{{';
+		$close = '}}';
 		foreach ($params as $fields) {
 			// RHshow($fields);
 			$namespace = '';
@@ -409,7 +411,7 @@ class MetaTemplateData
 				$params .= "|$key=$value";
 			}
 
-			$retval .= $lineBreak . '{{' . $templateName . $params . $namespace . $pageName . $set . '}}';
+			$retval .= "$lineBreak$open$templateName$params$namespace$pageName$set$close";
 			$lineBreak = "\n";
 		}
 

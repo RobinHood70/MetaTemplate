@@ -567,6 +567,10 @@ class MetaTemplate
         }
 
         $name = trim($frame->expand($values[0]));
+        if (substr($name, 0, strlen(MetaTemplate::KEY_METATEMPLATE)) === MetaTemplate::KEY_METATEMPLATE) {
+            return;
+        }
+
         $anyCase = self::checkAnyCase($magicArgs);
 
         // Since assignments are typically numerous, try to take the most efficient route possible. Only non-optimal
@@ -577,10 +581,7 @@ class MetaTemplate
                 // RHshow('Override case');
                 self::setVar($frame, $name, $existing, $anyCase);
             }
-        } elseif ($overwrite) {
-            // RHshow('Set/Overwrite');
-            self::setVar($frame, $name, $values[1], $anyCase);
-        } elseif (self::getVar($frame, $name, $anyCase) === false) {
+        } elseif ($overwrite || self::getVar($frame, $name, $anyCase) === false) {
             // RHshow('Set');
             self::setVar($frame, $name, $values[1], $anyCase);
         } // else variable is already defined and should not be overridden.

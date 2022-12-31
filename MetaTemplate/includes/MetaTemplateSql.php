@@ -233,14 +233,14 @@ class MetaTemplateSql
      * @param int $pageId The page ID to load.
      * @param ?string $setName The set name to load. If null, loads all sets.
      * @param array $varNames A filter of which variable names should be returned.
-     * @param bool $textNames If set to true, will return values as and associative array with the standard naming
+     * @param bool $textNames If set to true, will return values as an associative array with the standard naming
      *                        convention rather than a one-dimensional array with no names.
      *
      * @return array Array of tables, fields, conditions, options, and join conditions for a query, mirroring the
      *               parameters to IDatabase->select.
      */ public function loadQuery(int $pageId, MetaTemplateSet $set, bool $textNames): ?array
     {
-        list($tables, $joinConds, $options) = self::baseQuery();
+        [$tables, $joinConds, $options] = self::baseQuery();
         $fields = [
             self::FIELD_VAR_NAME,
             self::FIELD_VAR_VALUE,
@@ -257,7 +257,7 @@ class MetaTemplateSql
         }
 
         if (count($set->variables)) {
-            $conds[self::DATA_VAR_NAME] = $set->variables;
+            $conds[self::DATA_VAR_NAME] = array_keys($set->variables);
         }
 
         // Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
@@ -414,16 +414,17 @@ class MetaTemplateSql
      * @param string $setName The set name to load.
      * @param array $varNames A filter of which variable names should be returned.
      *
-     * @return ?MetaTemplateVariable[][]
+     * @return bool True if data was loaded.
      */
     public function loadTableVariables($pageId, MetaTemplateSet &$set): bool
     {
-        if (!$pageId <= 0) {
+        if ($pageId <= 0) {
             return false;
         }
 
-        list($tables, $fields, $conds, $options, $joinConds) = $this->loadQuery($pageId, $set, false);
-        // RHlogFunctionText($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
+        [$tables, $fields, $conds, $options, $joinConds] = $this->loadQuery($pageId, $set, false);
+        // RHshow('Method: ', $method, "\nTables: ", $tables, "\nFields: ", $fields, "\nConditions: ", $conds, "\nOptions: ", $options, "\nJoin Conds: ", $joinConds);
+        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         if (!$result || !$result->numRows()) {
             return false;
@@ -434,11 +435,8 @@ class MetaTemplateSql
         for ($row = $result->fetchRow(); $row; $result->fetchRow()) {
             // Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
             // will overwrite the older values.
-            $varValue = $row[self::FIELD_VAR_VALUE];
-            $parseOnLoad = $row[self::FIELD_PARSE_ON_LOAD];
-            $var = new MetaTemplateVariable($varValue, $parseOnLoad);
-            $varName = $row[self::FIELD_VAR_NAME];
-            $set->variables[$varName] = $var;
+            $var = new MetaTemplateVariable($row[self::FIELD_VAR_VALUE], $row[self::FIELD_PARSE_ON_LOAD]);
+            $set->variables[$row[self::FIELD_VAR_NAME]] = $var;
             $row = $result->fetchRow();
             $retval = true;
         }

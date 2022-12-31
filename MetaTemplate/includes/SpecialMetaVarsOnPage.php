@@ -26,7 +26,7 @@
  *
  * @internal This class used SpecialBlockList.php as a starting point. Compare with that class for future updates.
  */
-class SpecialMetaVarsOnPage extends SpecialPage
+class SpecialMetaVarsOnPage extends IncludableSpecialPage
 {
     private const METAVARS_ID = 'MetaVarsOnPage';
 
@@ -47,6 +47,11 @@ class SpecialMetaVarsOnPage extends SpecialPage
         $request = $this->getRequest();
         $this->pageName = $request->getVal('page', $subPage);
         $this->limit = (int)$request->getVal('limit', 50);
+
+        if ($this->including()) {
+            $this->showList();
+            return;
+        }
 
         $lang = $this->getLanguage();
         $descriptor = [
@@ -78,16 +83,26 @@ class SpecialMetaVarsOnPage extends SpecialPage
             ->setSubmitTextMsg('metatemplate-metavarsonpage-submit')
             ->prepareForm()
             ->displayForm(false);
+
         $this->showList();
     }
 
     public function showList(): void
     {
-        if (!$this->pageName) {
-            return;
+        // RHshow('ParserOutput: ', $wgParser->mOutput);
+        // $wgParser->preprocessToDom('Hello');
+        if (is_null($this->pageName)) {
+            if ($this->mIncluding) {
+                /** @var Title $wgTitle */
+                global $wgParser;
+                $title = $wgParser->getTitle();
+            } else {
+                return;
+            }
+        } else {
+            $title = Title::newFromText($this->pageName);
         }
 
-        $title = Title::newFromText($this->pageName);
         $out = $this->getOutput();
 
         if (!$title || !$title->canExist()) {

@@ -4,10 +4,7 @@
 // use MediaWiki\DatabaseUpdater;
 use Wikimedia\Rdbms\IResultWrapper;
 
-require_once(($_SERVER['SERVER_NAME'] ?? null) === 'rob-centos'
-	? '/var/www/html/uesp/extensions/ParserHelper/ParserHelper.php'
-	: '/home/uesp/www/w/extensions/ParserHelper/ParserHelper.php'
-);
+// require_once(__DIR__ . "/extensions/ParserHelper/ParserHelper.php");
 
 /** @todo Add {{#define/local/preview:a=b|c=d}} */
 class MetaTemplateHooks
@@ -133,26 +130,6 @@ class MetaTemplateHooks
 	}
 
 	/**
-	 * This fires immediately after doLoad extracts its magic words and before the main body of doLoad. This allows
-	 * <catpagetemplate> to intercept the list of variables being loaded and bulk load them for the entire category
-	 * page all at once.
-	 *
-	 * @param Parser $parser The parser in use.
-	 * @param PPFrame $frame The frame in use.
-	 * @param array $magicArgs The magic arguments provided to doLoad.
-	 * @param array $values All other parameters passed to doLoad.
-	 *
-	 * @return void
-	 *
-	 */
-	public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
-	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
-			MetaTemplateCategoryViewer::onMetaTemplateBeforeLoadMain($parser, $frame, $magicArgs, $values);
-		}
-	}
-
-	/**
 	 * Adds ns_base and ns_id to the list of parameters that bypass the normal limitations on parameter evaluation when
 	 * viewing a template on its native page.
 	 *
@@ -256,6 +233,7 @@ class MetaTemplateHooks
 			$parser->mPreprocessor = new MetaTemplatePreprocessor($parser);
 		}
 
+		ParserHelper::init();
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
 		MetaTemplate::init();
@@ -295,17 +273,6 @@ class MetaTemplateHooks
 		}
 
 		return true;
-	}
-
-	/**
-	 * Registers the pre-processor. Note: this will fail in MediaWiki 1.35+.
-	 *
-	 * @return void
-	 *
-	 */
-	public static function onRegister(): void
-	{
-		RHDebug::noop();
 	}
 
 	/**

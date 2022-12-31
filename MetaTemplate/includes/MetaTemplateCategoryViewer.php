@@ -123,7 +123,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public static function init(ParserOutput $parserOutput = null)
     {
         if (!self::$parserOutput && $parserOutput) {
-            // We got here via a the parser cache (Article::view(), case 2)
+            // We got here via the parser cache (Article::view(), case 2)
             self::$parserOutput = $parserOutput;
             self::$parser = self::$parser ?? $parserOutput->getExtensionData(self::KEY_PARSER);
             self::$frame = self::$frame ?? $parserOutput->getExtensionData(self::KEY_FRAME);
@@ -155,7 +155,8 @@ class MetaTemplateCategoryViewer extends CategoryViewer
                 }
 
                 $result->rewind();
-                MetaTemplateSql::getInstance()->catQuery($pageSets);
+                $varNames = self::$parserOutput->getExtensionData(MetaTemplate::KEY_PRELOADED);
+                MetaTemplateSql::getInstance()->catQuery($pageSets, $varNames);
                 self::$parserOutput->setExtensionData(self::KEY_BULK_LOAD, $pageSets);
             } else {
                 self::$parserOutput->setExtensionData(self::KEY_BULK_LOAD, null);
@@ -163,38 +164,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         }
 
         return $pageSets;
-    }
-
-    /**
-     * This variant of #load strictly pulls out the values to be pre-loaded. It's made active temporarily while
-     * doCatPageTemplate() is being evaluated, then reverts immediately after.
-     *
-     * @param Parser $parser The parser in use.
-     * @param PPFrame $frame The frame in use.
-     * @param array $magicArgs Function arguments (`case=any` is the only one used here).
-     * @param array $values All other function arguments. These are the ones that are evaluted for pre-loading.
-     *
-     * @return bool Whether the function ran or not. The only way this will return false is if it's called outside of
-     *              #load, in which case it will revert to the normal #load routine.
-     *
-     */
-    public static function onMetaTemplateBeforeLoadMain(Parser $parser, PPFrame $frame, array $magicArgs, array $values)
-    {
-        if (is_null(self::$parserOutput)) {
-            $parserOutput = $parser->getOutput();
-            self::$parserOutput = $parserOutput;
-            self::$parser = self::$parser ?? $parser;
-            self::$frame = self::$frame ?? $frame;
-            self::$templates = $parserOutput->getExtensionData(self::KEY_TEMPLATES);
-        }
-
-        if (self::$parserOutput->getExtensionData(self::KEY_CPT_LOAD) ?? false) {
-            unset($values[0]);
-            $translations = MetaTemplate::getVariableTranslations($frame, $values, MetaTemplateData::SAVE_VARNAME_WIDTH);
-            $anyCase = MetaTemplate::checkAnyCase($magicArgs);
-            $varsToLoad = MetaTemplateData::getVarList($frame, $translations, $anyCase);
-            self::$parserOutput->setExtensionData(MetaTemplate::KEY_PRELOADED, $varsToLoad);
-        }
     }
 
     public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)

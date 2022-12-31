@@ -6,7 +6,6 @@
 		"RobinHood70"
 	],
 	"url": "https://en.uesp.net/wiki/UESPWiki:MetaTemplate",
-	"callback": "MetaTemplateHooks::onRegister",
 	"config": {
 		"_prefix": "metatemplate",
 		"EnableCatPageTemplate": true,
@@ -55,7 +54,6 @@
 		"CategoryViewer::doCategoryQuery": "MetaTemplateHooks::onDoCategoryQuery",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
-		"MetaTemplateBeforeLoadMain": "MetaTemplateHooks::onMetaTemplateBeforeLoadMain",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
 		"OutputPageParserOutput": "MetaTemplateHooks::onOutputPageParserOutput",
 		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",

@@ -415,7 +415,7 @@ class MetaTemplate
         $lcname = strtolower($varName);
         do {
             // Try exact name first. Direct access to avoid cache, which is expanded when we don't want it to be.
-            $retval = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? false;
+            $retval = $frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false;
             if ($retval === false && $anyCase) {
                 foreach ($frame->namedArgs as $key => $value) {
                     if (strtolower($key) === $lcname) {
@@ -471,7 +471,6 @@ class MetaTemplate
      */
     public static function init(): void
     {
-        ParserHelper::init();
         if (self::can(self::STTNG_ENABLECPT)) {
             MetaTemplateCategoryViewer::init();
         }
@@ -522,23 +521,20 @@ class MetaTemplate
 
         self::unsetVar($frame, $varName, $anyCase, false);
         if (is_null($value)) {
-            MetaTemplate::unsetVar($frame, $varName, $anyCase);
-        } elseif ($value instanceof PPNode) {
+            return;
+        }
+
+        if ($value instanceof PPNode) {
             // Value is a node, so leave node as it is and expand value for text.
-            $valueNode = $value;
-            $valueText = $frame->expand($value);
+            $args[$varName] = $value;
+            $cache[$varName] = $frame->expand($value);
         } elseif (is_string($value)) {
             // Value is a string, so create node and leave text as is.
-            $valueNode = new PPNode_Hash_Text([$value], 0);
-            $valueText = $value;
+            $args[$varName] = new PPNode_Hash_Text([$value], 0);
+            $cache[$varName] = $value;
         } else {
             $value = ParserHelper::error('metatemplate-setvar-notrecognized', $value, $varName);
         }
-
-        $args[$varName] = $valueNode;
-        $cache[$varName] = $valueText;
-        // RHshow("Args:\n", $args);
-        // RHshow("Cache:\n", $cache);
     }
 
     /**

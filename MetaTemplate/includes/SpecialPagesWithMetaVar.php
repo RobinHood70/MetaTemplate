@@ -91,7 +91,7 @@ class SpecialPagesWithMetaVar extends QueryPage
 				'name' => 'setname',
 				'options' => [
 					$this->msg('metatemplate-pageswithmetavar-setany')->text() => '*',
-					$this->msg('metatemplate-pageswithmetavar-setmain')->text() => '', // 1.19 considers '' to break "required" rule, even though required = false, so we provide a colon as the value.
+					$this->msg('metatemplate-pageswithmetavar-setmain')->text() => '',
 					$this->msg('metatemplate-pageswithmetavar-setspecific')->text() => 'other',
 				],
 				'default' => $setName,
@@ -180,7 +180,7 @@ class SpecialPagesWithMetaVar extends QueryPage
 	public function getOrderFields()
 	{
 		$retval = [];
-		if ($this->sortByVal && $this->varName !== null && $this->varName !== ':') {
+		if ($this->sortByVal && $this->varName !== null && $this->varName !== '') {
 			$retval[] = MetaTemplateSql::DATA_VAR_VALUE;
 		}
 

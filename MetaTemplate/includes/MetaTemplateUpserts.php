@@ -36,7 +36,10 @@ class MetaTemplateUpserts
             $this->oldRevId = $oldData->revId;
             foreach ($oldSets as $setName => $oldSet) {
                 if (!isset($newSets[$setName])) {
-                    $this->deletes[] = $oldData->setIds[$setName];
+                    $oldId = $oldData->setIds[$setName] ?? 0;
+                    if ($oldId !== 0) {
+                        $this->deletes[] = $oldId;
+                    }
                 }
             }
 
@@ -55,7 +58,10 @@ class MetaTemplateUpserts
                     $oldSet = $oldSets[$setName] ?? null;
                     if ($oldSet) {
                         // All sets are checked for updates as long as an old set existed, since transcluded info may have changed values.
-                        $this->updates[$oldData->setIds[$setName]] = [$oldSet, $newSet];
+                        $oldId = $oldData->setIds[$setName] ?? 0;
+                        if ($oldId !== 0) {
+                            $this->updates[$oldId] = [$oldSet, $newSet];
+                        }
                     } else {
                         $this->inserts[] = $newSet;
                     }

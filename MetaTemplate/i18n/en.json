@@ -30,8 +30,8 @@
 	"metatemplate-pageswithmetavar-varname": "Variable name",
 	"metatemplate-pageswithmetavar-varvalue": "Value",
 	"metatemplate-setvar-notrecognized": "Value \"$1\" for parameter \"$2\" in MetaTemplate::setVar is not a recognized type.",
-	"metatemplate-tracking-explodeargs": "MetaTemplate-Pages with explodeargs calls",
-	"metatemplate-tracking-pickfrom": "MetaTemplate-Pickfrom separator is quoted",
+	"metatemplate-tracking-extraparams": "MetaTemplate-Listsaved has extra parameters",
+	"metatemplate-tracking-extraparams-desc": "The call to #listsaved contains extra parameters that are not part of the conditions. This format is no longer supported. Use #preload or #inherit within the template itself, depending on intent.",
 	"metavarsonpage": "MetaTemplate variables on a page",
 	"pageswithmetavar": "Pages with a MetaTemplate variable"
 }

@@ -71,7 +71,7 @@ class MetaVarsPager extends TablePager
 
     function getQueryInfo(): array
     {
-        return MetaTemplateSql::getInstance()->loadQuery($this->pageId, new MetaTemplateSet(), true);
+        return MetaTemplateSql::getInstance()->pagerQuery($this->pageId);
     }
 
     public function getTableClass(): string

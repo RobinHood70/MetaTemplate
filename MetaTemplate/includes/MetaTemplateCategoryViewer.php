@@ -38,11 +38,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     public const VAR_SETTEXTPOST = 'metatemplate-settextpost';
     public const VAR_SETTEXTPRE = 'metatemplate-settextpre';
 
-    private const KEY_BULK_LOAD = MetaTemplate::KEY_METATEMPLATE . '#bulkLoad';
-    private const KEY_CPT_LOAD = MetaTemplate::KEY_METATEMPLATE . '#loadViaCPT';
-    private const KEY_FRAME = MetaTemplate::KEY_METATEMPLATE . '#frame';
-    private const KEY_PARSER = MetaTemplate::KEY_METATEMPLATE . '#parser';
-    private const KEY_TEMPLATES = MetaTemplate::KEY_METATEMPLATE . '#templates';
+    private const KEY_CPTDATA = MetaTemplate::KEY_METATEMPLATE . '#cptData';
 
     /** @var ?MagicWordArray */
     private static $catArgs = null;
@@ -53,16 +49,16 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     /** @var PPFrame */
     private static $frame = null;
 
-    /** @var ?MagicWord */
+    /** @var ?string */
     private static $mwPagelength = null;
 
-    /** @var ?MagicWord */
+    /** @var ?string */
     private  static $mwPagename = null;
 
-    /** @var ?MagicWord */
+    /** @var ?string */
     private  static $mwSet = null;
 
-    /** @var ?MagicWord */
+    /** @var ?string */
     private  static $mwSortkey = null;
 
     /** @var Parser */
@@ -84,8 +80,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         self::$parser = $parser;
         self::$parserOutput = $output;
         self::$frame = $frame;
-        $output->setExtensionData(self::KEY_PARSER, $parser);
-        $output->setExtensionData(self::KEY_FRAME, $frame);
 
         $attributes = ParserHelper::transformAttributes($attributes, self::$catArgs);
         $none = !isset($attributes[self::NA_IMAGE]) && !isset($attributes[self::NA_PAGE]) && !isset($attributes[self::NA_SUBCAT]);
@@ -101,17 +95,11 @@ class MetaTemplateCategoryViewer extends CategoryViewer
             self::$templates[self::CV_SUBCAT] = $content;
         }
 
-        $output->setExtensionData(self::KEY_TEMPLATES, self::$templates);
-
-        // All communication with #load and its results is done via the parser's ExtensionData commands so as not to
-        // corrupt anything in the frame.
-        $output->setExtensionData(self::KEY_CPT_LOAD, true);
-
-        // If a #load is present, this will parse it in a special bulk-loading mode and return the results in
-        // $parser-->getExtensionData(self::KEY_BULK_LOAD).
-        self::$parser->recursiveTagParse($content, $frame);
-        $output->setExtensionData(self::KEY_CPT_LOAD, null);
-
+        $output = $parser->getOutput();
+        $output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, true);
+        $parser->recursiveTagParse($content); // We don't care about the results, just that any #preload gets parsed.
+        $output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, null);
+        $output->setExtensionData(self::KEY_CPTDATA, [$parser, $frame, self::$templates]);
         return '';
     }
 
@@ -122,12 +110,17 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public static function init(ParserOutput $parserOutput = null)
     {
+        // Article::view();
         if (!self::$parserOutput && $parserOutput) {
-            // We got here via the parser cache (Article::view(), case 2)
+            // We got here via the parser cache (Article::view(), case 2), so reload everything we don't have.
+            /** @todo Can we actually cache the results instead of the objects, as was probably intended? */
             self::$parserOutput = $parserOutput;
-            self::$parser = self::$parser ?? $parserOutput->getExtensionData(self::KEY_PARSER);
-            self::$frame = self::$frame ?? $parserOutput->getExtensionData(self::KEY_FRAME);
-            self::$templates = $parserOutput->getExtensionData(self::KEY_TEMPLATES);
+            $cptData = $parserOutput->getExtensionData(self::KEY_CPTDATA);
+            if ($cptData) {
+                self::$parser = self::$parser ?? $cptData[0];
+                self::$frame = self::$frame ?? $cptData[1];
+                self::$templates = self::$templates ?? $cptData[2];
+            }
         }
 
         // While we could just import the global $wgContLang here, the global function still works and isn't deprecated
@@ -139,31 +132,36 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         // self::$contLang = self::$contLang ?? MediaWikiServices::getInstance()->getContentLanguage();
 
         self::$catArgs = self::$catArgs ?? new MagicWordArray([self::NA_IMAGE, self::NA_PAGE, self::NA_SUBCAT]);
-        self::$mwPagelength = self::$mwPagelength ?? MagicWord::get(MetaTemplateData::NA_PAGELENGTH);
-        self::$mwPagename = self::$mwPagename ?? MagicWord::get(MetaTemplateData::NA_PAGENAME);
-        self::$mwSet = self::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET);
-        self::$mwSortkey = self::$mwSortkey ?? MagicWord::get(self::NA_SORTKEY);
+        self::$mwPagelength = self::$mwPagelength ?? MagicWord::get(MetaTemplateData::NA_PAGELENGTH)->getSynonym(0);
+        self::$mwPagename = self::$mwPagename ?? MagicWord::get(MetaTemplateData::NA_PAGENAME)->getSynonym(0);
+        self::$mwSet = self::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
+        self::$mwSortkey = self::$mwSortkey ?? MagicWord::get(self::NA_SORTKEY)->getSynonym(0);
     }
 
     public static function onDoCategoryQuery(string $type, IResultWrapper $result)
     {
-        $pageSets = [];
-        if (self::$parser) {
-            if ($result->numRows() > 0) {
-                for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-                    $pageSets[$row['page_id']] = [];
-                }
-
-                $result->rewind();
-                $varNames = self::$parserOutput->getExtensionData(MetaTemplate::KEY_PRELOADED);
-                MetaTemplateSql::getInstance()->catQuery($pageSets, $varNames);
-                self::$parserOutput->setExtensionData(self::KEY_BULK_LOAD, $pageSets);
-            } else {
-                self::$parserOutput->setExtensionData(self::KEY_BULK_LOAD, null);
-            }
+        if (!self::$parser || $result->numRows() === 0 || !class_exists('MetaTemplateData', false)) {
+            return;
         }
 
-        return $pageSets;
+        /** @var MetaTemplateSet[] $varNames */
+        $varNames = self::$parserOutput->getExtensionData(MetaTemplateData::KEY_PRELOAD);
+        if (!$varNames) {
+            return;
+        }
+
+        $varNames = array_keys($varNames['']->variables ?? []);
+        // RHshow('Has varnames: ', $varNames);
+        self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
+        for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
+            $pageIds[$row['page_id']] = new MetaTemplatePage($row['page_namespace'], $row['page_title']);
+        }
+
+        $result->rewind();
+
+
+        MetaTemplateSql::getInstance()->catQuery($pageIds, $varNames ?? []);
+        self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, $pageIds);
     }
 
     public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)
@@ -213,16 +211,16 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public function finaliseCategoryState()
     {
-        self::$parserOutput->setExtensionData(self::KEY_BULK_LOAD, null);
+        self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
     }
 
     private static function createFrame(Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPTemplateFrame_Hash
     {
         $frame = self::$frame->newChild([], $title);
-        MetaTemplate::setVar($frame, self::$mwPagelength->getSynonym(0), $pageLength);
-        MetaTemplate::setVar($frame, self::$mwPagename->getSynonym(0), $title->getFullText());
-        MetaTemplate::setVar($frame, self::$mwSet->getSynonym(0), $set->setName);
-        MetaTemplate::setVar($frame, self::$mwSortkey->getSynonym(0), explode("\n", $sortkey)[0]);
+        MetaTemplate::setVar($frame, self::$mwPagelength, (string)$pageLength);
+        MetaTemplate::setVar($frame, self::$mwPagename, $title->getFullText());
+        MetaTemplate::setVar($frame, self::$mwSet, $set->setName);
+        MetaTemplate::setVar($frame, self::$mwSortkey, explode("\n", $sortkey)[0]);
         foreach ($set->variables as $varName => $varValue) {
             MetaTemplate::setVar($frame, $varName, $varValue->value);
         }
@@ -233,15 +231,14 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     private function processTemplate(string $template, string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
     {
         $output = self::$parserOutput;
-        $allPages = $output->getExtensionData(self::KEY_BULK_LOAD) ?? false;
+        $allPages = $output->getExtensionData(MetaTemplateData::KEY_BULK_LOAD) ?? false;
 
-        /** @var ?MetaTemplateSet[] $setsFound */
-        $setsFound = $allPages[$title->getArticleID()] ?? null;
-
+        /** @var ?MetaTemplatePage $mtPage */
+        $setsFound = $allPages[$title->getArticleID()]->sets ?? [];
         // RHshow('Sets found: ', count($setsFound), "\n", $setsFound);
+
         $defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
         unset($setsFound['']);
-        // RHshow('Sets found, sorted: ', count($setsFound), "\n", $setsFound);
         $catVars = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength);
 
         /* $catGroup does not need sanitizing as MW runs it through htmlspecialchars later in the process.

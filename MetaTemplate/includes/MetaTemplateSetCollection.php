@@ -35,22 +35,26 @@ class MetaTemplateSetCollection
     /**
      * Gets a set by name if it exists or creates one if it doesn't.
      *
-     * @param int $setId The set ID. If set to zero, this will be
+     * @param int $setId The set ID. If set to zero, the set will be ignored for deletes and updates, though it will be
+     *                   added, if appropriate.
      * @param string $setName
      *
      * @return MetaTemplateSet
      *
      */
-    public function addToSet(int $setId, string $setName, ?array $variables = null): MetaTemplateSet
+    public function addToSet(int $setId, string $setName, ?array $variables = null, bool $anyCase = false): MetaTemplateSet
     {
-        $this->setIds[$setName] = $setId;
+        if ($setId) {
+            $this->setIds[$setName] = $setId;
+        }
+
         if (isset($this->sets[$setName])) {
             $retval = $this->sets[$setName];
             if ($variables !== null) {
-                $retval->addVariables($variables);
+                $retval->variables = array_merge($retval->variables, $variables);
             }
         } else {
-            $retval = new MetaTemplateSet($setName, $variables);
+            $retval = new MetaTemplateSet($setName, $variables, $anyCase);
             $this->sets[$setName] = $retval;
         }
 

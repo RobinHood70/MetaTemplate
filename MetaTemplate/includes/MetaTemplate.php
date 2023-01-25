@@ -15,9 +15,6 @@ class MetaTemplate
 
     public const KEY_METATEMPLATE = '@metatemplate';
 
-    // Shared between CPT and #load, so needs a shared home in case one or the other is disabled.
-    public const KEY_PRELOADED = MetaTemplate::KEY_METATEMPLATE . '#preloaded';
-
     public const NA_CASE = 'metatemplate-case';
     public const NA_NESTLEVEL = 'metatemplate-nestlevel';
     public const NA_SHIFT = 'metatemplate-shift';
@@ -335,7 +332,7 @@ class MetaTemplate
         $anyCase = self::checkAnyCase($magicArgs);
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
-            $varValue = self::getVar($frame, $srcName, false);
+            $varValue = $frame->getArgument($srcName); // No need for getVar here.
             if ($varValue !== false) {
                 self::setVar($parent, $destName, $varValue, $anyCase);
             }
@@ -404,49 +401,77 @@ class MetaTemplate
      * @param bool $anyCase Whether the variable's name is case-sensitive or not.
      * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
      *
-     * @return mixed The variable value. If found, this will be the string or PPNode_Hash_Tree from the original
-     *               arguments; otherwise, it will be false.
+     * @return string|false The expanded variable value. If found, this will be the string from the original arguments; otherwise, it will be false.
      *
      */
-    public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll = false)
+    public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll = false, bool $expandResult = true)
     {
         // If varName is entirely numeric, case doesn't matter, so skip case checking.
         $anyCase &= !ctype_digit($varName);
-        $lcname = strtolower($varName);
         do {
-            // Try exact name first. Direct access to avoid cache, which is expanded when we don't want it to be.
-            $retval = $frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false;
-            if ($retval === false && $anyCase) {
+            // First, we try to handle the simplest/most common cases.
+            if ($expandResult) {
+                // Look for an exact match first.
+                $retval = $frame->getArgument($varName);
+                if ($retval !== false) {
+                    return $retval;
+                }
+            } elseif (!$anyCase) {
+                // Look for an exact match, but return unexpanded result if found.
+                $retval = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? false;
+                if ($retval !== false) {
+                    return $retval;
+                }
+            }
+
+            // If those fail, try looping.
+            if ($anyCase || !$expandResult) {
+                $lcname = $lcname ?? strtolower($varName);
                 foreach ($frame->namedArgs as $key => $value) {
                     if (strtolower($key) === $lcname) {
-                        $retval = $value;
+                        if ($expandResult) {
+                            if (isset($frame->namedExpansionCache[$key])) {
+                                return $frame->namedExpansionCache[$key];
+                            } else {
+                                $expandValue = $frame->expand($value, PPFrame::STRIP_COMMENTS);
+                                $frame->namedExpansionCache[$key] = $expandValue;
+                                return $expandValue;
+                            }
+                        } else {
+                            return $value;
+                        }
                     }
                 }
             }
 
             $frame = $checkAll ? $frame->parent : false;
-        } while ($retval === false && $frame);
+        } while ($frame);
 
-        return $retval;
+        return false;
     }
 
     /**
      * Splits a variable list of the form 'x->xPrime' to a proper associative array.
      *
-     * @param PPFrame $frame The frame in use.
+     * @param PPFrame $frame If the variable names may need to be expanded, this should be set to the active frame;
+     *                       otherwise it should be null.
      * @param array $variables The list of variables to work on.
      * @param ?int $trimLength The maximum number of characters allowed for variable names.
      *
      * @return array
      *
      */
-    public static function getVariableTranslations(PPFrame $frame, array $variables, ?int $trimLength = null): array
+    public static function getVariableTranslations(?PPFrame $frame, array $variables, ?int $trimLength = null): array
     {
         $retval = [];
         foreach ($variables as $srcName) {
-            $srcName = $frame->expand($srcName);
+            if ($frame) {
+                $srcName = $frame->expand($srcName);
+            }
+
             $varSplit = explode('->', $srcName, 2);
-            $srcName = trim($varSplit[0]); // In PHP 8, this can be reduced to just substr(trim...)).
+            $srcName = trim($varSplit[0]);
+            // In PHP 8, this can be reduced to just substr(trim...)).
             $srcName = $trimLength ? substr($srcName, 0, $trimLength) : $srcName;
             if (count($varSplit) === 2) {
                 $destName = trim($varSplit[1]);
@@ -495,13 +520,14 @@ class MetaTemplate
      *
      * @param PPTemplateFrame_Hash $frame The frame in use.
      * @param string $varName The variable name. This should be pre-trimmed, if necessary.
-     * @param mixed $value The variable value.
+     * @param MetaTemplateVar|PPNode|string $value The variable value.
      *
      * @return void
      *
      */
     public static function setVar(PPTemplateFrame_Hash $frame, string $varName, $value, $anyCase = false): void
     {
+        RHshow('Setvar: ', $varName, ' = ', is_object($value) ? ''  : '(' . gettype($value) . ')', $value);
         if (!strlen($varName)) {
             return;
         }
@@ -524,16 +550,16 @@ class MetaTemplate
             return;
         }
 
-        if ($value instanceof PPNode) {
-            // Value is a node, so leave node as it is and expand value for text.
-            $args[$varName] = $value;
-            $cache[$varName] = $frame->expand($value);
-        } elseif (is_string($value)) {
+        if (is_string($value)) {
             // Value is a string, so create node and leave text as is.
             $args[$varName] = new PPNode_Hash_Text([$value], 0);
             $cache[$varName] = $value;
+        } elseif ($value instanceof PPNode) {
+            // Value is a node, so leave node as it is and expand value for text.
+            $args[$varName] = $value;
+            $cache[$varName] = $frame->expand($value);
         } else {
-            $value = ParserHelper::error('metatemplate-setvar-notrecognized', $value, $varName);
+            $value = ParserHelper::error('metatemplate-setvar-notrecognized', is_object($value) ? get_class($value) : gettype($value), $varName);
         }
     }
 
@@ -574,7 +600,6 @@ class MetaTemplate
         if (count($values) < 2) {
             $existing = self::getVar($frame, $name, $anyCase);
             if ($existing !== false) {
-                // RHshow('Override case');
                 self::setVar($frame, $name, $existing, $anyCase);
             }
         } elseif ($overwrite || self::getVar($frame, $name, $anyCase) === false) {
@@ -646,7 +671,7 @@ class MetaTemplate
             if ($varName != $key) {
                 $newKey = ($key > $varName) ? $key - 1 : $key;
                 $newArgs[$newKey] = $value;
-                if (isset($frame->numberedCache[$key])) {
+                if (isset($frame->numberedExpansionCache[$key])) {
                     $newCache[$newKey] = $frame->numberedExpansionCache[$key];
                 }
             }
@@ -656,7 +681,7 @@ class MetaTemplate
             if ($varName != $key) {
                 $newKey = ctype_digit($key) && $key > $varName ? $key - 1 :  $key;
                 $newArgs[$newKey] = $value;
-                if (isset($frame->namedCache[$key])) {
+                if (isset($frame->namedExpansionCache[$key])) {
                     $newCache[$newKey] = $frame->namedExpansionCache[$key];
                 }
             }

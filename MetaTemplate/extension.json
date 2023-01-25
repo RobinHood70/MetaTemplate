@@ -32,6 +32,7 @@
 		"MetaTemplateData": "includes/MetaTemplateData.php",
 		"MetaTemplateFrameRoot": "includes/MetaTemplateFrameRoot.php",
 		"MetaTemplateHooks": "includes/MetaTemplateHooks.php",
+		"MetaTemplatePage": "includes/MetaTemplatePage.php",
 		"MetaTemplatePreprocessor": "includes/MetaTemplatePreprocessor.php",
 		"MetaTemplateSet": "includes/MetaTemplateSet.php",
 		"MetaTemplateSetCollection": "includes/MetaTemplateSetCollection.php",
@@ -71,5 +72,8 @@
 	"SpecialPages": {
 		"MetaVarsOnPage": "SpecialMetaVarsOnPage",
 		"PagesWithMetaVar": "SpecialPagesWithMetaVar"
-	}
+	},
+	"TrackingCategories": [
+		"metatemplate-tracking-extraparams"
+	]
 }

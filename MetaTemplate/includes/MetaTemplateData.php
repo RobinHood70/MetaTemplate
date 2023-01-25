@@ -142,9 +142,9 @@ class MetaTemplateData
 		$language = $parser->getConverterLanguage();
 		$namespace = $magicArgs[self::NA_NAMESPACE] ?? null;
 		$namespace = is_null($namespace) ? -1 : $language->getNsIndex($namespace);
-		// RHshow($namespace, "\n", $conditions, "\n", $sets);
+		#RHshow($namespace, "\n", $conditions, "\n", $sets);
 		$pages = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $conditions, $sets);
-		// RHshow('Pages: ', $pages);
+		#RHshow('Pages: ', $pages);
 
 		$orderNames = $magicArgs[self::NA_ORDER] ?? null;
 		$orderNames = $orderNames ? explode(',', $orderNames) : [];
@@ -215,7 +215,7 @@ class MetaTemplateData
 		unset($values[0]);
 		$page = WikiPage::factory($loadTitle);
 		$output = $parser->getOutput();
-		// RHshow($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
+		#RHshow($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
 		$output->addTemplate($loadTitle, $page->getId(), $page->getLatest());
 
@@ -224,7 +224,7 @@ class MetaTemplateData
 			? substr($magicArgs[self::NA_SET], 0, self::SAVE_SETNAME_WIDTH)
 			: null;
 		$set = new MetaTemplateSet($setName, [], $anyCase);
-		// RHshow('Set: ', $set);
+		#RHshow('Set: ', $set);
 
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $key => $value) {
@@ -238,7 +238,7 @@ class MetaTemplateData
 			return;
 		}
 
-		// RHshow('Set will be loaded.');
+		#RHshow('Set will be loaded.');
 		$pageId = $page->getId();
 
 		// Next, check preloaded variables
@@ -247,7 +247,7 @@ class MetaTemplateData
 		if ($preloadSet) {
 			/** @var MetaTemplatePage $bulkPage */
 			$bulkSet = $output->getExtensionData(self::KEY_BULK_LOAD)[$pageId]->sets[$setName] ?? null;
-			// RHshow('Preload \'', Title::newFromID($pageId)->getFullText(), '\' Set \'', $setName, "'\nWant set: ", $set, "\n\nGot set: ", $bulkSet);
+			#RHshow('Preload \'', Title::newFromID($pageId)->getFullText(), '\' Set \'', $setName, "'\nWant set: ", $set, "\n\nGot set: ", $bulkSet);
 			foreach ($preloadSet->variables as $key => $value) {
 				if (isset($bulkSet->variables[$key])) {
 					$varValue = $bulkSet->variables[$key];
@@ -413,12 +413,12 @@ class MetaTemplateData
 		// #listsaved. If that's the case, then we've hit an error condition, so we flip the flag value to true. This
 		// will only occur if all checks were passed and this is unambiguously active code. The check for false instead
 		// of is_null() makes sure we only set it to true if we haven't already done so.
-		// RHshow('#save: ', $varsToSave, "\n", $output->getExtensionData(self::KEY_SAVE_IGNORED) ?? 'null');
+		#RHshow('#save: ', $varsToSave, "\n", $output->getExtensionData(self::KEY_SAVE_IGNORED) ?? 'null');
 		if ($output->getExtensionData(self::KEY_SAVE_IGNORED) === false) {
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, true);
 		}
 
-		// RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
+		#RHshow('Vars to Save: ', $varsToSave, "\nSave All Markup: ", $saveMarkup ? 'Enabled' : 'Disabled');
 		$output->setExtensionData(self::KEY_PARSEONLOAD, false); // Probably not necessary, but just in case...
 		$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
 		self::addToSet($title, $output, $setName, $varsToSave);
@@ -477,7 +477,7 @@ class MetaTemplateData
 	 */
 	private static function addToSet(Title $title, ParserOutput $output, string $setName, array $variables): void
 	{
-		// RHshow('addVars: ', $variables);
+		#RHshow('addVars: ', $variables);
 		if (!count($variables)) {
 			return;
 		}
@@ -649,14 +649,14 @@ class MetaTemplateData
 		}
 
 		$setName = $set->setName;
-		// RHshow('Page Variables: ', $pageVars);
+		#RHshow('Page Variables: ', $pageVars);
 		$pageSet = $pageVars->sets[$set->setName];
 		if (!$pageSet) {
 			return false;
 		}
 
 		$retval = false;
-		// RHshow('Page Set: ', $pageSet);
+		#RHshow('Page Set: ', $pageSet);
 		if ($set->variables) {
 			foreach ($set->variables as $varName => &$var) {
 				if ($var === false) {

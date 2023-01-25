@@ -98,7 +98,7 @@ class MetaTemplateSql
             $conds[self::DATA_VAR_NAME] = $varNames;
         }
 
-        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+        #RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
         $rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
         for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
             $pageId = $row[self::FIELD_PAGE_ID];
@@ -114,7 +114,7 @@ class MetaTemplateSql
                 $page->sets[$setName] = $set;
             }
 
-            // RHshow('CatQuery Set: ', $set);
+            #RHshow('CatQuery Set: ', $set);
             $set->variables[$row[self::FIELD_VAR_NAME]] = new MetaTemplateVariable(
                 $row[self::FIELD_VAR_VALUE],
                 $row[self::FIELD_PARSE_ON_LOAD]
@@ -244,7 +244,7 @@ class MetaTemplateSql
             $conds[self::DATA_VAR_NAME] = array_keys($set->variables);
         }
 
-        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+        #RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
         return [
             $tables,
             $fields,
@@ -329,7 +329,7 @@ class MetaTemplateSql
             $varNames = array_keys($set->variables);
             $conds[self::SET_SET_NAME] = $set->setName;
             $joinConds = $baseJoinConds + [self::DATA_TABLE => ['LEFT JOIN', [self::SET_SET_ID . '=' . self::DATA_SET_ID, self::DATA_VAR_NAME => $varNames]]];
-            // RHshow('Tables: ', $tables, "\n\nFields: ", $fields, "\n\nConds: ", $conds, "\n\nOptions: ", $options, "\n\nJoin Conds: ", $joinConds);
+            #RHshow('Tables: ', $tables, "\n\nFields: ", $fields, "\n\nConds: ", $conds, "\n\nOptions: ", $options, "\n\nJoin Conds: ", $joinConds);
             $queries[] = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds);
         }
 
@@ -339,9 +339,9 @@ class MetaTemplateSql
 
         // unionQueries() only supports parenthesized unions, while this should use unparenthesized unions, so we do it manually.
         $union = implode(" UNION ", $queries);
-        // RHshow($union);
+        #RHshow($union);
         $rows = $this->dbRead->query($union);
-        // RHshow($union, "\n{$rows->numRows()} rows found.");
+        #RHshow($union, "\n{$rows->numRows()} rows found.");
 
         $retval = [];
         for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
@@ -358,7 +358,7 @@ class MetaTemplateSql
             }
         }
 
-        // RHshow('#listsaved Results: ', $retval);
+        #RHshow('#listsaved Results: ', $retval);
         return $retval;
     }
 
@@ -415,8 +415,8 @@ class MetaTemplateSql
         }
 
         [$tables, $fields, $conds, $options, $joinConds] = $this->loadQuery($pageId, $set);
-        // RHshow('Method: ', $method, "\nTables: ", $tables, "\nFields: ", $fields, "\nConditions: ", $conds, "\nOptions: ", $options, "\nJoin Conds: ", $joinConds);
-        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
+        #RHshow('Method: ', $method, "\nTables: ", $tables, "\nFields: ", $fields, "\nConditions: ", $conds, "\nOptions: ", $options, "\nJoin Conds: ", $joinConds);
+        #RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         if (!$result || !$result->numRows()) {
             return false;
@@ -450,7 +450,7 @@ class MetaTemplateSql
 
         $pseudoSet = new MetaTemplateSet(null, [MetaTemplateData::KEY_PRELOAD_DATA => false], false);
         [$tables, $fields, $conds, $options, $joinConds] = $this->loadQuery($pageId, $pseudoSet);
-        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
+        #RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
         $result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
         if (!$result || !$result->numRows()) {
             return;
@@ -571,7 +571,7 @@ class MetaTemplateSql
         // ensure that we start with the lowest first, so data is overridden by the most recent values once we get
         // there, but lower values will exist if the write is incomplete.
 
-        // RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds))
+        #RHshow($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds))
         return [
             'tables' => $tables,
             'fields' => $fields,
@@ -742,7 +742,7 @@ class MetaTemplateSql
             ['JOIN', [self::SET_SET_ID . '=' . self::DATA_SET_ID]]
         ];
 
-        // RHshow("Tables:\n", $tables, "\n\nFields:\n", $fields, "\n\nOptions:\n", $options, "\n\nJoinConds:\n", $joinConds);
+        #RHshow("Tables:\n", $tables, "\n\nFields:\n", $fields, "\n\nOptions:\n", $options, "\n\nJoinConds:\n", $joinConds);
         return [$tables, $fields, $options, $joinConds];
     }
 
@@ -817,7 +817,7 @@ class MetaTemplateSql
      */
     private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet): void
     {
-        // RHshow('Update Set Data');
+        #RHshow('Update Set Data');
         $oldVars = &$oldSet->variables;
         $newVars = $newSet->variables;
         $deletes = [];

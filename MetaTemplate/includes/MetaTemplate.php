@@ -603,7 +603,7 @@ class MetaTemplate
                 self::setVar($frame, $name, $existing, $anyCase);
             }
         } elseif ($overwrite || self::getVar($frame, $name, $anyCase) === false) {
-            // RHshow('Set');
+            #RHshow('Set');
             self::setVar($frame, $name, $values[1], $anyCase);
         } // else variable is already defined and should not be overridden.
     }

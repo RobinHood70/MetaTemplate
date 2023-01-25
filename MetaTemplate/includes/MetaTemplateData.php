@@ -98,9 +98,10 @@ class MetaTemplateData
 		}
 
 		unset($newValue);
-		$extraKeys = [];
-		foreach ($extras as $value) {
-			$extraKeys[$frame->expand($value)] = false;
+		$output = $parser->getOutput();
+		if (!empty($extras)) {
+			$parser->addTrackingCategory('metatemplate-tracking-listsaved-extraparams');
+			$output->addWarning(wfMessage('metatemplate-listsaved-warn-extraparams')->plain());
 		}
 
 		$templateTitle = Title::newFromText($template, NS_TEMPLATE);
@@ -115,7 +116,6 @@ class MetaTemplateData
 
 		// Track the page here rather than letting the output do it, since the template should be tracked even if it
 		// doesn't exist.
-		$output = $parser->getOutput();
 		$output->addTemplate($templateTitle, $page->getId(), $page->getLatest());
 		if (!$page->exists()) {
 			return [ParserHelper::error('metatemplate-listsaved-template-missing', $template)];
@@ -125,11 +125,6 @@ class MetaTemplateData
 		$size = $templateTitle->getLength();
 		if ($maxLen > 0 && $size > $maxLen) {
 			return [ParserHelper::error('metatemplate-listsaved-template-toolong', $template, $maxLen)];
-		}
-
-		if (count($extras)) {
-			$parser->addTrackingCategory('metatemplate-tracking-listsaved-extraparams');
-			$output->addWarning(wfMessage('metatemplate-listsaved-warn-extraparams')->plain());
 		}
 
 		$articleId = $templateTitle->getArticleID();
@@ -155,7 +150,7 @@ class MetaTemplateData
 
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
 		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
-		$retval = self::createTemplates($language, $templateName, $pages, ParserHelper::getSeparator($magicArgs), $extras);
+		$retval = self::createTemplates($language, $templateName, $pages, ParserHelper::getSeparator($magicArgs));
 		if (!$debug) {
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, false);
 			$dom = $parser->preprocessToDom($retval);
@@ -507,7 +502,7 @@ class MetaTemplateData
 	 * @return string The text of the template calls.
 	 *
 	 */
-	private static function createTemplates(Language $language, string $templateName, array $pages, string $separator, array $passthrough): string
+	private static function createTemplates(Language $language, string $templateName, array $pages, string $separator): string
 	{
 		$retval = '';
 		$open = '{{';
@@ -518,13 +513,8 @@ class MetaTemplateData
 
 			ksort($page->sets, SORT_NATURAL);
 			if (count($page->sets)) {
-				foreach ($page->sets as $setName => $set) {
-					$paramText = '';
-					foreach ($passthrough as $key => $value) {
-						$paramText .= "|$key=$value";
-					}
-
-					$retval .= "$separator$open$templateName$paramText|namespace=$namespaceName|pagename=$pageName|set=$setName$close";
+				foreach (array_keys($page->sets) as $setName) {
+					$retval .= "$separator$open$templateName|namespace=$namespaceName|pagename=$pageName|set=$setName$close";
 				}
 			} else {
 				$retval .= "$separator$open$templateName|namespace=$namespaceName|pagename=$pageName$close";

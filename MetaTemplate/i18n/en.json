@@ -7,6 +7,7 @@
 	"metatemplate-listsaved-template-missing": "#listsaved error: the provided template, $1, doesn't exist",
 	"metatemplate-listsaved-template-saveignored": "Warning: #save in template [[$1|{{PAGENAME:$1}}]] was called inside a #listsaved call and was ignored.\n\n",
 	"metatemplate-listsaved-template-toolong": "#listsaved error: the provided template, $1, is longer than $2 {{PLURAL:$2:bytes|byte}}",
+	"metatemplate-listsaved-warn-extraparams": "'''#listsaved call has extra parameters.''' This style is no longer supported—all data to be preloaded should be added to a <nowiki>{{#preload:}}</nowiki> call in the template itself.",
 	"metatemplate-metavarsonpage-legend": "List all MetaTemplate variables on a page",
 	"metatemplate-metavarsonpage-no-page": "The page name provided is invalid or does not exist.",
 	"metatemplate-metavarsonpage-no-results": "There are no variables saved on this page.",
@@ -30,8 +31,8 @@
 	"metatemplate-pageswithmetavar-varname": "Variable name",
 	"metatemplate-pageswithmetavar-varvalue": "Value",
 	"metatemplate-setvar-notrecognized": "Value \"$1\" for parameter \"$2\" in MetaTemplate::setVar is not a recognized type.",
-	"metatemplate-tracking-extraparams": "MetaTemplate-Listsaved has extra parameters",
-	"metatemplate-tracking-extraparams-desc": "The call to #listsaved contains extra parameters that are not part of the conditions. This format is no longer supported. Use #preload or #inherit within the template itself, depending on intent.",
+	"metatemplate-tracking-listsaved-extraparams": "MetaTemplate-Listsaved has extra parameters",
+	"metatemplate-tracking-listsaved-extraparams-desc": "The call to #listsaved contains extra parameters that are not part of the conditions. This format is no longer supported. Use #preload or #inherit within the template itself, depending on intent.",
 	"metavarsonpage": "MetaTemplate variables on a page",
 	"pageswithmetavar": "Pages with a MetaTemplate variable"
 }

@@ -128,8 +128,8 @@ class MetaTemplateData
 		}
 
 		if (count($extras)) {
-			$parser->addTrackingCategory('metatemplate-listsaved-extravars');
-			$output->addWarning('metatemplate-listsaved-warn-extravars');
+			$parser->addTrackingCategory('metatemplate-tracking-listsaved-extraparams');
+			$output->addWarning(wfMessage('metatemplate-listsaved-warn-extraparams')->plain());
 		}
 
 		$articleId = $templateTitle->getArticleID();

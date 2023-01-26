@@ -596,7 +596,7 @@ class MetaTemplateSql
         // server-intensive. (Is it, though? Test on large job on dev.) Instead, call the cache's enqueue jobs method
         // to put things on the queue or possibly just send this page to be purged with forcerecursivelinksupdate.
 
-        // RHwriteFile('Recursive Invalidate');
+        #RHwriteFile('Recursive Invalidate');
         $templateLinks = 'templatelinks';
         $linkIds = [];
         foreach ($title->getBacklinkCache()->getLinks($templateLinks) as $link) {
@@ -641,7 +641,7 @@ class MetaTemplateSql
             }
         }
 
-        // RHwriteFile('End Recursive Update');
+        #RHwriteFile('End Recursive Update');
     }
 
     /**
@@ -668,18 +668,18 @@ class MetaTemplateSql
             return;
         }
 
-        // RHwriteFile("Saving:\n", $vars);
+        #RHwriteFile("Saving:\n", $vars);
         // MetaTemplateData::setPageVariables($output, null);
         if (!$vars || empty($vars->sets)) {
-            // RHwriteFile('Empty Vars: ', $title->getFullText());
+            #RHwriteFile('Empty Vars: ', $title->getFullText());
             // If there are no variables on the page at all, check if there were to begin with. If so, delete them.
             if ($this->loadPageVariables($title->getArticleID())) {
-                // RHwriteFile('Delete Vars: ', $title->getFullText());
+                #RHwriteFile('Delete Vars: ', $title->getFullText());
                 $this->deleteVariables($title);
             }
         } else if ($vars->revId === -1) {
             // The above check will only be satisfied on Template-space pages that use #save.
-            // RHwriteFile('Save Template: ', $title->getFullText());
+            #RHwriteFile('Save Template: ', $title->getFullText());
             $this->recursiveInvalidateCache($title);
         } else {
             $pageId = $title->getArticleID();
@@ -689,7 +689,7 @@ class MetaTemplateSql
             $oldData = $this->loadPageVariables($title->getArticleID());
             $upserts = new MetaTemplateUpserts($oldData, $vars);
             if ($upserts->getTotal() > 0) {
-                // RHwriteFile('Normal Save: ', $title->getFullText());
+                #RHwriteFile('Normal Save: ', $title->getFullText());
                 $this->saveUpserts($upserts);
                 $this->recursiveInvalidateCache($title);
             }
@@ -824,9 +824,9 @@ class MetaTemplateSql
         foreach ($oldVars as $varName => $oldValue) {
             if (isset($newVars[$varName])) {
                 $newValue = $newVars[$varName];
-                // RHwriteFile($oldVars[$varName]);
+                #RHwriteFile($oldVars[$varName]);
                 if ($oldValue != $newValue) {
-                    // RHwriteFile("Updating $varName from {$oldValue->value} to {$newValue->value}");
+                    #RHwriteFile("Updating $varName from {$oldValue->value} to {$newValue->value}");
                     // Makes the assumption that most of the time, only a few columns are being updated, so does not
                     // attempt to batch the operation in any way.
                     $this->dbWrite->update(

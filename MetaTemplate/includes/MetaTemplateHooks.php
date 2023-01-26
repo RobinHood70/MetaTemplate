@@ -58,7 +58,7 @@ class MetaTemplateHooks
 	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount): void
 	{
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
-			// RHlogFunctionText('Deleted: ', $article->getTitle()->getFullText());
+			#RHlogFunctionText('Deleted: ', $article->getTitle()->getFullText());
 			MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 		}
 	}
@@ -184,7 +184,7 @@ class MetaTemplateHooks
 	): void {
 		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
 		// the same number and order of parameters, just with different object types.
-		// RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
+		#RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 			MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
 			$title = $new instanceof MediaWiki\Linker\LinkTarget
@@ -206,8 +206,8 @@ class MetaTemplateHooks
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
-			// RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
-			// RHwriteFile(substr($text, 0, 30) . "\n");
+			#RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
+			#RHwriteFile(substr($text, 0, 30) . "\n");
 			MetaTemplateSql::getInstance()->saveVariables($parser);
 		}
 	}

@@ -197,12 +197,15 @@ class MetaTemplateData
 			return;
 		}
 
+		if (count($values) < 2) {
+			return;
+		}
+
 		$loadTitle = Title::newFromText($frame->expand($values[0]));
 		if (
 			!$loadTitle ||
 			!$loadTitle->canExist() ||
-			$loadTitle->getFullText() === $parser->getTitle()->getFullText() ||
-			count($values) === 1
+			$loadTitle->getFullText() === $parser->getTitle()->getFullText()
 		) {
 			return;
 		}
@@ -219,14 +222,14 @@ class MetaTemplateData
 			? substr($magicArgs[self::NA_SET], 0, self::SAVE_SETNAME_WIDTH)
 			: null;
 		$set = new MetaTemplateSet($setName, [], $anyCase);
-		#RHshow('Set: ', $set);
-
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $key => $value) {
 			if (!MetaTemplate::getVar($frame, $value, $anyCase, false)) {
 				$set->variables[$key] = false;
 			}
 		}
+
+		#RHshow('Set: ', $set);
 
 		// If all are already loaded, there's nothing else to do.
 		if (!count($set->variables)) {
@@ -263,7 +266,7 @@ class MetaTemplateData
 			}
 		}
 
-		RHshow('Vars to Load from page [[', $page->getTitle()->getFullText(), ']]: ', $set);
+		#RHshow('Vars to Load from page [[', $page->getTitle()->getFullText(), ']]: ', $set);
 		$success = MetaTemplateSql::getInstance()->loadSetFromDb($pageId, $set);
 		if ($success) {
 			foreach ($set->variables as $varName => $var) {

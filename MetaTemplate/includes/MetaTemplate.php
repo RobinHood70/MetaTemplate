@@ -177,7 +177,8 @@ class MetaTemplate
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
             if (self::getVar($frame, $destName, $anyCase) === false && isset($frame->parent)) {
-                $varValue = self::getVar($frame->parent, $srcName, $anyCase, true);
+                // We force expansion here so variables don't get transferred across frame depths.
+                $varValue = self::getVar($frame->parent, $srcName, $anyCase, true, true);
                 if ($varValue !== false) {
                     self::setVar($frame, $destName, $varValue, $anyCase);
                 }
@@ -520,14 +521,14 @@ class MetaTemplate
      *
      * @param PPTemplateFrame_Hash $frame The frame in use.
      * @param string $varName The variable name. This should be pre-trimmed, if necessary.
-     * @param MetaTemplateVar|PPNode|string $value The variable value.
+     * @param MetaTemplateVar|PPNode|string $value The variable value. If this is a PPNode, it must already have had variables replaced to avoid recursive expansion.
      *
      * @return void
      *
      */
     public static function setVar(PPTemplateFrame_Hash $frame, string $varName, $value, $anyCase = false): void
     {
-        RHshow('Setvar: ', $varName, ' = ', is_object($value) ? ''  : '(' . gettype($value) . ')', $value);
+        #RHshow('Setvar: ', $varName, ' = ', is_object($value) ? ''  : '(' . gettype($value) . ')', $value);
         if (!strlen($varName)) {
             return;
         }
@@ -555,7 +556,7 @@ class MetaTemplate
             $args[$varName] = new PPNode_Hash_Text([$value], 0);
             $cache[$varName] = $value;
         } elseif ($value instanceof PPNode) {
-            // Value is a node, so leave node as it is and expand value for text.
+            // Value is a node, so leave as is and expand value for text.
             $args[$varName] = $value;
             $cache[$varName] = $frame->expand($value);
         } else {
@@ -595,16 +596,18 @@ class MetaTemplate
 
         $anyCase = self::checkAnyCase($magicArgs);
 
-        // Since assignments are typically numerous, try to take the most efficient route possible. Only non-optimal
-        // route is if a value exists with the same case, it will be unset/reset despite not needing it.
-        if (count($values) < 2) {
+        if (count($values) < 2 && $anyCase) {
+            // This occurs with constructs like: {{#local:MiXeD|case=any}}
             $existing = self::getVar($frame, $name, $anyCase);
             if ($existing !== false) {
+                // This retains the $anyCase so that all existing mixEd/MixeD/etc get changed to the current case.
                 self::setVar($frame, $name, $existing, $anyCase);
             }
-        } elseif ($overwrite || self::getVar($frame, $name, $anyCase) === false) {
-            #RHshow('Set');
-            self::setVar($frame, $name, $values[1], $anyCase);
+        } elseif ($overwrite || ($frame->namedArgs[$name] ?? $frame->numberedArgs[$name] ?? false) === false) {
+            // Only expand the value now that we know we're actually setting it.
+            $value = $frame->expand($values[1]);
+            #RHshow($Set $name = $value");
+            self::setVar($frame, $name, $value, $anyCase);
         } // else variable is already defined and should not be overridden.
     }
 

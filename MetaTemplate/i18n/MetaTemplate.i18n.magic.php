@@ -10,8 +10,6 @@ $magicWords['en'] = [
 
 if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 	$magicWords['en'] += [
-		MetaTemplate::NA_NESTLEVEL => [0, 'nestlevel'],
-
 		MetaTemplate::PF_FULLPAGENAMEx => [1, 'FULLPAGENAMEx'],
 		MetaTemplate::PF_NAMESPACEx => [1, 'NAMESPACEx'],
 		MetaTemplate::PF_PAGENAMEx => [1, 'PAGENAMEx'],
@@ -19,6 +17,7 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 		MetaTemplate::VR_FULLPAGENAME0 => [1, 'FULLPAGENAME0'],
 		MetaTemplate::VR_NAMESPACE0 => [1, 'NAMESPACE0'],
 		MetaTemplate::VR_NESTLEVEL => [1, 'NESTLEVEL'],
+		MetaTemplate::VR_NESTLEVEL_VAR => [1, 'nestlevel'],
 		MetaTemplate::VR_PAGENAME0 => [1, 'PAGENAME0']
 	];
 }

@@ -16,7 +16,6 @@ class MetaTemplate
     public const KEY_METATEMPLATE = '@metatemplate';
 
     public const NA_CASE = 'metatemplate-case';
-    public const NA_NESTLEVEL = 'metatemplate-nestlevel';
     public const NA_SHIFT = 'metatemplate-shift';
 
     public const PF_DEFINE = 'metatemplate-define';
@@ -37,6 +36,7 @@ class MetaTemplate
     public const VR_FULLPAGENAME0 = 'metatemplate-fullpagename0';
     public const VR_NAMESPACE0 = 'metatemplate-namespace0';
     public const VR_NESTLEVEL = 'metatemplate-nestlevel';
+    public const VR_NESTLEVEL_VAR = 'metatemplate-nestlevel-var';
     public const VR_PAGENAME0 = 'metatemplate-pagename0';
 
     private static $config;
@@ -241,18 +241,12 @@ class MetaTemplate
      */
     public static function doNestLevel(PPFrame $frame): int
     {
-        $arg = $frame->getArgument(1);
-        if (!is_null($arg)) {
-            return $arg;
-        }
-
-        $parent = $frame->parent ?? null;
-        if ($parent) {
-            foreach (MagicWord::get(MetaTemplateData::NA_SET)->getSynonyms() as $synonym) {
-                $override = $parent->getArgument($synonym);
-                if ($override !== false) {
-                    return $override;
-                }
+        $nestlevelVars = MagicWord::get(MetaTemplate::VR_NESTLEVEL_VAR);
+        foreach ($frame->getNamedArguments() as $arg => $value) {
+            // We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
+            // case someone overrides the declaration to be case-insensitive.
+            if ($nestlevelVars->matchStartToEnd($arg)) {
+                return $value;
             }
         }
 
@@ -516,7 +510,7 @@ class MetaTemplate
         }
 
         if (self::can(self::STTNG_ENABLEPAGENAMES)) {
-            ParserHelper::cacheMagicWords([self::NA_NESTLEVEL]);
+            ParserHelper::cacheMagicWords([self::VR_NESTLEVEL]);
         }
     }
 

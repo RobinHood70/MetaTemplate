@@ -242,15 +242,20 @@ class MetaTemplate
     public static function doNestLevel(PPFrame $frame): int
     {
         $nestlevelVars = MagicWord::get(MetaTemplate::VR_NESTLEVEL_VAR);
+        $lastVal = false;
         foreach ($frame->getNamedArguments() as $arg => $value) {
             // We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
-            // case someone overrides the declaration to be case-insensitive.
+            // case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
+            // regardless of case-sensitivity, so that the last one defined is always used in the event that there are
+            // multiple qualifying values defined.
             if ($nestlevelVars->matchStartToEnd($arg)) {
-                return $value;
+                $lastVal = $value;
             }
         }
 
-        return $frame->depth;
+        return $lastVal !== false
+            ? $lastVal
+            : $frame->depth;
     }
 
     /**

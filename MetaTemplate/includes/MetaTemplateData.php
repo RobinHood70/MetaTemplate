@@ -114,8 +114,8 @@ class MetaTemplateData
 			return [ParserHelper::error('metatemplate-listsaved-template-missing', $template)];
 		}
 
-		// Track the page here rather than letting the output do it, since the template should be tracked even if it
-		// doesn't exist.
+		// Track the page here rather than letting the output trigger it, since the template should be tracked even if
+		// it doesn't exist.
 		$output->addTemplate($templateTitle, $page->getId(), $page->getLatest());
 		if (!$page->exists()) {
 			return [ParserHelper::error('metatemplate-listsaved-template-missing', $template)];
@@ -510,13 +510,13 @@ class MetaTemplateData
 		$retval = '';
 		$open = '{{';
 		$close = '}}';
-		foreach ($pages as $page) {
-			$namespaceName = $language->getNsText($page->namespace);
-			$pageName = strtr($page->pagename, '_', ' ');
+		foreach ($pages as $mtPage) {
+			$namespaceName = $language->getNsText($mtPage->namespace);
+			$pageName = strtr($mtPage->pagename, '_', ' ');
 
-			ksort($page->sets, SORT_NATURAL);
-			if (count($page->sets)) {
-				foreach (array_keys($page->sets) as $setName) {
+			ksort($mtPage->sets, SORT_NATURAL);
+			if (count($mtPage->sets)) {
+				foreach (array_keys($mtPage->sets) as $setName) {
 					$retval .= "$separator$open$templateName|namespace=$namespaceName|pagename=$pageName|set=$setName$close";
 				}
 			} else {

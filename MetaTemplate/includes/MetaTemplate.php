@@ -239,18 +239,24 @@ class MetaTemplate
      * @return int The frame depth.
      *
      */
-    public static function doNestLevel(PPFrame $frame): string
+    public static function doNestLevel(PPFrame $frame): int
     {
-        $retval = $frame->depth;
-        $args = $frame->getNamedArguments();
-        if (!is_null($args)) {
-            $magicArgs = ParserHelper::getMagicArgs($frame, $args, self::NA_NESTLEVEL)[0];
-            if (isset($magicArgs[self::NA_NESTLEVEL])) {
-                $retval = $frame->expand($magicArgs[self::NA_NESTLEVEL]);
+        $arg = $frame->getArgument(1);
+        if (!is_null($arg)) {
+            return $arg;
+        }
+
+        $parent = $frame->parent ?? null;
+        if ($parent) {
+            foreach (MagicWord::get(MetaTemplateData::NA_SET)->getSynonyms() as $synonym) {
+                $override = $parent->getArgument($synonym);
+                if ($override !== false) {
+                    return $override;
+                }
             }
         }
 
-        return $retval;
+        return $frame->depth;
     }
 
     /**

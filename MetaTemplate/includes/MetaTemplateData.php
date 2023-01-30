@@ -270,11 +270,10 @@ class MetaTemplateData
 		$success = MetaTemplateSql::getInstance()->loadSetFromDb($pageId, $set);
 		if ($success) {
 			foreach ($set->variables as $varName => $var) {
-				$varValue = $var->parseOnLoad
-					? $parser->preprocessToDom($var->value)
-					: $var->value;
-
-				if ($varValue !== false) {
+				if ($var !== false) {
+					$varValue = $var->parseOnLoad
+						? $parser->preprocessToDom($var->value)
+						: $var->value;
 					MetaTemplate::setVar($frame, $varName, $varValue, $set->anyCase);
 				}
 			}
@@ -376,6 +375,7 @@ class MetaTemplateData
 		$output = $parser->getOutput();
 		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
+		/** @var MetaTemplateVariable[] $varsToSave */
 		$varsToSave = [];
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $srcName => $destName) {

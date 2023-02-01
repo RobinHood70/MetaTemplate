@@ -565,7 +565,14 @@ class MetaTemplate
             $args[$varName] = $value;
             $cache[$varName] = $frame->expand($value);
         } else {
-            $value = ParserHelper::error('metatemplate-setvar-notrecognized', is_object($value) ? get_class($value) : gettype($value), $varName);
+            $errorArgs = [
+                is_object($value)
+                    ? get_class($value)
+                    : gettype($value),
+                $varName
+            ];
+            $error = wfMessage('metatemplate-setvar-notrecognized')->params($errorArgs)->inContentLanguage()->text();
+            throw new Exception($error);
         }
     }
 

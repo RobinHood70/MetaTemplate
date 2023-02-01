@@ -30,7 +30,7 @@
 	"metatemplate-pageswithmetavar-text": "This page lists pages that use a particular MetaTemplate set or variable.",
 	"metatemplate-pageswithmetavar-varname": "Variable name",
 	"metatemplate-pageswithmetavar-varvalue": "Value",
-	"metatemplate-setvar-notrecognized": "Value \"$1\" for parameter \"$2\" in MetaTemplate::setVar is not a recognized type.",
+	"metatemplate-setvar-notrecognized": "Value for parameter \"$2\" in MetaTemplate::setVar is not a recognized type ($1 must be string or PPNode).",
 	"metatemplate-tracking-listsaved-extraparams": "MetaTemplate-Listsaved has extra parameters",
 	"metatemplate-tracking-listsaved-extraparams-desc": "The call to #listsaved contains extra parameters that are not part of the conditions. This format is no longer supported. Use #preload or #inherit within the template itself, depending on intent.",
 	"metavarsonpage": "MetaTemplate variables on a page",

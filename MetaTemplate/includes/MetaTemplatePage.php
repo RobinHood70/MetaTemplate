@@ -42,9 +42,19 @@ class MetaTemplatePage
     {
         if (isset($this->sets[$setName])) {
             $set = $this->sets[$setName];
-            $set->variables = array_merge($set->variables, $variables);
         } else {
-            $this->sets[$setName] = new MetaTemplateSet($setName, $variables, $anyCase);
+            $set = new MetaTemplateSet($setName, [], $anyCase);
+            $this->sets[$setName] = $set;
+        }
+
+        foreach ($variables as $key => $value) {
+            if ($value !== false) {
+                if (!($value instanceof MetaTemplateVariable)) {
+                    $value = new MetaTemplateVariable($value, false);
+                }
+
+                $set->variables[$key] = $value;
+            }
         }
     }
 }

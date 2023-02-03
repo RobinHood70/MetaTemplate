@@ -159,7 +159,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
         $result->rewind();
 
-
         MetaTemplateSql::getInstance()->catQuery($pageIds, $varNames ?? []);
         self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, $pageIds);
     }

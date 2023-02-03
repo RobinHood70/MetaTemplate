@@ -177,7 +177,7 @@ class MetaTemplate
         $translations = self::getVariableTranslations($frame, $values);
         foreach ($translations as $srcName => $destName) {
             if (self::getVar($frame, $destName, $anyCase) === false && isset($frame->parent)) {
-                // We force expansion here so variables don't get transferred across frame depths.
+                // We force expansion here so variables used in the values don't get transferred across frame depths.
                 $varValue = self::getVar($frame->parent, $srcName, $anyCase, true, true);
                 if ($varValue !== false) {
                     self::setVar($frame, $destName, $varValue, $anyCase);

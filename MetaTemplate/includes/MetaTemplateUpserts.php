@@ -45,7 +45,7 @@ class MetaTemplateUpserts
 
             /*
             if (count($this->deletes)) {
-                RHshow("Upsert Deletes\n", $this->deletes);
+                RHshow('Upsert Deletes', $this->deletes);
             }
             */
         }
@@ -70,11 +70,11 @@ class MetaTemplateUpserts
 
             /*
             if (count($this->inserts)) {
-                RHshow("Upsert Inserts\n", $this->inserts);
+                #RHshow('Upsert Inserts', $this->inserts);
             }
 
             if (count($this->updates)) {
-                RHshow("Upsert Updates\n", $this->updates);
+                #RHshow('Upsert Updates', $this->updates);
             } */
         }
     }

@@ -533,7 +533,7 @@ class MetaTemplate
      */
     public static function setVar(PPTemplateFrame_Hash $frame, string $varName, $value, $anyCase = false): void
     {
-        #RHshow('Setvar: ', $varName, ' = ', is_object($value) ? ''  : '(' . gettype($value) . ')', $value);
+        #RHshow('Setvar', $varName, ' = ', is_object($value) ? ''  : '(' . gettype($value) . ')', $value);
         if (!strlen($varName)) {
             return;
         }
@@ -618,7 +618,7 @@ class MetaTemplate
         } elseif ($overwrite || ($frame->namedArgs[$name] ?? $frame->numberedArgs[$name] ?? false) === false) {
             // Only expand the value now that we know we're actually setting it.
             $value = $frame->expand($values[1]);
-            #RHshow($Set $name = $value");
+            #RHecho("Set $name = $value");
             self::setVar($frame, $name, $value, $anyCase);
         } // else variable is already defined and should not be overridden.
     }

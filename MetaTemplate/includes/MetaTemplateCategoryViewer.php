@@ -151,7 +151,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         }
 
         $varNames = array_keys($varNames['']->variables ?? []);
-        #RHshow('Has varnames: ', $varNames);
+        #RHshow('Has varnames', $varNames);
         self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
         for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
             $pageIds[$row['page_id']] = new MetaTemplatePage($row['page_namespace'], $row['page_title']);
@@ -182,7 +182,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     public function addPage($title, $sortkey, $pageLength, $isRedirect = false)
     {
-        #RHshow('Add page: ', $title->getFullText());
+        #RHshow('Add page', $title->getFullText());
         $type = self::CV_PAGE;
         $template = self::$templates[$type] ?? null;
         if (!is_null($template)) {
@@ -234,7 +234,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
         /** @var ?MetaTemplatePage $mtPage */
         $setsFound = $allPages[$title->getArticleID()]->sets ?? [];
-        #RHshow('Sets found: ', count($setsFound), "\n", $setsFound);
+        #RHshow('Sets found', count($setsFound), "\n", $setsFound);
 
         $defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
         unset($setsFound['']);
@@ -252,7 +252,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $texts = [];
         if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
             foreach (array_values($setsFound) as $setkey => $setValues) {
-                #RHshow('Set: ', $setValues->setName, ' => ', $setValues);
+                #RHshow('Set', $setValues->setName, ' => ', $setValues);
                 $setVars = $this->parseCatPageTemplate($template, $title, $setValues, null, -1);
                 if ($setVars) {
                     $texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)

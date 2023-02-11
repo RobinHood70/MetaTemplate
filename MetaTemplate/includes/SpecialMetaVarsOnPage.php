@@ -89,7 +89,7 @@ class SpecialMetaVarsOnPage extends IncludableSpecialPage
 
     public function showList(): void
     {
-        #RHshow('ParserOutput: ', $wgParser->mOutput);
+        #RHshow('ParserOutput', $wgParser->mOutput);
         // $wgParser->preprocessToDom('Hello');
         if (is_null($this->pageName)) {
             if ($this->mIncluding) {
@@ -110,7 +110,7 @@ class SpecialMetaVarsOnPage extends IncludableSpecialPage
             return;
         }
 
-        #RHshow($title->getFullText(), ' (', $title->getArticleID(), ')');
+        #RHecho("{$title->getFullText()} ({$title->getArticleID()})");
         $pager = new MetaVarsPager($this->getContext(), $title->getArticleId(), $this->limit);
         if (!$pager->getNumRows()) {
             $out->addWikiMsg('metatemplate-metavarsonpage-no-results');

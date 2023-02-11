@@ -83,7 +83,7 @@ class SpecialPagesWithMetaVar extends QueryPage
 			}
 		}
 
-		#RHshow($varName, "->\n", $varNames);
+		#RHshow($varName, $varNames);
 
 		$descriptor = [
 			'setname' => [

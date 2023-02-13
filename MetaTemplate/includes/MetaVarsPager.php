@@ -10,6 +10,13 @@
  */
 class MetaVarsPager extends TablePager
 {
+    private static $fieldNames = [
+        MetaTemplateSql::FIELD_SET_NAME => $this->msg('metatemplate-pageswithmetavar-set')->text(),
+        MetaTemplateSql::FIELD_VAR_NAME => $this->msg('metatemplate-pageswithmetavar-varname')->text(),
+        MetaTemplateSql::FIELD_VAR_VALUE => $this->msg('metatemplate-pageswithmetavar-varvalue')->text(),
+        MetaTemplateSql::FIELD_PARSE_ON_LOAD => $this->msg('metatemplate-pageswithmetavar-parseonload')->text(),
+    ];
+
     private $pageId;
 
     /**
@@ -35,17 +42,7 @@ class MetaVarsPager extends TablePager
 
     public function getFieldNames(): array
     {
-        static $headers = null;
-        if (!isset($headers)) {
-            $headers = [
-                MetaTemplateSql::FIELD_SET_NAME => $this->msg('metatemplate-pageswithmetavar-set')->text(),
-                MetaTemplateSql::FIELD_VAR_NAME => $this->msg('metatemplate-pageswithmetavar-varname')->text(),
-                MetaTemplateSql::FIELD_VAR_VALUE => $this->msg('metatemplate-pageswithmetavar-varvalue')->text(),
-                MetaTemplateSql::FIELD_PARSE_ON_LOAD => $this->msg('metatemplate-pageswithmetavar-parseonload')->text(),
-            ];
-        }
-
-        return $headers;
+        return self::$fieldNames;
     }
 
     function formatValue($name, $value): string

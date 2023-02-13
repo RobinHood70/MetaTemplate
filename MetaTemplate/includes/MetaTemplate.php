@@ -178,7 +178,7 @@ class MetaTemplate
         foreach ($translations as $srcName => $destName) {
             if (self::getVar($frame, $destName, $anyCase) === false && isset($frame->parent)) {
                 // We force expansion here so variables used in the values don't get transferred across frame depths.
-                $varValue = self::getVar($frame->parent, $srcName, $anyCase, true, true);
+                $varValue = self::getVar($frame->parent, $srcName, $anyCase, true);
                 if ($varValue !== false) {
                     self::setVar($frame, $destName, $varValue, $anyCase);
                 }
@@ -406,54 +406,26 @@ class MetaTemplate
      * @param string $varName The variable name.
      * @param bool $anyCase Whether the variable's name is case-sensitive or not.
      * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
+     * @param bool $expandResult Whether to expand the result and store it in the expansion cache.
      *
      * @return string|false The expanded variable value. If found, this will be the string from the original arguments; otherwise, it will be false.
      *
      */
-    public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll = false, bool $expandResult = true)
+    public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll = false)
     {
-        // If varName is entirely numeric, case doesn't matter, so skip case checking.
-        $anyCase &= !ctype_digit($varName);
-        do {
-            // First, we try to handle the simplest/most common cases.
-            if ($expandResult) {
-                // Look for an exact match first.
-                $retval = $frame->getArgument($varName);
-                if ($retval !== false) {
-                    return $retval;
-                }
-            } elseif (!$anyCase) {
-                // Look for an exact match, but return unexpanded result if found.
-                $retval = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? false;
-                if ($retval !== false) {
-                    return $retval;
-                }
-            }
+        $rawVar = self::getVarRaw($frame, $varName, $anyCase, $checkAll);
+        if (empty($rawVar)) {
+            return false;
+        }
 
-            // If those fail, try looping.
-            if ($anyCase || !$expandResult) {
-                $lcname = $lcname ?? strtolower($varName);
-                foreach ($frame->namedArgs as $key => $value) {
-                    if (strtolower($key) === $lcname) {
-                        if ($expandResult) {
-                            if (isset($frame->namedExpansionCache[$key])) {
-                                return $frame->namedExpansionCache[$key];
-                            } else {
-                                $expandValue = $frame->expand($value, PPFrame::STRIP_COMMENTS);
-                                $frame->namedExpansionCache[$key] = $expandValue;
-                                return $expandValue;
-                            }
-                        } else {
-                            return $value;
-                        }
-                    }
-                }
-            }
+        $varValue = $frame->expand($rawVar[2], PPFrame::STRIP_COMMENTS);
+        if ($rawVar[0]) {
+            $frame->namedExpansionCache[$rawVar[1]] = trim($varValue);
+        } else {
+            $frame->numberedExpansionCache[$rawVar[1]] = $varValue;
+        }
 
-            $frame = $checkAll ? $frame->parent : false;
-        } while ($frame);
-
-        return false;
+        return $varValue;
     }
 
     /**
@@ -491,7 +463,47 @@ class MetaTemplate
             }
         }
 
+        #RHshow('Translations', $retval);
         return $retval;
+    }
+
+    /**
+     * Gets a variable from the frame or, optionally, the entire template stack.
+     *
+     * @param PPTemplateFrame_Hash $frame The frame in use.
+     * @param string $varName The variable name.
+     * @param bool $anyCase Whether the variable's name is case-sensitive or not.
+     * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
+     * @param bool $expandResult Whether to expand the result and store it in the expansion cache.
+     *
+     * @return array|false The expanded variable value. If found, this will be the string from the original arguments; otherwise, it will be false.
+     *
+     */
+    public static function getVarRaw(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase, bool $checkAll = false)
+    {
+        // If varName is entirely numeric, case doesn't matter, so skip case checking.
+        $anyCase &= !ctype_digit($varName);
+        do {
+            // Try for an exact match.
+            if (isset($frame->numberedArgs[$varName])) {
+                return [false, $varName, $frame->numberedArgs[$varName]];
+            } elseif (isset($frame->namedArgs[$varName])) {
+                return [true, $varName, $frame->namedArgs[$varName]];
+            } elseif ($anyCase) {
+                // Check case-insensitive variables if requested.
+                $lcname = $lcname ?? strtolower($varName);
+                foreach ($frame->namedArgs as $key => $value) {
+                    if (strtolower($key) === $lcname) {
+                        return [true, $key, $value];
+                    }
+                }
+            }
+
+            // If not found, loop through parents if requested.
+            $frame = $checkAll ? $frame->parent : null;
+        } while ($frame);
+
+        return false;
     }
 
     /**
@@ -552,28 +564,15 @@ class MetaTemplate
         }
 
         self::unsetVar($frame, $varName, $anyCase, false);
-        if (is_null($value)) {
-            return;
-        }
-
-        if (is_string($value)) {
-            // Value is a string, so create node and leave text as is.
+        if ($value instanceof PPNode) {
+            $args[$varName] = $value;
+            $cache[$varName] = $frame->expand($value, PPFrame::STRIP_COMMENTS);
+        } else {
             $args[$varName] = new PPNode_Hash_Text([$value], 0);
             $cache[$varName] = $value;
-        } elseif ($value instanceof PPNode) {
-            // Value is a node, so leave as is and expand value for text.
-            $args[$varName] = $value;
-            $cache[$varName] = $frame->expand($value);
-        } else {
-            $errorArgs = [
-                is_object($value)
-                    ? get_class($value)
-                    : gettype($value),
-                $varName
-            ];
-            $error = wfMessage('metatemplate-setvar-notrecognized')->params($errorArgs)->inContentLanguage()->text();
-            throw new Exception($error);
         }
+
+        #RHshow('Numbered Args', $frame->numberedArgs, 'Numbered Cache: ', $frame->numberedExpansionCache, 'Named Args: ', $frame->namedArgs, 'Named Cache: ', $frame->namedExpansionCache);
     }
 
     /**
@@ -597,6 +596,7 @@ class MetaTemplate
             ParserHelper::NA_IFNOT
         );
 
+        #RHshow('Values', $values);
         if (!ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
@@ -607,7 +607,6 @@ class MetaTemplate
         }
 
         $anyCase = self::checkAnyCase($magicArgs);
-
         if (count($values) < 2 && $anyCase) {
             // This occurs with constructs like: {{#local:MiXeD|case=any}}
             $existing = self::getVar($frame, $name, $anyCase);
@@ -616,11 +615,11 @@ class MetaTemplate
                 self::setVar($frame, $name, $existing, $anyCase);
             }
         } elseif ($overwrite || ($frame->namedArgs[$name] ?? $frame->numberedArgs[$name] ?? false) === false) {
-            // Only expand the value now that we know we're actually setting it.
-            $value = $frame->expand($values[1]);
-            #RHecho("Set $name = $value");
-            self::setVar($frame, $name, $value, $anyCase);
-        } // else variable is already defined and should not be overridden.
+            // $values[1] = Raw value as passed to function. This will always effectively be 1=1
+            // $value = $rawValue[1];
+            #RHshow('CheckSet', $values[1]);
+            self::setVar($frame, $name, $values[1], $anyCase);
+        } // else variable is already defined and should not be overritten.
     }
 
     private static function getBypassVariables()

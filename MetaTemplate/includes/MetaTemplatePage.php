@@ -2,7 +2,7 @@
 
 class MetaTemplatePage
 {
-    /** @var int $namespace */
+    /** @var string $namespace */
     public $namespace;
 
     /** @var string $pagename */
@@ -22,10 +22,10 @@ class MetaTemplatePage
      * @param mixed $pagename The page name.
      *
      */
-    public function __construct($namespace, $pagename)
+    public function __construct(string $namespace, string $pagename)
     {
-        $this->namespace = (int)$namespace;
-        $this->pagename = (string)$pagename;
+        $this->namespace = $namespace;
+        $this->pagename = $pagename;
     }
 
     /**

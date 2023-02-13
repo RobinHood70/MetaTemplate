@@ -208,7 +208,39 @@ class MetaTemplateHooks
 		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 			#RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
 			#RHwriteFile(substr($text, 0, 30) . "\n");
-			MetaTemplateSql::getInstance()->saveVariables($parser);
+			// This algorithm is based on the assumption that data is rarely changed, therefore:
+			// * It's best to read the existing DB data before making any DB updates/inserts.
+			// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
+			//   once instead of individually or by set.
+			// * It's best to use the read-only DB until we know we need to write.
+
+			$title = $parser->getTitle();
+			$output = $parser->getOutput();
+			/** @var MetaTemplateSetCollection $vars */
+			$vars = $output->getExtensionData(MetaTemplateData::KEY_SAVE);
+			if (!$parser->getRevisionId()) {
+				return;
+			}
+
+			#RHwriteFile("Saving:\n", $vars);
+			// MetaTemplateData::setPageVariables($output, null);
+			$sql = MetaTemplateSql::getInstance();
+			if (!$vars || empty($vars->sets)) {
+				#RHwriteFile('Empty Vars: ', $title->getFullText());
+				// If there are no variables on the page at all, check if there were to begin with. If so, delete them.
+				if ($sql->loadPageVariables($title)) {
+					#RHwriteFile('Delete Vars: ', $title->getFullText());
+					$sql->deleteVariables($title);
+				}
+			} else if ($vars->revId === -1) {
+				// The above check will only be satisfied on Template-space pages that use #save.
+				#RHwriteFile('Save Template: ', $title->getFullText());
+				$sql->recursiveInvalidateCache($title);
+			} else {
+				$sql->saveAndInvalidate($vars);
+			}
+
+			$output->setExtensionData(MetaTemplateData::KEY_SAVE, null);
 		}
 	}
 

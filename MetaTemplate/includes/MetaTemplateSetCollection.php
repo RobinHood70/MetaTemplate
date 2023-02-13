@@ -2,7 +2,10 @@
 
 class MetaTemplateSetCollection
 {
-    public $pageId;
+    /** @var Title */
+    public $title;
+
+    /** @var int $revId */
     public $revId;
 
     /**
@@ -22,18 +25,21 @@ class MetaTemplateSetCollection
     /**
      * Creates a set collection.
      *
-     * @param mixed $pageId The page the set belongs to.
-     * @param mixed $revId The revision ID of the set.
+     * @param Title $title The title the set belongs to.
+     * @param int $revId The revision ID of the set.
+
+     * @internal These parameters are strictly here so that they travel with the set data; they're not used internally.
      *
      */
-    public function __construct($pageId, $revId)
+    public function __construct(Title $title, int $revId)
     {
-        $this->pageId = $pageId;
+        $this->title = $title;
         $this->revId = $revId;
     }
 
     /**
-     * Gets a set by name if it exists or creates one if it doesn't.
+     * Adds variables to a set, creating a new one if needed. Values will not be updated if they already existed in the
+     * base set.
      *
      * @param int $setId The set ID. If set to zero, the set will be ignored for deletes and updates, though it will be
      *                   added, if appropriate.
@@ -42,7 +48,7 @@ class MetaTemplateSetCollection
      * @return MetaTemplateSet
      *
      */
-    public function addToSet(int $setId, string $setName, ?array $variables = null, bool $anyCase = false): MetaTemplateSet
+    public function addToSet(int $setId, string $setName, ?array $variables = null): MetaTemplateSet
     {
         if ($setId) {
             $this->setIds[$setName] = $setId;
@@ -51,10 +57,16 @@ class MetaTemplateSetCollection
         if (isset($this->sets[$setName])) {
             $retval = $this->sets[$setName];
             if ($variables !== null) {
-                $retval->variables = array_merge($retval->variables, $variables);
+                #RHshow('To Merge', $variables, "\nBefore: ", $retval->variables);
+                foreach ($variables as $newKey => $newValue) {
+                    if (!isset($retval->variables[$newKey])) {
+                        $retval->variables[$newKey] = $newValue;
+                    }
+                }
+                #RHshow('After', $retval->variables);
             }
         } else {
-            $retval = new MetaTemplateSet($setName, $variables, $anyCase);
+            $retval = new MetaTemplateSet($setName, $variables);
             $this->sets[$setName] = $retval;
         }
 

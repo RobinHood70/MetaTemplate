@@ -32,7 +32,7 @@ class MetaTemplateUpserts
         }
 
         if ($oldData) {
-            $this->pageId = $oldData->pageId;
+            $this->pageId = $oldData->title->getArticleID();
             $this->oldRevId = $oldData->revId;
             foreach ($oldSets as $setName => $oldSet) {
                 if (!isset($newSets[$setName])) {
@@ -51,7 +51,7 @@ class MetaTemplateUpserts
         }
 
         if ($newData) {
-            $this->pageId = $newData->pageId; // Possibly redundant, but if both collections are present, both page IDs will be the same.
+            $this->pageId = $newData->title->getArticleID(); // Possibly redundant, but if both collections are present, both page IDs will be the same.
             $this->newRevId = $newData->revId;
             if ($newSets) {
                 foreach ($newSets as $setName => $newSet) {

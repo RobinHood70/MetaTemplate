@@ -66,7 +66,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     private static $parserOutput = null;
 
     /** @var ?string[] */
-    private  static $templates = [];
+    private  static $templates = null; // Must be null for proper init on refresh
 
     public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
     {
@@ -103,7 +103,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         $output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, true);
         $parser->recursiveTagParse($content); // We don't care about the results, just that any #preload gets parsed.
         $output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, null);
-        $output->setExtensionData(self::KEY_CPTDATA, [$parser, $frame, self::$templates]);
+        $output->setExtensionData(self::KEY_CPTDATA, [$frame, self::$templates]);
         return '';
     }
 
@@ -121,9 +121,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
             self::$parserOutput = $parserOutput;
             $cptData = $parserOutput->getExtensionData(self::KEY_CPTDATA);
             if ($cptData) {
-                self::$parser = self::$parser ?? $cptData[0];
-                self::$frame = self::$frame ?? $cptData[1];
-                self::$templates = self::$templates ?? $cptData[2];
+                self::$frame = self::$frame ?? $cptData[0];
+                self::$parser = self::$frame->parser; // If this fails, we can also pull from $wgParser (et al?)
+                self::$templates = self::$templates ?? $cptData[1];
             }
         }
 

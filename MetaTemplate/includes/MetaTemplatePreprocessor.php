@@ -5,14 +5,14 @@
  */
 class MetaTemplatePreprocessor extends Preprocessor_Hash
 {
-    /**
-     * Creates a template-like frame as the root frame.
-     *
-     * @return MetaTemplateFrameRoot
-     *
-     */
-    function newFrame(): MetaTemplateFrameRoot
-    {
-        return new MetaTemplateFrameRoot($this);
-    }
+	/**
+	 * Creates a template-like frame as the root frame.
+	 *
+	 * @return MetaTemplateFrameRoot
+	 *
+	 */
+	function newFrame(): MetaTemplateFrameRoot
+	{
+		return new MetaTemplateFrameRoot($this);
+	}
 }

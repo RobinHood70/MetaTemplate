@@ -28,100 +28,100 @@
  */
 class SpecialMetaVarsOnPage extends IncludableSpecialPage
 {
-    private const METAVARS_ID = 'MetaVarsOnPage';
+	private const METAVARS_ID = 'MetaVarsOnPage';
 
-    private $limit;
-    private $pageName;
+	private $limit;
+	private $pageName;
 
-    function __construct()
-    {
-        parent::__construct(self::METAVARS_ID);
-    }
+	function __construct()
+	{
+		parent::__construct(self::METAVARS_ID);
+	}
 
-    public function execute($subPage): void
-    {
-        $this->setHeaders();
-        $this->outputHeader();
-        $out = $this->getOutput();
-        $out->addModuleStyles('mediawiki.special');
-        $request = $this->getRequest();
-        $this->pageName = $request->getVal('page', $subPage);
-        $this->limit = (int)$request->getVal('limit', 50);
+	public function execute($subPage): void
+	{
+		$this->setHeaders();
+		$this->outputHeader();
+		$out = $this->getOutput();
+		$out->addModuleStyles('mediawiki.special');
+		$request = $this->getRequest();
+		$this->pageName = $request->getVal('page', $subPage);
+		$this->limit = (int)$request->getVal('limit', 50);
 
-        if ($this->including()) {
-            $this->showList();
-            return;
-        }
+		if ($this->including()) {
+			$this->showList();
+			return;
+		}
 
-        $lang = $this->getLanguage();
-        $descriptor = [
-            'Page' => [
-                'type' => 'text',
-                'name' => 'page',
-                'label-message' => 'metatemplate-metavarsonpage-pagecolon',
-                'default' => $this->pageName,
-            ],
-            'Limit' => [
-                'type' => 'select',
-                'name' => 'limit',
-                'label-message' => 'table_pager_limit_label',
-                'options' => [
-                    $lang->formatNum(20) => 20,
-                    $lang->formatNum(50) => 50,
-                    $lang->formatNum(100) => 100,
-                    $lang->formatNum(250) => 250,
-                    $lang->formatNum(500) => 500,
-                ],
-                'default' => 50,
-            ],
-        ];
+		$lang = $this->getLanguage();
+		$descriptor = [
+			'Page' => [
+				'type' => 'text',
+				'name' => 'page',
+				'label-message' => 'metatemplate-metavarsonpage-pagecolon',
+				'default' => $this->pageName,
+			],
+			'Limit' => [
+				'type' => 'select',
+				'name' => 'limit',
+				'label-message' => 'table_pager_limit_label',
+				'options' => [
+					$lang->formatNum(20) => 20,
+					$lang->formatNum(50) => 50,
+					$lang->formatNum(100) => 100,
+					$lang->formatNum(250) => 250,
+					$lang->formatNum(500) => 500,
+				],
+				'default' => 50,
+			],
+		];
 
-        HTMLForm::factory('ooui', $descriptor, $this->getContext())
-            ->setMethod('get')
-            ->setFormIdentifier(self::METAVARS_ID)
-            ->setWrapperLegendMsg('metatemplate-metavarsonpage-legend')
-            ->setSubmitTextMsg('metatemplate-metavarsonpage-submit')
-            ->prepareForm()
-            ->displayForm(false);
+		HTMLForm::factory('ooui', $descriptor, $this->getContext())
+			->setMethod('get')
+			->setFormIdentifier(self::METAVARS_ID)
+			->setWrapperLegendMsg('metatemplate-metavarsonpage-legend')
+			->setSubmitTextMsg('metatemplate-metavarsonpage-submit')
+			->prepareForm()
+			->displayForm(false);
 
-        $this->showList();
-    }
+		$this->showList();
+	}
 
-    public function showList(): void
-    {
-        #RHshow('ParserOutput', $wgParser->mOutput);
-        // $wgParser->preprocessToDom('Hello');
-        if (is_null($this->pageName)) {
-            if ($this->mIncluding) {
-                /** @var Title $wgTitle */
-                global $wgParser;
-                $title = $wgParser->getTitle();
-            } else {
-                return;
-            }
-        } else {
-            $title = Title::newFromText($this->pageName);
-        }
+	public function showList(): void
+	{
+		#RHshow('ParserOutput', $wgParser->mOutput);
+		// $wgParser->preprocessToDom('Hello');
+		if (is_null($this->pageName)) {
+			if ($this->mIncluding) {
+				/** @var Title $wgTitle */
+				global $wgParser;
+				$title = $wgParser->getTitle();
+			} else {
+				return;
+			}
+		} else {
+			$title = Title::newFromText($this->pageName);
+		}
 
-        $out = $this->getOutput();
+		$out = $this->getOutput();
 
-        if (!$title || !$title->canExist()) {
-            $out->addWikiMsg('metatemplate-metavarsonpage-no-page');
-            return;
-        }
+		if (!$title || !$title->canExist()) {
+			$out->addWikiMsg('metatemplate-metavarsonpage-no-page');
+			return;
+		}
 
-        #RHecho("{$title->getFullText()} ({$title->getArticleID()})");
-        $pager = new MetaVarsPager($this->getContext(), $title->getArticleId(), $this->limit);
-        if (!$pager->getNumRows()) {
-            $out->addWikiMsg('metatemplate-metavarsonpage-no-results');
-            return;
-        }
+		#RHecho("{$title->getFullText()} ({$title->getArticleID()})");
+		$pager = new MetaVarsPager($this->getContext(), $title->getArticleId(), $this->limit);
+		if (!$pager->getNumRows()) {
+			$out->addWikiMsg('metatemplate-metavarsonpage-no-results');
+			return;
+		}
 
-        $out->addParserOutput($pager->getFullOutput());
-    }
+		$out->addParserOutput($pager->getFullOutput());
+	}
 
-    protected function getGroupName(): string
-    {
-        return 'wiki';
-    }
+	protected function getGroupName(): string
+	{
+		return 'wiki';
+	}
 }

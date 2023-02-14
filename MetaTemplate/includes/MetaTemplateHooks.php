@@ -265,10 +265,9 @@ class MetaTemplateHooks
 			$parser->mPreprocessor = new MetaTemplatePreprocessor($parser);
 		}
 
-		ParserHelper::init();
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
-		MetaTemplate::init();
+		MetaTemplateCategoryViewer::init();
 	}
 
 	/**

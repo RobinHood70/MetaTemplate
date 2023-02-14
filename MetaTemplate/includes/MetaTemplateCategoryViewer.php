@@ -1,5 +1,6 @@
 <?php
 
+use Elastica\Exception\InvalidException;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /* In theory, this process could be optimized further by subdividing <catpagetemplate> into a section for pages and a
@@ -40,13 +41,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
     private const KEY_CPTDATA = MetaTemplate::KEY_METATEMPLATE . '#cptData';
 
-    /** @var ?MagicWordArray */
-    private static $catArgs = null;
-
     /** @var Language */
     private static $contLang = null;
 
-    /** @var PPFrame */
+    /** @var ?PPFrame_Hash */
     private static $frame = null;
 
     /** @var ?string */
@@ -61,13 +59,13 @@ class MetaTemplateCategoryViewer extends CategoryViewer
     /** @var ?string */
     private  static $mwSortkey = null;
 
-    /** @var Parser */
+    /** @var ?Parser */
     private static $parser = null;
 
-    /** @var ParserOutput */
+    /** @var ?ParserOutput */
     private static $parserOutput = null;
 
-    /** @var string[] */
+    /** @var ?string[] */
     private  static $templates = [];
 
     public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
@@ -81,7 +79,14 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         self::$parserOutput = $output;
         self::$frame = $frame;
 
-        $attributes = ParserHelper::transformAttributes($attributes, self::$catArgs);
+        static $magicWords;
+        $magicWords = $magicWords ?? new MagicWordArray([
+            self::NA_IMAGE,
+            self::NA_PAGE,
+            self::NA_SUBCAT
+        ]);
+
+        $attributes = ParserHelper::transformAttributes($attributes, $magicWords);
         $none = !isset($attributes[self::NA_IMAGE]) && !isset($attributes[self::NA_PAGE]) && !isset($attributes[self::NA_SUBCAT]);
         if (isset($attributes[self::NA_IMAGE]) || $none) {
             self::$templates[self::CV_FILE] = $content;
@@ -95,7 +100,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
             self::$templates[self::CV_SUBCAT] = $content;
         }
 
-        $output = $parser->getOutput();
         $output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, true);
         $parser->recursiveTagParse($content); // We don't care about the results, just that any #preload gets parsed.
         $output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, null);
@@ -130,8 +134,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
         // outside our own wikis; we can just switch once we get to 1.32.
         self::$contLang = self::$contLang ?? wfGetLangObj(true);
         // self::$contLang = self::$contLang ?? MediaWikiServices::getInstance()->getContentLanguage();
-
-        self::$catArgs = self::$catArgs ?? new MagicWordArray([self::NA_IMAGE, self::NA_PAGE, self::NA_SUBCAT]);
         self::$mwPagelength = self::$mwPagelength ?? MagicWord::get(MetaTemplateData::NA_PAGELENGTH)->getSynonym(0);
         self::$mwPagename = self::$mwPagename ?? MagicWord::get(MetaTemplateData::NA_PAGENAME)->getSynonym(0);
         self::$mwSet = self::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);

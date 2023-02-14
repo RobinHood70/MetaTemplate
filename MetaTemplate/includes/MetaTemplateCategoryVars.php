@@ -37,32 +37,27 @@ class MetaTemplateCategoryVars
     /** @var string */
     public $setTextPre;
 
-    /** @var ?MagicWordArray */
-    private static $catParams;
-
     public function __construct(PPFrame $frame, Title $title, string $templateOutput)
     {
-        if (!isset(self::$catParams)) {
-            self::$catParams = new MagicWordArray([
-                MetaTemplateCategoryViewer::VAR_CATGROUP,
-                MetaTemplateCategoryViewer::VAR_CATLABEL,
-                MetaTemplateCategoryViewer::VAR_CATTEXTPOST,
-                MetaTemplateCategoryViewer::VAR_CATTEXTPRE,
-
-                MetaTemplateCategoryViewer::VAR_SETANCHOR,
-                MetaTemplateCategoryViewer::VAR_SETLABEL,
-                MetaTemplateCategoryViewer::VAR_SETPAGE,
-                MetaTemplateCategoryViewer::VAR_SETREDIRECT,
-                MetaTemplateCategoryViewer::VAR_SETSEPARATOR,
-                MetaTemplateCategoryViewer::VAR_SETSKIP,
-                MetaTemplateCategoryViewer::VAR_SETSORTKEY,
-                MetaTemplateCategoryViewer::VAR_SETTEXTPOST,
-                MetaTemplateCategoryViewer::VAR_SETTEXTPRE
-            ]);
-        }
+        static $magicWords;
+        $magicWords = $magicWords ?? new MagicWordArray([
+            MetaTemplateCategoryViewer::VAR_CATGROUP,
+            MetaTemplateCategoryViewer::VAR_CATLABEL,
+            MetaTemplateCategoryViewer::VAR_CATTEXTPOST,
+            MetaTemplateCategoryViewer::VAR_CATTEXTPRE,
+            MetaTemplateCategoryViewer::VAR_SETANCHOR,
+            MetaTemplateCategoryViewer::VAR_SETLABEL,
+            MetaTemplateCategoryViewer::VAR_SETPAGE,
+            MetaTemplateCategoryViewer::VAR_SETREDIRECT,
+            MetaTemplateCategoryViewer::VAR_SETSEPARATOR,
+            MetaTemplateCategoryViewer::VAR_SETSKIP,
+            MetaTemplateCategoryViewer::VAR_SETSORTKEY,
+            MetaTemplateCategoryViewer::VAR_SETTEXTPOST,
+            MetaTemplateCategoryViewer::VAR_SETTEXTPRE
+        ]);
 
         // While these aren't actually attributes, the function does exactly what's needed.
-        $args = ParserHelper::transformAttributes($frame->getArguments(), self::$catParams);
+        $args = ParserHelper::transformAttributes($frame->getArguments(), $magicWords);
 
         $this->catGroup = $args[MetaTemplateCategoryViewer::VAR_CATGROUP] ?? null;
         $this->catLabel = isset($args[MetaTemplateCategoryViewer::VAR_CATLABEL])

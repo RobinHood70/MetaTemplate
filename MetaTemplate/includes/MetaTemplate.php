@@ -144,7 +144,7 @@ class MetaTemplate
      * Inherit variables from the calling template(s).
      *
      * @param Parser $parser The parser in use.
-     * @param PPFrame $frame The frame in use.
+     * @param PPTemplateFrame_Hash $frame The frame in use.
      * @param array $args Function arguments:
      *        1+: The variable(s) to unset.
      *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
@@ -161,14 +161,16 @@ class MetaTemplate
             return;
         }
 
-        [$magicArgs, $values] = ParserHelper::getMagicArgs(
-            $frame,
-            $args,
-            self::NA_CASE,
+        static $magicWords;
+        $magicWords = $magicWords ?? new MagicWordArray([
             ParserHelper::NA_IF,
-            ParserHelper::NA_IFNOT
-        );
+            ParserHelper::NA_IFNOT,
+            self::NA_CASE
+        ]);
 
+        /** @var array $magicArgs */
+        /** @var array $values */
+        [$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
         if (!$values || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
@@ -241,6 +243,7 @@ class MetaTemplate
      */
     public static function doNestLevel(PPFrame $frame): int
     {
+        // Rely on internal magic word caching; ours would be a duplication of effort.
         $nestlevelVars = MagicWord::get(MetaTemplate::VR_NESTLEVEL_VAR);
         $lastVal = false;
         foreach ($frame->getNamedArguments() as $arg => $value) {
@@ -304,7 +307,7 @@ class MetaTemplate
      * has no effect on program flow.
      *
      * @param Parser $parser The parser in use.
-     * @param PPFrame $frame The frame in use.
+     * @param PPTemplateFrame_Hash $frame The frame in use.
      * @param array $args Function arguments:
      *        1+: The variable(s) to return, optionally including an "into" specifier.
      *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
@@ -323,14 +326,16 @@ class MetaTemplate
             return;
         }
 
-        [$magicArgs, $values] = ParserHelper::getMagicArgs(
-            $frame,
-            $args,
-            self::NA_CASE,
+        static $magicWords;
+        $magicWords = $magicWords ?? new MagicWordArray([
             ParserHelper::NA_IF,
-            ParserHelper::NA_IFNOT
-        );
+            ParserHelper::NA_IFNOT,
+            self::NA_CASE
+        ]);
 
+        /** @var array $magicArgs */
+        /** @var array $values */
+        [$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
         if (!$values || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
@@ -349,7 +354,7 @@ class MetaTemplate
      * Unsets (removes) variables from the template.
      *
      * @param Parser $parser The parser in use.
-     * @param PPFrame $frame The frame in use.
+     * @param PPTemplateFrame_Hash $frame The frame in use.
      * @param array $args Function arguments:
      *        1+: The variable(s) to unset.
      *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
@@ -362,15 +367,17 @@ class MetaTemplate
      */
     public static function doUnset(Parser $parser, PPFrame $frame, array $args): void
     {
-        [$magicArgs, $values] = ParserHelper::getMagicArgs(
-            $frame,
-            $args,
-            self::NA_CASE,
+        static $magicWords;
+        $magicWords = $magicWords ?? new MagicWordArray([
             ParserHelper::NA_IF,
             ParserHelper::NA_IFNOT,
+            self::NA_CASE,
             self::NA_SHIFT
-        );
+        ]);
 
+        /** @var array $magicArgs */
+        /** @var array $values */
+        [$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
         if (!count($values) || !ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }
@@ -507,31 +514,6 @@ class MetaTemplate
     }
 
     /**
-     * Initializes magic words.
-     *
-     * @return void
-     *
-     */
-    public static function init(): void
-    {
-        if (self::can(self::STTNG_ENABLECPT)) {
-            MetaTemplateCategoryViewer::init();
-        }
-
-        if (self::can(self::STTNG_ENABLEDATA)) {
-            MetaTemplateData::init();
-        }
-
-        if (self::can(self::STTNG_ENABLEDEFINE)) {
-            ParserHelper::cacheMagicWords([self::NA_SHIFT]);
-        }
-
-        if (self::can(self::STTNG_ENABLEPAGENAMES)) {
-            ParserHelper::cacheMagicWords([self::VR_NESTLEVEL]);
-        }
-    }
-
-    /**
      * Takes the provided variable and adds it to the template frame as though it had been passed in. Automatically
      * unsets any previous values, including case-variant values if $anyCase is true. This also shifts any numeric-
      * named arguments it touches from named to numeric.
@@ -588,15 +570,16 @@ class MetaTemplate
      */
     private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
     {
-        [$magicArgs, $values] = ParserHelper::getMagicArgs(
-            $frame,
-            $args,
-            self::NA_CASE,
+        static $magicWords;
+        $magicWords = $magicWords ?? new MagicWordArray([
             ParserHelper::NA_IF,
-            ParserHelper::NA_IFNOT
-        );
+            ParserHelper::NA_IFNOT,
+            self::NA_CASE
+        ]);
 
-        #RHshow('Values', $values);
+        /** @var array $magicArgs */
+        /** @var array $values */
+        [$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
         if (!ParserHelper::checkIfs($frame, $magicArgs)) {
             return;
         }

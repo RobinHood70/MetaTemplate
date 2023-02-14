@@ -40,7 +40,7 @@ class MetaTemplateData
 	 * results.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPFrame $frame The frame in use.
+	 * @param PPTemplateFrame_Hash $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
 	 *            'any', along with any translations or synonyms of it.
@@ -59,18 +59,20 @@ class MetaTemplateData
 	 */
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
 	{
-		[$magicArgs, $values] = ParserHelper::getMagicArgs(
-			$frame,
-			$args,
-			self::NA_NAMESPACE,
-			self::NA_ORDER,
+		static $magicWords;
+		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
 			ParserHelper::NA_DEBUG,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
-			ParserHelper::NA_SEPARATOR
-		);
+			ParserHelper::NA_SEPARATOR,
+			self::NA_NAMESPACE,
+			self::NA_ORDER
+		]);
 
+		/** @var array $magicArgs */
+		/** @var array $values */
+		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
 		if (!ParserHelper::checkIfs($frame, $magicArgs)) {
 			return '';
 		}
@@ -171,7 +173,7 @@ class MetaTemplateData
 	 * Loads variable values from another page.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPFrame $frame The frame in use.
+	 * @param PPTemplateFrame_Hash $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *         1: The page name to load from.
 	 *        2+: The variable names to load.
@@ -186,20 +188,18 @@ class MetaTemplateData
 	 */
 	public static function doLoad(Parser $parser, PPFrame $frame, array $args): void
 	{
-		[$magicArgs, $values] = ParserHelper::getMagicArgs(
-			$frame,
-			$args,
+		static $magicWords;
+		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
 			self::NA_SET
-		);
+		]);
 
-		if (!ParserHelper::checkIfs($frame, $magicArgs)) {
-			return;
-		}
-
-		if (count($values) < 2) {
+		/** @var array $magicArgs */
+		/** @var array $values */
+		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
+		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) < 2) {
 			return;
 		}
 
@@ -306,7 +306,7 @@ class MetaTemplateData
 	 * Saves the specified variable names as metadata to be used by #listsaved.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPFrame $frame The frame in use.
+	 * @param PPTemplateFrame_Hash $frame The frame in use.
 	 * @param array $args Function arguments: The data to preload. Names must be as they're stored in the database.
 	 *
 	 * @return void
@@ -318,14 +318,14 @@ class MetaTemplateData
 			return;
 		}
 
-		[$magicArgs, $values] = ParserHelper::getMagicArgs(
-			$frame,
-			$args,
-			self::NA_SET
-		);
+		static $magicWords;
+		$magicWords = $magicWords ?? new MagicWordArray([self::NA_SET]);
 
+		/** @var array $magicArgs */
+		/** @var array $values */
+		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
 		$output = $parser->getOutput();
-		$setName = $parser->getOutput()->getExtensionData(self::KEY_IGNORE_SET)
+		$setName = $output->getExtensionData(self::KEY_IGNORE_SET)
 			? ''
 			: $magicArgs[self::NA_SET] ?? '';
 
@@ -338,11 +338,9 @@ class MetaTemplateData
 			$sets[$setName] = $set;
 		}
 
-		foreach ($values as &$value) {
-			$arg = ParserHelper::getKeyValue($frame, $value)[1];
-			$value = $frame->expand($arg);
-			$var = new MetaTemplateVariable(false, false);
-			$set->variables[$value] = $var;
+		foreach ($values as $value) {
+			$varName = $frame->expand(ParserHelper::getKeyValue($frame, $value)[1]);
+			$set->variables[$varName] = new MetaTemplateVariable(false, false);
 		}
 
 		$varList = implode(self::PRELOAD_SEP, array_keys($set->variables));
@@ -354,7 +352,7 @@ class MetaTemplateData
 	 * Saves the specified values to the database.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPFrame $frame The frame in use.
+	 * @param PPTemplateFrame_Hash $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *         1+: The variable names to save.
 	 *        set: The data set to save to.
@@ -376,17 +374,19 @@ class MetaTemplateData
 			return [''];
 		}
 
-		[$magicArgs, $values] = ParserHelper::getMagicArgs(
-			$frame,
-			$args,
+		static $magicWords;
+		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
 			ParserHelper::NA_DEBUG,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
 			self::NA_SET,
 			self::NA_SAVEMARKUP
-		);
+		]);
 
+		/** @var array $magicArgs */
+		/** @var array $values */
+		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
 		if (!count($values) || !ParserHelper::checkIfs($frame, $magicArgs)) {
 			return [''];
 		}
@@ -496,23 +496,6 @@ class MetaTemplateData
 
 		#RHshow('Value', $value);
 		return [$value, 'markerType' => 'nowiki'];
-	}
-
-	/**
-	 * Initializes magic words.
-	 *
-	 * @return void
-	 *
-	 */
-	public static function init(): void
-	{
-		ParserHelper::cacheMagicWords([
-			self::NA_NAMESPACE,
-			self::NA_ORDER,
-			self::NA_PAGENAME,
-			self::NA_SAVEMARKUP,
-			self::NA_SET,
-		]);
 	}
 
 	/**

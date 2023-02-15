@@ -246,7 +246,7 @@ class MetaTemplateData
 		$preloadSet = $output->getExtensionData(self::KEY_PRELOAD)[$setName] ?? null;
 		if ($preloadSet) {
 			/** @var MetaTemplatePage $bulkPage */
-			$bulkPage = $output->getExtensionData(self::KEY_BULK_LOAD)[$pageId];
+			$bulkPage = $output->getExtensionData(self::KEY_BULK_LOAD)[$pageId] ?? null;
 			if ($bulkPage) {
 				$bulkSet = $bulkPage->sets[$setName] ?? null;
 				if ($bulkSet) {

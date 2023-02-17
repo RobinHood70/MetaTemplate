@@ -405,9 +405,8 @@ class MetaTemplateData
 		#RHshow('Translations', $translations);
 		foreach ($translations as $srcName => $destName) {
 			/** @var PPNode_Hash_Tree|false */
-			$result = MetaTemplate::getVarRaw($frame, $srcName, $anyCase, false);
-			if ($result !== false) {
-				$varNodes = $result[2];
+			[$varNodes] = MetaTemplate::getVar($frame, $srcName, $anyCase, false);
+			if ($varNodes) {
 				$output->setExtensionData(self::KEY_SAVE_MODE, $saveMarkup);
 				$varValue = $frame->expand($varNodes, $saveMarkup ? self::SAVE_MARKUP_FLAGS : 0);
 				$varValue = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($varValue);

@@ -18,10 +18,12 @@
  * root space (i.e., while previewing or viewing a template page or setting variables on a page that's not
  * transcluded).
  *
+ * @internal Note that while this extends PPTemplateFrame_Hash, it's actually used as a PPFrame_Hash and returned via
+ * the custom preprocessor's newFrame() override.
+ *
  * @ingroup Parser
  */
 
-// phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps
 class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 {
 	private $volatile = false;
@@ -85,7 +87,7 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 			# No trimming for unnamed arguments
 			$this->numberedExpansionCache[$index] = $this->expand(
 				$this->numberedArgs[$index],
-				PPFrame::STRIP_COMMENTS
+				self::STRIP_COMMENTS
 			);
 		}
 
@@ -108,9 +110,10 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 
 		if (!isset($this->namedExpansionCache[$name])) {
 			# Trim named arguments post-expand, for backwards compatibility
-			$this->namedExpansionCache[$name] = trim(
-				$this->expand($this->namedArgs[$name], PPFrame::STRIP_COMMENTS)
-			);
+			$this->namedExpansionCache[$name] = trim($this->expand(
+				$this->namedArgs[$name],
+				self::STRIP_COMMENTS
+			));
 		}
 
 		return $this->namedExpansionCache[$name];

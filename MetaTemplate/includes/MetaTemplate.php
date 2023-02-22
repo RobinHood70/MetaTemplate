@@ -43,7 +43,7 @@ class MetaTemplate
 
 	#region Private Static Variables
 	private static $config;
-	private static $markupFlags;
+	private static $varExpandFlags;
 	#endregion
 
 	#region Public Static Functions
@@ -66,7 +66,6 @@ class MetaTemplate
 	 * @param string $setting
 	 *
 	 * @return bool Whether MetaTemplate can/should use a particular feature.
-	 *
 	 */
 	public static function can($setting): bool
 	{
@@ -109,7 +108,6 @@ class MetaTemplate
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doDefine(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -138,7 +136,6 @@ class MetaTemplate
 	 *     depth: The stack depth to check.
 	 *
 	 * @return string The requested full page name.
-	 *
 	 */
 	public static function doFullPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
@@ -159,7 +156,6 @@ class MetaTemplate
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doInherit(Parser $parser, PPFrame $frame, array $args)
 	{
@@ -218,7 +214,6 @@ class MetaTemplate
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doLocal(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -234,7 +229,6 @@ class MetaTemplate
 	 *     depth: The stack depth to check.
 	 *
 	 * @return string The requested namespace.
-	 *
 	 */
 	public static function doNamespaceX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
@@ -254,7 +248,6 @@ class MetaTemplate
 	 * @param PPFrame $frame The frame in use.
 	 *
 	 * @return int The frame depth.
-	 *
 	 */
 	public static function doNestLevel(PPFrame $frame): int
 	{
@@ -285,7 +278,6 @@ class MetaTemplate
 	 *     depth: The stack depth to check.
 	 *
 	 * @return string The requested page name.
-	 *
 	 */
 	public static function doPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
@@ -305,7 +297,6 @@ class MetaTemplate
 	 *     2: The variable value.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doPreview(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -332,7 +323,6 @@ class MetaTemplate
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doReturn(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -360,7 +350,7 @@ class MetaTemplate
 		foreach ($translations as $srcName => $destName) {
 			$varValue = self::getVar($frame, $srcName, $anyCase);
 			if ($varValue) {
-				$varValue = $frame->expand($varValue, self::getVarMarkupFlags());
+				$varValue = $frame->expand($varValue, self::getVarExpandFlags());
 				self::setVar($parent, $destName, $varValue, $anyCase);
 			}
 		}
@@ -379,7 +369,6 @@ class MetaTemplate
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doUnset(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -431,7 +420,6 @@ class MetaTemplate
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 *
 	 * @return ?PPNode_Hash_Tree Returns the value in raw format and the frame it came from.
-	 *
 	 */
 	public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase)
 	{
@@ -451,6 +439,23 @@ class MetaTemplate
 	}
 
 	/**
+	 * Gets the flags to use when expanding variables related to variable assignment.
+	 *
+	 * @return int The flags to use with relevant PPFrame->expand() calls.
+	 *
+	 */
+	public static function getVarExpandFlags()
+	{
+		if (!isset(self::$varExpandFlags)) {
+			self::$varExpandFlags = self::can(self::STTNG_ENABLEDATA)
+				? PPFrame::STRIP_COMMENTS | PPFrame::NO_TEMPLATES
+				: PPFrame::STRIP_COMMENTS;
+		}
+
+		return self::$varExpandFlags;
+	}
+
+	/**
 	 * Splits a variable list of the form 'x->xPrime' to a proper associative array.
 	 *
 	 * @param PPFrame $frame If the variable names may need to be expanded, this should be set to the active frame;
@@ -459,7 +464,6 @@ class MetaTemplate
 	 * @param ?int $trimLength The maximum number of characters allowed for variable names.
 	 *
 	 * @return array
-	 *
 	 */
 	public static function getVariableTranslations(?PPFrame $frame, array $variables, ?int $trimLength = null): array
 	{
@@ -489,17 +493,6 @@ class MetaTemplate
 		return $retval;
 	}
 
-	public static function getVarMarkupFlags()
-	{
-		if (!isset(self::$markupFlags)) {
-			self::$markupFlags = self::can(self::STTNG_ENABLEDATA)
-				? PPFrame::STRIP_COMMENTS | PPFrame::NO_TEMPLATES
-				: PPFrame::STRIP_COMMENTS;
-		}
-
-		return self::$markupFlags;
-	}
-
 	/**
 	 * Takes the provided variable and adds it to the template frame as though it had been passed in. Automatically
 	 * unsets any previous values, including case-variant values if $anyCase is true.
@@ -514,7 +507,6 @@ class MetaTemplate
 	 *
 	 *
 	 * @return void
-	 *
 	 */
 	public static function setVar(PPTemplateFrame_Hash $frame, string $varName, string $varValue, $anyCase = false): void
 	{
@@ -564,7 +556,6 @@ class MetaTemplate
 	 *
 	 *
 	 * @return void
-	 *
 	 */
 	public static function setVarDirect(PPTemplateFrame_Hash $frame, string $varName, PPNode_Hash_Tree $dom, $anyCase = false): void
 	{
@@ -675,17 +666,24 @@ class MetaTemplate
 				$varValue = self::getVar($frame, $varName, $anyCase);
 				if ($varValue) {
 					// Even internally, we expand, just in case something's changed based on any change in name.
-					$varValue = $frame->expand($varValue, self::getVarMarkupFlags());
+					$varValue = $frame->expand($varValue, self::getVarExpandFlags());
 					self::setVar($frame, $varName, $varValue, $anyCase);
 				}
 			}
 		} elseif ($overwrite || ($frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false) === false) {
-			$varValue = $frame->expand($values[1], self::getVarMarkupFlags());
+			$varValue = $frame->expand($values[1], self::getVarExpandFlags());
 			self::setVar($frame, $varName, $varValue, $anyCase);
 		}
 	}
 
-	private static function getBypassVariables()
+	/**
+	 * Gets a list of variables that can bypass the normal variable definition lockouts on a template page. This means
+	 * that variables which would normally display as {{{ns_id}}}, for example, will instead take on the specified/
+	 * default values.
+	 *
+	 * @return void
+	 */
+	private static function getBypassVariables(): void
 	{
 		$bypassList = [];
 		Hooks::run('MetaTemplateSetBypassVars', [&$bypassList]);
@@ -708,7 +706,6 @@ class MetaTemplate
 	 *           -1 = the first page
 	 *
 	 * @return ?Title
-	 *
 	 */
 	private static function getTitleAtDepth(Parser $parser, PPFrame $frame, ?array $args): ?Title
 	{
@@ -741,7 +738,6 @@ class MetaTemplate
 	 * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
 	 *
 	 * @return tuple<PPNode_Hash_Tree, PPFrame> Returns the value in raw format and the frame it came from.
-	 *
 	 */
 	private static function inheritVar(PPTemplateFrame_Hash $frame, string $srcName, $destName, bool $anyCase)
 	{
@@ -765,7 +761,7 @@ class MetaTemplate
 
 		if ($varValue && $curFrame) {
 			$curFrame = $curFrame->parent ?? $curFrame;
-			$varValue = $curFrame->expand($varValue, self::getVarMarkupFlags());
+			$varValue = $curFrame->expand($varValue, self::getVarExpandFlags());
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
 
@@ -779,7 +775,6 @@ class MetaTemplate
 	 * @param string $varName The numeric variable to unset.
 	 *
 	 * @return void
-	 *
 	 */
 	private static function unsetWithShift(PPTemplateFrame_Hash $frame, string $varName): void
 	{

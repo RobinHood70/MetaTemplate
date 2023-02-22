@@ -5,6 +5,7 @@
  */
 class MetaTemplateData
 {
+	#region Constants
 	public const KEY_BULK_LOAD = MetaTemplate::KEY_METATEMPLATE . '#bulkLoad';
 	public const KEY_IGNORE_SET = MetaTemplate::KEY_METATEMPLATE . '#ignoreSet';
 	public const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
@@ -24,16 +25,19 @@ class MetaTemplateData
 	public const PF_SAVE = 'metatemplate-save';
 
 	public const PRELOAD_SEP = '|';
-	public const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::STRIP_COMMENTS;
 	public const SAVE_SETNAME_WIDTH = 50;
 	public const SAVE_VARNAME_WIDTH = 50;
 
 	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 
 	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
-	private const KEY_SAVE_MODE = MetaTemplate::KEY_METATEMPLATE . '#saving';
-	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
 
+	/** Key value for flag that we're in save mode. */
+	private const KEY_SAVE_MODE = MetaTemplate::KEY_METATEMPLATE . '#saving'; // bool
+	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
+	#endregion
+
+	#region Public Static Functions
 	/**
 	 * Queries the database based on the conditions provided and creates a list of templates, one for each row in the
 	 * results.
@@ -254,7 +258,7 @@ class MetaTemplateData
 					foreach ($preloadSet->variables as $varName => $value) {
 						$varValue = $bulkSet->variables[$varName] ?? false;
 						if ($varValue !== false) {
-							$varValue = $frame->expand($varValue, self::SAVE_MARKUP_FLAGS);
+							$varValue = $frame->expand($varValue, MetaTemplate::getVarMarkupFlags());
 							MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
 						}
 
@@ -404,14 +408,18 @@ class MetaTemplateData
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		#RHshow('Translations', $translations);
 		foreach ($translations as $srcName => $destName) {
-			/** @var PPNode_Hash_Tree|false */
 			$varNodes = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($varNodes) {
 				$output->setExtensionData(self::KEY_SAVE_MODE, $saveMarkup);
-				$varValue = $frame->expand($varNodes, $saveMarkup ? self::SAVE_MARKUP_FLAGS : 0);
+
+				// For some reason, this seems to be necessary at all expansion levels during save, not just the top.
+				MetaTemplate::unsetVar($frame, $srcName, $anyCase);
+				$varValue = $frame->expand($varNodes, $saveMarkup ? MetaTemplate::getVarMarkupFlags() : PPFrame::STRIP_COMMENTS);
+				MetaTemplate::setVarDirect($frame, $srcName, $varNodes);
+
 				$varValue = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($varValue);
 				$parseOnLoad =
-					($saveMarkup && self::treeHasTemplate($varNodes)) |
+					($saveMarkup && self::treeHasTemplate($varNodes)) ||
 					$output->getExtensionData(self::KEY_PARSEONLOAD);
 				$output->setExtensionData(self::KEY_PARSEONLOAD, null);
 				$output->setExtensionData(self::KEY_SAVE_MODE, null);
@@ -434,18 +442,20 @@ class MetaTemplateData
 		self::addToSet($title, $output, $setName, $varsToSave);
 
 		if ($debug && count($varsToSave)) {
-			$out = '';
+			$out = [];
 			foreach ($varsToSave as $key => $value) {
-				$out .= "\n" . $key;
+				$text = $key;
 				if ($value->parseOnLoad) {
-					$out .= ' (parse on load)';
+					$text .= ' (parse on load)';
 				}
 
-				$out .= ' = ' . (string)$value->value;
+				$text .= ' = ' . (string)$value->value;
+				$out[] = $text;
 			}
 
+			$out = implode("\n", $out);
 			#RHshow('Test', $out);
-			return ParserHelper::formatPFForDebug(substr($out, 1), true);
+			return ParserHelper::formatPFForDebug($out, true);
 		}
 
 		return [''];
@@ -478,7 +488,7 @@ class MetaTemplateData
 			}
 
 			$parent = $frame->parent ?? $frame;
-			$value = $parent->expand($value, self::SAVE_MARKUP_FLAGS);
+			$value = $parent->expand($value, MetaTemplate::getVarMarkupFlags());
 
 			#RHshow('Double Parsed', $value);
 			return [$value, 'markerType' => 'nowiki'];
@@ -490,13 +500,15 @@ class MetaTemplateData
 			$parser->getOutput()->setExtensionData(self::KEY_PARSEONLOAD, true);
 		}
 
-		$value = $frame->expand($value, self::SAVE_MARKUP_FLAGS);
+		$value = $frame->expand($value, MetaTemplate::getVarMarkupFlags());
 		$value = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($value);
 
 		#RHshow('Value', $value);
 		return [$value, 'markerType' => 'nowiki'];
 	}
+	#endregion
 
+	#region Private Static Functions
 	/**
 	 * Adds the provided list of variables to the set provided and to the parser output.
 	 *
@@ -556,6 +568,46 @@ class MetaTemplateData
 	}
 
 	/**
+	 * Retrieves the requested set of variables already on the page as though they had been loaded from the database.
+	 *
+	 * @param ParserOutput $output The current ParserOutput object.
+	 * @param MetaTemplateSet $set The set to load.
+	 *
+	 * @return bool True if variables were loaded.
+	 *
+	 */
+	private static function loadFromOutput(ParserOutput $output, MetaTemplateSet &$set): bool
+	{
+		/** @var MetaTemplateSetCollection $pageVars */
+		$pageVars = $output->getExtensionData(self::KEY_SAVE);
+		if (!$pageVars) {
+			return false; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
+		}
+
+		#RHshow('Page Variables', $pageVars);
+		$pageSet = $pageVars->sets[$set->setName];
+		if (!$pageSet) {
+			return false;
+		}
+
+		$retval = false;
+		#RHshow('Page Set', $pageSet);
+		if ($set->variables) {
+			foreach ($set->variables as $varName => &$var) {
+				if ($var === false && isset($pageSet->variables[$varName])) {
+					$copy = $pageSet->variables[$varName];
+					$var = new MetaTemplateVariable($copy->value, $copy->parseOnLoad);
+					$retval = true;
+				}
+			}
+
+			unset($var);
+		}
+
+		return $retval;
+	}
+
+	/**
 	 * Sorts the results according to user-specified order (if any), then page name, and finally set.
 	 *
 	 * @param array $arr The array to sort.
@@ -610,46 +662,6 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Retrieves the requested set of variables already on the page as though they had been loaded from the database.
-	 *
-	 * @param ParserOutput $output The current ParserOutput object.
-	 * @param MetaTemplateSet $set The set to load.
-	 *
-	 * @return bool True if variables were loaded.
-	 *
-	 */
-	private static function loadFromOutput(ParserOutput $output, MetaTemplateSet &$set): bool
-	{
-		/** @var MetaTemplateSetCollection $pageVars */
-		$pageVars = $output->getExtensionData(self::KEY_SAVE);
-		if (!$pageVars) {
-			return false; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
-		}
-
-		#RHshow('Page Variables', $pageVars);
-		$pageSet = $pageVars->sets[$set->setName];
-		if (!$pageSet) {
-			return false;
-		}
-
-		$retval = false;
-		#RHshow('Page Set', $pageSet);
-		if ($set->variables) {
-			foreach ($set->variables as $varName => &$var) {
-				if ($var === false && isset($pageSet->variables[$varName])) {
-					$copy = $pageSet->variables[$varName];
-					$var = new MetaTemplateVariable($copy->value, $copy->parseOnLoad);
-					$retval = true;
-				}
-			}
-
-			unset($var);
-		}
-
-		return $retval;
-	}
-
-	/**
 	 * Recursively searches a tree node to determine if it has a template.
 	 *
 	 * @param PPNode_Hash_Tree $node
@@ -685,4 +697,5 @@ class MetaTemplateData
 
 		return false;
 	}
+	#endregion
 }

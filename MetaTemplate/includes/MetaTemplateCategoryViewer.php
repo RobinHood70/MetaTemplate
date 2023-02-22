@@ -44,20 +44,20 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	/** @var Language */
 	private static $contLang = null;
 
-	/** @var ?PPFrame_Hash */
+	/** @var ?PPFrame */
 	private static $frame = null;
 
 	/** @var ?string */
 	private static $mwPagelength = null;
 
 	/** @var ?string */
-	private  static $mwPagename = null;
+	private static $mwPagename = null;
 
 	/** @var ?string */
-	private  static $mwSet = null;
+	private static $mwSet = null;
 
 	/** @var ?string */
-	private  static $mwSortkey = null;
+	private static $mwSortkey = null;
 
 	/** @var ?Parser */
 	private static $parser = null;
@@ -66,7 +66,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	private static $parserOutput = null;
 
 	/** @var ?string[] */
-	private  static $templates = null; // Must be null for proper init on refresh
+	private static $templates = null; // Must be null for proper init on refresh
 
 	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
 	{
@@ -174,7 +174,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 				: null);
 		$template = self::$templates[$type] ?? null;
 		if (!$this->showGallery && !is_null($type) && !is_null($template)) {
-			[$group, $link]  = $this->processTemplate($template, $type, $title, $sortkey, $pageLength, $isRedirect);
+			[$group, $link] = $this->processTemplate($template, $type, $title, $sortkey, $pageLength, $isRedirect);
 			$this->imgsNoGallery[] = $link;
 			$this->imgsNoGallery_start_char[] = $group;
 		} else {
@@ -188,7 +188,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$type = self::CV_PAGE;
 		$template = self::$templates[$type] ?? null;
 		if (!is_null($template)) {
-			[$group, $link]  = $this->processTemplate($template, self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
+			[$group, $link] = $this->processTemplate($template, self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
 			$this->articles[] = $link;
 			$this->articles_start_char[] = $group;
 		} else {
@@ -215,7 +215,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
 	}
 
-	private static function createFrame(Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPTemplateFrame_Hash
+	private static function createFrame(Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPFrame
 	{
 		$frame = self::$frame->newChild([], $title);
 		MetaTemplate::setVar($frame, self::$mwPagelength, (string)$pageLength);
@@ -229,6 +229,19 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		return $frame;
 	}
 
+	/**
+	 * Generates the text of the entry.
+	 *
+	 * @param string $template The catpagetemplate to use for this category entry.
+	 * @param string $type What type of category entry this is.
+	 * @param Title $title The title of the entry.
+	 * @param string $sortkey The sortkey for the entry.
+	 * @param int $pageLength The page length of the entry.
+	 * @param bool $isRedirect Whether or not the entry is a redirect.
+	 *
+	 * @return array
+	 *
+	 */
 	private function processTemplate(string $template, string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
 	{
 		$output = self::$parserOutput;
@@ -243,10 +256,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$catVars = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength);
 
 		/* $catGroup does not need sanitizing as MW runs it through htmlspecialchars later in the process.
-         * Unfortunately, that means you can't make links without deriving formatList(), which can then call either
-         * static::columnList() instead of self::columnList() and the same for shortList() so that those two methods
-         * can be statically derived. Are we having fun yet?
-         */
+		 * Unfortunately, that means you can't make links without deriving formatList(), which can then call either
+		 * static::columnList() instead of self::columnList() and the same for shortList() so that those two methods
+		 * can be statically derived. Are we having fun yet?
+		 */
 		$catGroup = $catVars->catGroup ?? ($type === self::CV_SUBCAT
 			? $this->getSubcategorySortChar($title, $sortkey)
 			: self::$contLang->convert($this->collation->getFirstLetter($sortkey)));
@@ -278,11 +291,24 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		return [$catGroup, $catText . $text];
 	}
 
+	/**
+	 * Evaluates the template in the context of the category entry and each set on that page.
+	 *
+	 * @param string $template The template to be parsed.
+	 * @param Title $title The title of the category entry.
+	 * @param MetaTemplateSet $set The current set on the entry page.
+	 * @param string|null $sortkey The current sortkey.
+	 * @param int $pageLength The page length.
+	 *
+	 * @return MetaTemplateCategoryVars
+	 *
+	 */
 	private function parseCatPageTemplate(string $template, Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): MetaTemplateCategoryVars
 	{
-		$frame = self::createFrame($title, $set, $sortkey, $pageLength);
-		$templateOutput = self::$parser->recursiveTagParse($template, $frame);
-		$retval = new MetaTemplateCategoryVars($frame, $title, $templateOutput);
+		$child = self::createFrame($title, $set, $sortkey, $pageLength);
+		$templateOutput = self::$parser->recursiveTagParse($template, $child);
+		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
+
 		return $retval->setSkip ? null : $retval;
 	}
 }

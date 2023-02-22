@@ -84,11 +84,16 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 		}
 
 		if (!isset($this->numberedExpansionCache[$index])) {
-			# No trimming for unnamed arguments
+			// No trimming for unnamed arguments
+			// We unset the current value so it doesn't get into an infinite recursion loop if calling itself.
+			$tempValue = $this->numberedArgs[$index];
+			unset($this->numberedArgs[$index]);
 			$this->numberedExpansionCache[$index] = $this->expand(
-				$this->numberedArgs[$index],
+				$tempValue,
 				self::STRIP_COMMENTS
 			);
+
+			$this->numberedArgs[$index] = $tempValue;
 		}
 
 		return $this->numberedExpansionCache[$index];
@@ -109,11 +114,16 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 		}
 
 		if (!isset($this->namedExpansionCache[$name])) {
-			# Trim named arguments post-expand, for backwards compatibility
+			// Trim named arguments post-expand, for backwards compatibility
+			// We unset the current value so it doesn't get into an infinite recursion loop if calling itself.
+			$tempValue = $this->namedArgs[$name];
+			unset($this->namedArgs[$name]);
 			$this->namedExpansionCache[$name] = trim($this->expand(
-				$this->namedArgs[$name],
+				$tempValue,
 				self::STRIP_COMMENTS
 			));
+
+			$this->namedArgs[$name] = $tempValue;
 		}
 
 		return $this->namedExpansionCache[$name];

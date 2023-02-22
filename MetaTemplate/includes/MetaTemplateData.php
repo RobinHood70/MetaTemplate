@@ -24,6 +24,7 @@ class MetaTemplateData
 	public const PF_SAVE = 'metatemplate-save';
 
 	public const PRELOAD_SEP = '|';
+	public const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES | PPFrame::STRIP_COMMENTS;
 	public const SAVE_SETNAME_WIDTH = 50;
 	public const SAVE_VARNAME_WIDTH = 50;
 
@@ -32,8 +33,6 @@ class MetaTemplateData
 	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
 	private const KEY_SAVE_MODE = MetaTemplate::KEY_METATEMPLATE . '#saving';
 	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
-
-	public const SAVE_MARKUP_FLAGS = PPFrame::NO_TEMPLATES;
 
 	/**
 	 * Queries the database based on the conditions provided and creates a list of templates, one for each row in the
@@ -226,7 +225,7 @@ class MetaTemplateData
 		$set = new MetaTemplateSet($setName, [], $anyCase);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $key => $value) {
-			if (!MetaTemplate::getVar($frame, $value, $anyCase, false)) {
+			if (!MetaTemplate::getVar($frame, $value, $anyCase)) {
 				$set->variables[$key] = false;
 			}
 		}
@@ -255,6 +254,7 @@ class MetaTemplateData
 					foreach ($preloadSet->variables as $varName => $value) {
 						$varValue = $bulkSet->variables[$varName] ?? false;
 						if ($varValue !== false) {
+							$varValue = $frame->expand($varValue, self::SAVE_MARKUP_FLAGS);
 							MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
 						}
 
@@ -405,7 +405,7 @@ class MetaTemplateData
 		#RHshow('Translations', $translations);
 		foreach ($translations as $srcName => $destName) {
 			/** @var PPNode_Hash_Tree|false */
-			[$varNodes] = MetaTemplate::getVar($frame, $srcName, $anyCase, false);
+			$varNodes = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($varNodes) {
 				$output->setExtensionData(self::KEY_SAVE_MODE, $saveMarkup);
 				$varValue = $frame->expand($varNodes, $saveMarkup ? self::SAVE_MARKUP_FLAGS : 0);
@@ -657,11 +657,29 @@ class MetaTemplateData
 	 * @return bool
 	 *
 	 */
-	private static function treeHasTemplate(PPNode_Hash_Tree $node): bool
+	private static function treeHasTemplate($nodes): bool
 	{
-		for ($child = $node->getFirstChild(); $child; $child = $child->getNextSibling()) {
-			if (($child instanceof PPNode_Hash_Tree) && ($child->name === 'template' || self::treeHasTemplate($child))) {
+		if ($nodes instanceof PPNode_Hash_Tree) {
+			if ($nodes->name === 'template') {
 				return true;
+			}
+
+			for ($node = $nodes->getFirstChild(); $node; $node = $node->getNextSibling()) {
+				if ($node instanceof PPNode_Hash_Tree || is_iterable($nodes)) {
+					$result = self::treeHasTemplate($node);
+					if ($result) {
+						return $result;
+					}
+				}
+			}
+		} elseif (is_iterable($nodes)) {
+			foreach ($nodes as $node) {
+				if ($node instanceof PPNode_Hash_Tree || is_iterable($nodes)) {
+					$result = self::treeHasTemplate($node);
+					if ($result) {
+						return $result;
+					}
+				}
 			}
 		}
 

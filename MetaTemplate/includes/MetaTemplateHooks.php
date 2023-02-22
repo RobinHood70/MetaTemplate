@@ -205,41 +205,40 @@ class MetaTemplateHooks
 	 */
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
-			#RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
-			#RHwriteFile(substr($text, 0, 30) . "\n");
-			// This algorithm is based on the assumption that data is rarely changed, therefore:
-			// * It's best to read the existing DB data before making any DB updates/inserts.
-			// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
-			//   once instead of individually or by set.
-			// * It's best to use the read-only DB until we know we need to write.
+		if (!MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) || (!$parser->getRevisionId() /* && !$wgCommandLineMode */)) {
+			// global $wgCommandLineMode;
+			RHwriteFile('ParserAfterTidy skipped: ', $text);
+			return;
+		}
+		#RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
+		#RHwriteFile(substr($text, 0, 30) . "\n");
+		// This algorithm is based on the assumption that data is rarely changed, therefore:
+		// * It's best to read the existing DB data before making any DB updates/inserts.
+		// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
+		//   once instead of individually or by set.
+		// * It's best to use the read-only DB until we know we need to write.
 
-			$title = $parser->getTitle();
-			$output = $parser->getOutput();
-			/** @var MetaTemplateSetCollection $vars */
-			$vars = $output->getExtensionData(MetaTemplateData::KEY_SAVE);
-			if (!$parser->getRevisionId()) {
-				return;
-			}
+		$title = $parser->getTitle();
+		$output = $parser->getOutput();
+		/** @var MetaTemplateSetcollection $vars */
+		$vars = $output->getExtensionData(MetaTemplateData::KEY_SAVE);
 
-			#RHwriteFile("Saving:\n", $vars);
-			// MetaTemplateData::setPageVariables($output, null);
-			$sql = MetaTemplateSql::getInstance();
-			if (!$vars || empty($vars->sets)) {
-				#RHwriteFile('Empty Vars: ', $title->getFullText());
-				// If there are no variables on the page at all, check if there were to begin with. If so, delete them.
-				if ($sql->loadPageVariables($title)) {
-					#RHwriteFile('Delete Vars: ', $title->getFullText());
-					$sql->deleteVariables($title);
-				}
-			} else if ($vars->revId === -1) {
-				// The above check will only be satisfied on Template-space pages that use #save.
-				#RHwriteFile('Save Template: ', $title->getFullText());
-				$sql->recursiveInvalidateCache($title);
+		#RHwriteFile("Saving:\n", $vars);
+		$sql = MetaTemplateSql::getInstance();
+		if ($vars && !empty($vars->sets)) {
+			if ($vars->revId !== -1) {
+				// revId check is to skip Template-space pages with <includeonly>{{#save}}</includeonly>.
+				#RHshow('Save Vars', $title->getFullText());
+				$sql->saveVars($vars);
 			} else {
-				$sql->saveAndInvalidate($vars);
+				$sql->recursiveInvalidateCache($title);
 			}
 
+			$output->setExtensionData(MetaTemplateData::KEY_SAVE, null);
+		} elseif ($sql->hasPageVariables($title)) {
+			// We check whether the page used to have variables; if we don't, delete will cause cascading refreshes.
+			#RHshow('Delete Vars', $title->getFullText());
+			$sql->deleteVariables($title);
 			$output->setExtensionData(MetaTemplateData::KEY_SAVE, null);
 		}
 	}

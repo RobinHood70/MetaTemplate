@@ -380,9 +380,32 @@ class MetaTemplateSql
 	}
 
 	/**
+	 * Checks the database to see if the page has any variables defined.
+	 *
+	 * @param Title $title The title to check.
+	 *
+	 * @return MetaTemplateSetCollection
+	 */
+	public function hasPageVariables(Title $title): bool
+	{
+		// Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
+		// data is tracked with $deleteIds.
+
+		// logFunctionText("($pageId)");
+		$pageId = $title->getArticleID();
+		$tables = [self::SET_TABLE];
+		$fields = [self::SET_PAGE_ID];
+		$options = ['LIMIT' => 1];
+		$conds = [self::SET_PAGE_ID => $pageId];
+		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options);
+		$row = $this->dbRead->fetchRow($result);
+		return (bool)$row;
+	}
+
+	/**
 	 * Loads variables for a specific page.
 	 *
-	 * @param mixed $pageId The page ID to load.
+	 * @param Title $title The title to load.
 	 *
 	 * @return MetaTemplateSetCollection
 	 */
@@ -668,7 +691,7 @@ class MetaTemplateSql
 	 * @return [type]
 	 *
 	 */
-	public function saveAndInvalidate(MetaTemplateSetCollection $vars)
+	public function saveVars(MetaTemplateSetCollection $vars)
 	{
 		// Whether or not the data changed, the page has been evaluated, so add it to the list.
 		$title = $vars->title;
@@ -678,7 +701,6 @@ class MetaTemplateSql
 		if ($upserts->getTotal() > 0) {
 			#RHwriteFile('Normal Save: ', $title->getFullText());
 			$this->saveUpserts($upserts);
-			$this->recursiveInvalidateCache($title);
 		}
 	}
 
@@ -731,6 +753,9 @@ class MetaTemplateSql
 	}
 
 	/**
+	 * @todo See how much of this can be converted to bulk updates. Even though MW internally wraps most of these in a
+	 * transaction (supposedly...unverified), speed could probably still be improved with bulk updates.
+	 *
 	 * Alters the database in whatever ways are necessary to update one revision's variables to the next.
 	 *
 	 * @param MetaTemplateUpserts $upserts
@@ -751,20 +776,21 @@ class MetaTemplateSql
 		$newRevId = $upserts->newRevId;
 		// writeFile('  Inserts: ', count($inserts));
 		foreach ($upserts->inserts as $newSet) {
-			$this->dbWrite->insert(self::SET_TABLE, [
+			$record = [
 				self::FIELD_PAGE_ID => $pageId,
 				self::FIELD_SET_NAME => $newSet->setName,
 				self::FIELD_REV_ID => $newRevId
-			]);
+			];
+			#RHshow('Insert', $record);
+			$this->dbWrite->insert(self::SET_TABLE, $record);
 
 			$setId = $this->dbWrite->insertId();
 			$this->insertData($setId, $newSet);
 		}
 
-		$updates = $upserts->updates;
 		// writeFile('  Updates: ', count($updates));
-		if (count($updates)) {
-			foreach ($updates as $setId => $setData) {
+		if (count($upserts->updates)) {
+			foreach ($upserts->updates as $setId => $setData) {
 				/**
 				 * @var MetaTemplateSet $oldSet
 				 * @var MetaTemplateSet $newSet
@@ -777,13 +803,7 @@ class MetaTemplateSql
 				$this->dbWrite->update(
 					self::SET_TABLE,
 					[self::FIELD_REV_ID => $newRevId],
-					[
-						// setId uniquely identifies the set, but setName and pageId are part of the primary key, so we
-						// add them here for better indexing.
-						self::FIELD_PAGE_ID => $upserts->pageId,
-						self::FIELD_SET_NAME => $oldSet->setName,
-						self::FIELD_SET_ID => $setId
-					]
+					[self::FIELD_SET_ID => $setId]
 				);
 			}
 		}

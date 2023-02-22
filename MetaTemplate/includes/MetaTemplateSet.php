@@ -65,7 +65,7 @@ class MetaTemplateSet
 		}
 
 		foreach ($this->variables as $key => &$value) {
-			if (($value instanceof MetaTemplateVariable)) {
+			if ($value instanceof MetaTemplateVariable) {
 				$value = $value->parseOnLoad
 					? $frame->expand($value->value)
 					: $value->value;

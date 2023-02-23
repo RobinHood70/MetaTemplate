@@ -185,15 +185,15 @@ class MetaTemplate
 			$varValue =
 				$frame->numberedArgs[$srcName] ??
 				$frame->namedArgs[$srcName] ??
-				self::inheritVar($frame->parent, $srcName, $destName, self::checkAnyCase($magicArgs));
+				self::inheritVar($frame, $srcName, $destName, self::checkAnyCase($magicArgs));
 			if ($varValue && $debug) {
-				$inherited[] = "Inherited: $destName=$varValue";
+				$inherited[] = "$destName=$varValue";
 			}
 		}
 
 		if ($debug) {
-			$varList = htmlspecialchars("Inherited variables:\n" . implode("\n", $inherited));
-			return ParserHelper::formatPFForDebug($varList, true);
+			$varList = implode("\n", $inherited);
+			return ParserHelper::formatPFForDebug($varList, true, false, 'Inherited Variables');
 		}
 
 		return '';
@@ -741,26 +741,29 @@ class MetaTemplate
 	 */
 	private static function inheritVar(PPTemplateFrame_Hash $frame, string $srcName, $destName, bool $anyCase)
 	{
-		#RHshow('GetVar', $varName);
+		#RHshow('inhertVar', "$srcName->$destName ", (int)(bool)($frame->numberedArgs[$srcName] ?? $frame->namedArgs[$srcName]));
 		$varValue = null;
-		$curFrame = $frame;
+		$curFrame = $frame->parent;
 		while ($curFrame) {
 			$varValue = $curFrame->numberedArgs[$srcName] ?? $curFrame->namedArgs[$srcName] ?? null;
+			if (isset($varValue)) {
+				break;
+			}
+
 			if (!$varValue && $anyCase && !ctype_digit($srcName)) {
 				$lcname = $lcname ?? strtolower($srcName);
 				foreach ($curFrame->namedArgs as $key => $value) {
 					if (strtolower($key) === $lcname) {
 						$varValue = $value;
-						break;
+						break 2;
 					}
 				}
 			}
 
-			$curFrame = $varValue ? null : $curFrame->parent;
+			$curFrame = $curFrame->parent;
 		}
 
 		if ($varValue && $curFrame) {
-			$curFrame = $curFrame->parent ?? $curFrame;
 			$varValue = $curFrame->expand($varValue, self::getVarExpandFlags());
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}

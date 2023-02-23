@@ -300,13 +300,18 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	private function processTemplate(string $template, string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
 	{
 		$output = self::$parserOutput;
-		$allPages = $output->getExtensionData(MetaTemplateData::KEY_BULK_LOAD) ?? false;
-
-		/** @var ?MetaTemplatePage $mtPage */
-		$setsFound = $allPages[$title->getArticleID()]->sets ?? [];
+		/** @var MetaTemplatePage[] $allPages */
+		$allPages = $output->getExtensionData(MetaTemplateData::KEY_BULK_LOAD) ??  new MetaTemplatePage($title->getNamespace(), $title->getText());
+		$articleId = $title->getArticleID();
+		if (isset($allPages[$articleId])) {
+			$setsFound = $allPages[$articleId]->sets;
+			$defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
+		} else {
+			$defaultSet = new MetaTemplateSet('');
+			$setsFound = [$defaultSet];
+		}
 		#RHshow('Sets found', count($setsFound), "\n", $setsFound);
 
-		$defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
 		unset($setsFound['']);
 		$catVars = $this->parseCatPageTemplate($template, $title, $defaultSet, $sortkey, $pageLength);
 

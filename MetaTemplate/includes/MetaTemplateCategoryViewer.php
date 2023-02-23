@@ -1,6 +1,6 @@
 <?php
 
-use Elastica\Exception\InvalidException;
+
 use Wikimedia\Rdbms\IResultWrapper;
 
 /* In theory, this process could be optimized further by subdividing <catpagetemplate> into a section for pages and a
@@ -11,6 +11,7 @@ use Wikimedia\Rdbms\IResultWrapper;
 
 class MetaTemplateCategoryViewer extends CategoryViewer
 {
+	#region Public Constants
 	// CategoryViewer does not define these despite wide-spread internal usage in later versions, so we do. If that
 	// changes in the future, these can be removed and the code altered, or they can be made synonyms for the CV names.
 	public const CV_FILE = 'file';
@@ -38,9 +39,18 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	public const VAR_SETSORTKEY = 'metatemplate-setsortkey';
 	public const VAR_SETTEXTPOST = 'metatemplate-settextpost';
 	public const VAR_SETTEXTPRE = 'metatemplate-settextpre';
+	#endregion
 
+	#region Private Constants
+	/**
+	 * Key for the value to store catpagetemplate data in for browser refresh.
+	 *
+	 * @var string ([PPFrame $frame, ?string[] $templates])
+	 */
 	private const KEY_CPTDATA = MetaTemplate::KEY_METATEMPLATE . '#cptData';
+	#endregion
 
+	#region Private Static Varables
 	/** @var Language */
 	private static $contLang = null;
 
@@ -67,7 +77,20 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 	/** @var ?string[] */
 	private static $templates = null; // Must be null for proper init on refresh
+	#endregion
 
+	#region Public Static Functions
+	/**
+	 * Creates an inline template to use with the different types of category entries.
+	 *
+	 * @param string $content The content of the tag.
+	 * @param array $attributes The tag attributes.
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The frame in use.
+	 *
+	 * @return string
+	 *
+	 */
 	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
 	{
 		if ($parser->getTitle()->getNamespace() !== NS_CATEGORY || !strlen(trim($content))) {
@@ -152,6 +175,8 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 			return;
 		}
 
+		/** @var MetaTemplatePage[] $pageIds */
+		$pageIds = [];
 		$varNames = array_keys($varNames['']->variables ?? []);
 		#RHshow('Has varnames', $varNames);
 		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
@@ -164,7 +189,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		MetaTemplateSql::getInstance()->catQuery($pageIds, $varNames ?? []);
 		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, $pageIds);
 	}
+	#endregion
 
+	#region Public Functions
 	public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)
 	{
 		$type = isset(self::$templates[self::CV_FILE])
@@ -214,7 +241,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	{
 		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
 	}
+	#endregion
 
+	#region Private Static Functions
 	private static function createFrame(Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPFrame
 	{
 		$frame = self::$frame->newChild([], $title);
@@ -228,6 +257,33 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		return $frame;
 	}
+	#endregion
+
+	#region Private Functions
+	/**
+	 * Evaluates the template in the context of the category entry and each set on that page.
+	 *
+	 * @param string $template The template to be parsed.
+	 * @param Title $title The title of the category entry.
+	 * @param MetaTemplateSet $set The current set on the entry page.
+	 * @param string|null $sortkey The current sortkey.
+	 * @param int $pageLength The page length.
+	 *
+	 * @return MetaTemplateCategoryVars
+	 */
+	private function parseCatPageTemplate(string $template, Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): MetaTemplateCategoryVars
+	{
+		$child = self::createFrame(
+			$title,
+			$set,
+			$sortkey,
+			$pageLength
+		);
+		$templateOutput = self::$parser->recursiveTagParse($template, $child);
+		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
+
+		return $retval->setSkip ? null : $retval;
+	}
 
 	/**
 	 * Generates the text of the entry.
@@ -240,7 +296,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 * @param bool $isRedirect Whether or not the entry is a redirect.
 	 *
 	 * @return array
-	 *
 	 */
 	private function processTemplate(string $template, string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
 	{
@@ -290,25 +345,5 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		return [$catGroup, $catText . $text];
 	}
-
-	/**
-	 * Evaluates the template in the context of the category entry and each set on that page.
-	 *
-	 * @param string $template The template to be parsed.
-	 * @param Title $title The title of the category entry.
-	 * @param MetaTemplateSet $set The current set on the entry page.
-	 * @param string|null $sortkey The current sortkey.
-	 * @param int $pageLength The page length.
-	 *
-	 * @return MetaTemplateCategoryVars
-	 *
-	 */
-	private function parseCatPageTemplate(string $template, Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): MetaTemplateCategoryVars
-	{
-		$child = self::createFrame($title, $set, $sortkey, $pageLength);
-		$templateOutput = self::$parser->recursiveTagParse($template, $child);
-		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
-
-		return $retval->setSkip ? null : $retval;
-	}
+	#endregion
 }

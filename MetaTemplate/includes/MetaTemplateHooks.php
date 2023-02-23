@@ -220,7 +220,7 @@ class MetaTemplateHooks
 
 		$title = $parser->getTitle();
 		$output = $parser->getOutput();
-		/** @var MetaTemplateSetcollection $vars */
+		/** @var MetaTemplateSetCollection $vars */
 		$vars = $output->getExtensionData(MetaTemplateData::KEY_SAVE);
 
 		#RHwriteFile("Saving:\n", $vars);

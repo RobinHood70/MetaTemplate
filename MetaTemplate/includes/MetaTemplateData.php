@@ -6,10 +6,42 @@
 class MetaTemplateData
 {
 	#region Constants
+	/**
+	 * Key for the value housing the {{#preload}} cache.
+	 *
+	 * @var string (?MetaTemplatePage[])
+	 */
 	public const KEY_BULK_LOAD = MetaTemplate::KEY_METATEMPLATE . '#bulkLoad';
+
+	/**
+	 * Key for the value indicating whether catpagetemplate is in initial startup mode and should ignore the |set=
+	 * parameter for anything that calls {{#preload}}.
+	 *
+	 * @var string (?true)
+	 */
 	public const KEY_IGNORE_SET = MetaTemplate::KEY_METATEMPLATE . '#ignoreSet';
+
+	/**
+	 * Key for the value holding the preload variables that should be loaded.
+	 *
+	 * @var string (?MetaTemplateSet[])
+	 */
 	public const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
-	public const KEY_PRELOAD_DATA = MetaTemplate::KEY_METATEMPLATE . '#preloadData';
+
+	/**
+	 * Key to use when saving the {{#preload}} information to the template page. Note that this is currently the same
+	 * as the value above, but they're separated since they're used for two different puruposes and have two different
+	 * associated values.
+	 *
+	 * @var string (string[])
+	 */
+	public const KEY_PRELOAD_DATA = MetaTemplate::KEY_METATEMPLATE . '#preload';
+
+	/**
+	 * Key for the value holding the variables to save at the end of the page.
+	 *
+	 * @var string (?MetaTemplateSetCollection)
+	 */
 	public const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
 
 	public const NA_NAMESPACE = 'metatemplate-namespace';
@@ -30,10 +62,25 @@ class MetaTemplateData
 
 	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 
+	/**
+	 * Key for the value indicating whether we're currently processing a {{#save:...|savemarkup=1}}.
+	 *
+	 * @var string (?true)
+	 */
 	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
 
-	/** Key value for flag that we're in save mode. */
-	private const KEY_SAVE_MODE = MetaTemplate::KEY_METATEMPLATE . '#saving'; // bool
+	/**
+	 * Key for the value indicating if we're in save mode.
+	 *
+	 * @var string (?bool) True if in save mode.
+	 */
+	private const KEY_SAVE_MODE = MetaTemplate::KEY_METATEMPLATE . '#saving';
+
+	/**
+	 * Key for the value indicating that a #save operation was attempted during a #listsaved operation and ignored.
+	 *
+	 * @var string (?bool)
+	 */
 	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
 	#endregion
 
@@ -58,7 +105,6 @@ class MetaTemplateData
 	 *
 	 * @return array The text of the templates to be called to make the list as well as the appropriate noparse value
 	 *               depending whether it was an error message or a successful call.
-	 *
 	 */
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
 	{
@@ -140,6 +186,7 @@ class MetaTemplateData
 		$preloadSet = new MetaTemplateSet(null, [self::KEY_PRELOAD_DATA => false]);
 		MetaTemplateSql::getInstance()->getPreloadInfo($sets, $articleId, $preloadSet, self::PRELOAD_SEP);
 		$output->setExtensionData(self::KEY_PRELOAD, $sets);
+		/** @todo Check if the above setExtensionData is necessary. */
 
 		$namespace = isset($magicArgs[self::NA_NAMESPACE])
 			? $parser->getConverterLanguage()->getNsIndex($magicArgs[self::NA_NAMESPACE])
@@ -187,7 +234,6 @@ class MetaTemplateData
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doLoad(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -258,7 +304,7 @@ class MetaTemplateData
 					foreach ($preloadSet->variables as $varName => $value) {
 						$varValue = $bulkSet->variables[$varName] ?? false;
 						if ($varValue !== false) {
-							$varValue = $frame->expand($varValue, MetaTemplate::getVarMarkupFlags());
+							$varValue = $frame->expand($varValue, MetaTemplate::getVarExpandFlags());
 							MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
 						}
 
@@ -314,7 +360,6 @@ class MetaTemplateData
 	 * @param array $args Function arguments: The data to preload. Names must be as they're stored in the database.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doPreload(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -369,7 +414,6 @@ class MetaTemplateData
 	 *      ifnot: A condition that must be false in order for this function to run.
 	 *
 	 * @return void
-	 *
 	 */
 	public static function doSave(Parser $parser, PPFrame $frame, array $args): array
 	{
@@ -414,7 +458,7 @@ class MetaTemplateData
 
 				// For some reason, this seems to be necessary at all expansion levels during save, not just the top.
 				MetaTemplate::unsetVar($frame, $srcName, $anyCase);
-				$varValue = $frame->expand($varNodes, $saveMarkup ? MetaTemplate::getVarMarkupFlags() : PPFrame::STRIP_COMMENTS);
+				$varValue = $frame->expand($varNodes, $saveMarkup ? MetaTemplate::getVarExpandFlags() : PPFrame::STRIP_COMMENTS);
 				MetaTemplate::setVarDirect($frame, $srcName, $varNodes);
 
 				$varValue = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($varValue);
@@ -470,7 +514,6 @@ class MetaTemplateData
 	 * @param PPFrame $frame The template frame in use.
 	 *
 	 * @return string The value text with templates and tags left unparsed.
-	 *
 	 */
 	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame_Hash $frame): array
 	{
@@ -481,29 +524,22 @@ class MetaTemplateData
 			return [$value, 'markerType' => 'general'];
 		}
 
-		if ($saveMode) { // Saving <savemarkup> inside {{#save:...|savemarkup=1}}
-			$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
-			if (self::treeHasTemplate($value)) {
-				$parser->getOutput()->setExtensionData(self::KEY_PARSEONLOAD, true);
-			}
-
-			$parent = $frame->parent ?? $frame;
-			$value = $parent->expand($value, MetaTemplate::getVarMarkupFlags());
-
-			#RHshow('Double Parsed', $value);
-			return [$value, 'markerType' => 'nowiki'];
-		}
-
-		// Saving with standard {{#save:...|savemarkup=1}}
 		$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
 		if (self::treeHasTemplate($value)) {
 			$parser->getOutput()->setExtensionData(self::KEY_PARSEONLOAD, true);
 		}
 
-		$value = $frame->expand($value, MetaTemplate::getVarMarkupFlags());
-		$value = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($value);
+		if ($saveMode) { // Saving <savemarkup> inside {{#save:...|savemarkup=1}}
+			$parent = $frame->parent ?? $frame;
+			$value = $parent->expand($value, MetaTemplate::getVarExpandFlags());
+			#RHshow('Double Parsed', $value);
+		} else {
+			// Saving with standard {{#save:...|savemarkup=1}}
+			$value = $frame->expand($value, MetaTemplate::getVarExpandFlags());
+			$value = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($value);
+			#RHshow('Value', $value);
+		}
 
-		#RHshow('Value', $value);
 		return [$value, 'markerType' => 'nowiki'];
 	}
 	#endregion
@@ -548,7 +584,6 @@ class MetaTemplateData
 	 * @param string $separator The separator to use between each template.
 	 *
 	 * @return string The text of the template calls.
-	 *
 	 */
 	private static function createTemplates(string $templateName, array $pages, string $separator): string
 	{
@@ -574,7 +609,6 @@ class MetaTemplateData
 	 * @param MetaTemplateSet $set The set to load.
 	 *
 	 * @return bool True if variables were loaded.
-	 *
 	 */
 	private static function loadFromOutput(ParserOutput $output, MetaTemplateSet &$set): bool
 	{
@@ -610,12 +644,11 @@ class MetaTemplateData
 	/**
 	 * Sorts the results according to user-specified order (if any), then page name, and finally set.
 	 *
-	 * @param array $arr The array to sort.
-	 * @param array $sortOrder A list of field names to sort by. In the event of duplication, only the first instance
+	 * @param array $arr The array of page/set data to sort.
+	 * @param string[] $sortOrder A list of field names to sort by. In the event of duplication, only the first instance
 	 *                         counts.
 	 *
-	 * @return array The sorted array.
-	 *
+	 * @return MetaTemplatePage[] The sorted array.
 	 */
 	private static function processListSaved(array $arr, array $sortOrder): array
 	{
@@ -667,7 +700,6 @@ class MetaTemplateData
 	 * @param PPNode_Hash_Tree $node
 	 *
 	 * @return bool
-	 *
 	 */
 	private static function treeHasTemplate($nodes): bool
 	{

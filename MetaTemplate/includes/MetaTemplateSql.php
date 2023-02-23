@@ -285,7 +285,7 @@ class MetaTemplateSql
 	 * @param array $conditions An array of key=>value strings to use for query conditions.
 	 * @param MetaTemplateSet[] $sets The array sets and names to be loaded.
 	 *
-	 * @return MetaTemplatePage[] An array of pages indexed by Page ID.
+	 * @return array An array of page row data indexed by Page ID.
 	 *
 	 */
 	public function loadListSavedData(?int $namespace, array $conditions, array $sets, PPFrame $frame): array
@@ -320,7 +320,6 @@ class MetaTemplateSql
 			++$data;
 		}
 
-		/** @var MetaTemplatePage[] $retval */
 		$queries = [];
 		foreach ($sets as $set) {
 			if (!count($set->variables)) {
@@ -479,9 +478,13 @@ class MetaTemplateSql
 	/**
 	 * Loads variables from the database.
 	 *
+	 * @param MetaTemplateSet[] $sets The sets to populate.
 	 * @param int $pageId The page ID to get the preload data from.
+	 * @param MetaTemplateSet $preloadSet The set of variables to preload.
+	 * @param string $preloadSeparator The separator for the fields.
 	 *
-	 * @return MetaTemplateSet[] An array containing any proload variables that were found.
+	 * @return void
+	 *
 	 */
 	public function getPreloadInfo(array &$sets, int $pageId, MetaTemplateSet $preloadSet, string $preloadSeparator): void
 	{

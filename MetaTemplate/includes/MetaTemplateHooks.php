@@ -1,10 +1,7 @@
 <?php
 // name space MediaWiki\Extension\MetaTemplate;
 
-// use MediaWiki\DatabaseUpdater;
 use Wikimedia\Rdbms\IResultWrapper;
-
-// require_once(__DIR__ . "/extensions/ParserHelper/ParserHelper.php");
 
 /** @todo Add {{#define/local/preview:a=b|c=d}} */
 class MetaTemplateHooks
@@ -173,15 +170,8 @@ class MetaTemplateHooks
 	 * @return void
 	 *
 	 */
-	public static function onPageMoveComplete(
-		$old,
-		$new,
-		$userIdentity,
-		int $pageid,
-		int $redirid,
-		string $reason,
-		$revision
-	): void {
+	public static function onPageMoveComplete($old, $new, $userIdentity, int $pageid, int $redirid, string $reason, $revision): void
+	{
 		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
 		// the same number and order of parameters, just with different object types.
 		#RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");

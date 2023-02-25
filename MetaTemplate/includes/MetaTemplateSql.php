@@ -267,47 +267,6 @@ class MetaTemplateSql
 	}
 
 	/**
-	 * Gets preload variables from the database.
-	 *
-	 * @param MetaTemplateSet[] $sets The sets to populate.
-	 * @param int $pageId The page ID to get the preload data from.
-	 * @param MetaTemplateSet $preloadSet The set of variables to preload.
-	 * @param string $preloadSeparator The separator for the fields.
-	 *
-	 * @return void
-	 */
-	public function getPreloadInfo(array &$sets, int $pageId, MetaTemplateSet $preloadSet, string $preloadSeparator): void
-	{
-		if ($pageId <= 0) {
-			return;
-		}
-
-		[
-			$tables, $fields, $conds, $options, $joinConds
-		] = $this->loadQuery($pageId, $preloadSet);
-		RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
-		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
-		if (!$result || !$result->numRows()) {
-			return;
-		}
-
-		for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-			$setName = $row[self::FIELD_SET_NAME];
-			if (isset($sets[$setName])) {
-				$set = &$sets[$setName];
-			} else {
-				$set = new MetaTemplateSet($setName);
-				$sets[$setName] = $set;
-			}
-
-			$varNames = explode($preloadSeparator, $row[self::FIELD_VAR_VALUE]);
-			foreach ($varNames as $varName) {
-				$set->variables[$varName] = false;
-			}
-		}
-	}
-
-	/**
 	 * Checks the database to see if the page has any variables defined.
 	 *
 	 * @param Title $title The title to check.
@@ -362,60 +321,58 @@ class MetaTemplateSql
 	 *
 	 * @return array An array of page row data indexed by Page ID.
 	 */
-	public function loadListSavedData(?int $namespace, array $conditions, array $sets, PPFrame $frame): array
+	public function loadListSavedData(?int $namespace, ?string $setName, array $conditions, PPFrame $frame): array
 	{
-		if (!count($sets)) {
-			return [];
-		}
-
 		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
-		[$tables, $fields, $options, $joinConds] = self::baseQuery(
+		$tables = [
+			'page',
+			self::TABLE_SET,
+			self::TABLE_DATA
+		];
+
+		$fields = [
 			'page.page_title',
 			'page.page_namespace',
 			self::SET_PAGE_ID,
 			self::SET_SET_ID,
 			self::SET_REV_ID,
-			self::SET_SET_NAME
-		);
+			self::SET_SET_NAME,
+			self::DATA_VAR_NAME,
+			self::DATA_VAR_VALUE,
+			self::DATA_PARSE_ON_LOAD
+		];
 
-		$tables[] = 'page';
-		$baseJoinConds[self::TABLE_SET] = ['JOIN', ['page.page_id=' . self::SET_PAGE_ID]];
+		$options = ['ORDER BY' => [
+			self::FIELD_PAGE_ID,
+			self::FIELD_SET_NAME,
+			self::FIELD_REV_ID
+		]];
+
+		$conds = [];
 		if (!is_null($namespace)) {
 			$conds['page.page_namespace'] = $namespace;
 		}
 
-		$data = 1;
+		if (!is_null($setName)) {
+			$conds[self::SET_SET_NAME] = $setName;
+		}
+
+		$joinConds = [
+			self::TABLE_SET => ['JOIN', ['page.page_id=' . self::SET_PAGE_ID]],
+			self::TABLE_DATA => ['JOIN', [self::DATA_SET_ID . '=' . self::SET_SET_ID]]
+		];
+
+		$filter = 1;
 		foreach ($conditions as $key => $value) {
-			$dataName = 'data' . $data;
-			$tables[$dataName] = self::TABLE_DATA;
-			$baseJoinConds[$dataName] = ['JOIN', [self::SET_SET_ID . '=' . $dataName . '.setId']];
-			$conds[$dataName . '.' . self::FIELD_VAR_NAME] = $key;
-			$conds[$dataName . '.' . self::FIELD_VAR_VALUE] = $value;
-			++$data;
+			$filterName = 'filter' . $filter;
+			$tables[$filterName] = self::TABLE_DATA;
+			$joinConds[$filterName] = ['JOIN', [self::SET_SET_ID . '=' . $filterName . '.setId']];
+			$conds[$filterName . '.' . self::FIELD_VAR_NAME] = $key;
+			$conds[$filterName . '.' . self::FIELD_VAR_VALUE] = $value;
+			++$filter;
 		}
 
-		$queries = [];
-		foreach ($sets as $set) {
-			RHshow('Set', $set);
-			if (count($set->variables)) {
-				$varNames = array_keys($set->variables);
-				$conds[self::SET_SET_NAME] = $set->name;
-				$joinConds = array_merge($baseJoinConds, [self::TABLE_DATA => ['LEFT JOIN', [self::SET_SET_ID . '=' . self::DATA_SET_ID, self::DATA_VAR_NAME => $varNames]]]);
-				#RHshow('Tables', $tables, "\n\nFields: ", $fields, "\n\nConds: ", $conds, "\n\nOptions: ", $options, "\n\nJoin Conds: ", $joinConds);
-				$query = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds);
-				RHshow('Query', $query);
-				$queries[] = $query;
-			}
-		}
-
-		// Remove the last query and replace it with the same query plus the ORDER BY clause, which sorts the entire union at once.
-		array_pop($queries);
-		$queries[] = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds);
-
-		// unionQueries() only supports parenthesized unions, while this should use unparenthesized unions, so we do it manually.
-		$query = implode(" UNION ", $queries);
-		$rows = $this->dbRead->query($query);
-		#RHecho($union, "\n{$rows->numRows()} rows found.");
+		$rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 
 		$retval = [];
 		$prevPageId = 0;
@@ -447,6 +404,99 @@ class MetaTemplateSql
 
 		if (isset($data)) {
 			$retval[] = $data;
+		}
+
+		RHshow('Retval', $retval);
+		return $retval;
+	}
+
+	/**
+	 * Loads the list of pages and sets that are available on the wiki, given the specified conditions.
+	 *
+	 * @param int $namespace The integer namespace to restrict results to.
+	 * @param array $conditions An array of key=>value strings to use for query conditions.
+	 * @param MetaTemplateSet[] $preloads The preload sets to load.
+	 *
+	 * @return MetaTemplatePage[] An array of page row data indexed by Page ID.
+	 */
+	public function loadPreloadPages(?int $namespace, ?array $preloads): array
+	{
+		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
+		$tables = [
+			'page',
+			self::TABLE_SET
+		];
+
+		if ($preloads) {
+			// This simple addition converts the query from finding the desired pages to finding all the preload data
+			// on all the pages.
+			$tables[] = self::TABLE_DATA;
+		}
+
+		$fields = [
+			'page.page_title',
+			'page.page_namespace',
+			self::SET_PAGE_ID,
+			self::SET_SET_NAME
+		];
+
+		$joinConds = [
+			self::TABLE_SET =>
+			['JOIN', ['page.page_id=' . self::SET_PAGE_ID]]
+		];
+
+		$baseConds = is_null($namespace) ? [] : ['page.page_namespace' => $namespace];
+
+		$queries = [];
+		$conds = $baseConds;
+		RHshow('preloads', $preloads);
+		foreach ($preloads as $preload) {
+			$conds = $baseConds;
+			$filter = 1;
+			foreach ($preload->variables as $key => $value) {
+				if ($value !== false) {
+					$dataName = 'filter' . $filter;
+					$tables[$dataName] = self::TABLE_DATA;
+					$joinConds[$dataName] = ['JOIN', [self::SET_SET_ID . '=' . $dataName . '.setId']];
+					$conds[$dataName . '.' . self::FIELD_VAR_NAME] = $key;
+					$conds[$dataName . '.' . self::FIELD_VAR_VALUE] = $value;
+					++$filter;
+				}
+			}
+
+			$queries[] = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds);
+		}
+
+		$options = ['ORDER BY' => [
+			self::FIELD_PAGE_ID,
+			self::FIELD_SET_NAME
+		]];
+
+		// Remove the last query and replace it with the same query plus the ORDER BY clause, which sorts the entire
+		// union at once. Note that this also has the side-effect of ensuring that there's always a valid underlying
+		// query (everything on the page) in the event that nothing was specified.
+		array_pop($queries);
+		$queries[] = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds);
+
+		// unionQueries() only supports parenthesized unions, while this should use unparenthesized unions, so we do it manually.
+		$query = implode(" UNION ", $queries);
+		RHshow('Queries', $query);
+		$rows = $this->dbRead->query($query);
+		#RHecho($union, "\n{$rows->numRows()} rows found.");
+
+		$retval = [];
+		$formatter = MediaWikiServices::getInstance()->getTitleFormatter();
+		$row = $rows->fetchRow() ?? null;
+		while ($row) {
+			$pageName = $row['page_title'];
+			$ns = $formatter->getNamespaceName($row['page_namespace'], $pageName);
+			$page = new MetaTemplatePage($ns, $pageName);
+			$retval[] = $page;
+			$pageId = $row[self::FIELD_PAGE_ID];
+			do {
+				$page->sets[] = new MetaTemplateSet($row[self::FIELD_SET_NAME]);
+				$row = $rows->fetchRow();
+			} while ($row && $pageId === $row[self::FIELD_PAGE_ID]);
 		}
 
 		return $retval;
@@ -492,72 +542,88 @@ class MetaTemplateSql
 	}
 
 	/**
-	 * Creates the query to load variables from the database.
+	 * Loads variables from the database.
 	 *
 	 * @param int $pageId The page ID to load.
-	 * @param MetaTemplateSet $setName The set name to load. If null, loads all sets.
-	 * @param array $varNames A filter of which variable names should be returned.
+	 * @param MetaTemplateSet $set The set to load.
 	 *
-	 * @return array Array of tables, fields, conditions, options, and join conditions for a query, mirroring the
-	 *               parameters to IDatabase->select.
+	 * @return void
 	 */
-	public function loadQuery(int $pageId, MetaTemplateSet $set): ?array
+	public function loadSetFromPage(int $pageId, MetaTemplateSet &$set, PPFrame $frame = null): void
 	{
 		[$tables, $fields, $options, $joinConds] = self::baseQuery();
-		$conds[self::SET_PAGE_ID] = $pageId;
-		if (isset($set->name)) {
-			$conds[self::SET_SET_NAME] = $set->name;
-		} else {
-			$fields[] = self::SET_SET_NAME;
-		}
+		$conds = [
+			self::SET_PAGE_ID => $pageId,
+			self::SET_SET_NAME => $set->name ?? ''
+		];
 
 		if (count($set->variables)) {
 			$conds[self::DATA_VAR_NAME] = array_keys($set->variables);
 		}
 
 		#RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
-		return [
-			$tables,
-			$fields,
-			$conds,
-			$options,
-			$joinConds
-		];
+		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
+		if ($result) {
+			for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
+				// Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
+				// will overwrite the older values.
+				$varValue = $row[self::FIELD_VAR_VALUE];
+				if ($row[self::FIELD_PARSE_ON_LOAD]) {
+					$varValue = $frame
+						? $frame->expand($varValue)
+						: [$varValue, true];
+				}
+
+				$set->variables[$row[self::FIELD_VAR_NAME]] = $varValue;
+			}
+		}
 	}
 
 	/**
 	 * Loads variables from the database.
 	 *
 	 * @param int $pageId The page ID to load.
-	 * @param MetaTemplateSet $set The set to load.
+	 * @param string $setName The set to load.
 	 *
-	 * @return bool True if data was loaded.
+	 * @return MetaTemplateSet[] The sets found with the requested name.
 	 */
-	public function loadSetFromDb(int $pageId, MetaTemplateSet &$set): bool
+	public function loadSetsFromPage(int $pageId, array $varNames = null, PPFrame $frame = null): array
 	{
-		if ($pageId <= 0) {
-			return false;
+		[$tables, $fields, $options, $joinConds] = self::baseQuery();
+		$fields[] = self::SET_SET_NAME;
+		$conds = [self::SET_PAGE_ID => $pageId];
+		if ($varNames && count($varNames)) {
+			$conds[self::DATA_VAR_NAME] = $varNames;
 		}
 
-		[$tables, $fields, $conds, $options, $joinConds] = $this->loadQuery($pageId, $set);
-		#RHshow('Method', $method, "\nTables: ", $tables, "\nFields: ", $fields, "\nConditions: ", $conds, "\nOptions: ", $options, "\nJoin Conds: ", $joinConds);
-		#RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds));
+		// We don't have page info yet, so this doesn't make sense to be put into a MetaTemplatePage object here.
+		// Instead, we stick to an array of MetaTemplateSet objects.
+		$sets = [];
+		RHshow(__METHOD__ . ' query', $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
-		if (!$result || !$result->numRows()) {
-			return false;
+		if ($result) {
+			for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
+				$setName = $row[self::FIELD_SET_NAME];
+				RHshow('setName', $setName);
+				if (isset($sets[$setName])) {
+					$set = $sets[$setName];
+				} else {
+					$set = new MetaTemplateSet($setName);
+					$sets[] = $set;
+				}
+
+				$varValue = $row[self::FIELD_VAR_VALUE];
+				if ($row[self::FIELD_PARSE_ON_LOAD]) {
+					$varValue = $frame
+						? $frame->expand($varValue)
+						: [$varValue, true];
+				}
+
+				$set->variables[$row[self::FIELD_VAR_NAME]] = $varValue;
+			}
 		}
 
-		$retval = false;
-		for ($row = $result->fetchRow(); $row; $result->fetchRow()) {
-			// Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
-			// will overwrite the older values.
-			$var = new MetaTemplateVariable($row[self::FIELD_VAR_VALUE], $row[self::FIELD_PARSE_ON_LOAD]);
-			$set->variables[$row[self::FIELD_VAR_NAME]] = $var;
-			$row = $result->fetchRow();
-			$retval = true;
-		}
-
-		return $retval;
+		return $sets;
 	}
 
 	/**

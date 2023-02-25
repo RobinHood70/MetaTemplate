@@ -111,6 +111,7 @@ class MetaTemplateData
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
+			MetaTemplateData::NA_SET,
 			ParserHelper::NA_DEBUG,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
@@ -126,35 +127,13 @@ class MetaTemplateData
 			return '';
 		}
 
-		if (!isset($values[0])) { // Should be impossible, but better safe than crashy.
-			return [ParserHelper::error('metatemplate-listsaved-template-empty')];
-		}
-
-		$template = trim($frame->expand($values[0]));
+		$template = trim($frame->expand($values[0] ?? ''));
 		if (!strlen($template)) {
+
 			return [ParserHelper::error('metatemplate-listsaved-template-empty')];
 		}
 
 		unset($values[0]);
-
-		/**
-		 * @var array $conditions
-		 * @var array $extrasnamed */
-		[$conditions, $extras] = ParserHelper::splitNamedArgs($frame, $values);
-		if (!count($conditions)) {
-			return [ParserHelper::error('metatemplate-listsaved-conditions-missing')];
-		}
-
-		foreach ($conditions as $key => &$newValue) {
-			$newValue = $frame->expand($newValue);
-		}
-
-		unset($newValue);
-		$output = $parser->getOutput();
-		if (!empty($extras)) {
-			$parser->addTrackingCategory('metatemplate-tracking-listsaved-extraparams');
-			$output->addWarning(wfMessage('metatemplate-listsaved-warn-extraparams')->plain());
-		}
 
 		$templateTitle = Title::newFromText($template, NS_TEMPLATE);
 		if (!$templateTitle) {
@@ -163,9 +142,10 @@ class MetaTemplateData
 
 		$page = WikiPage::factory($templateTitle);
 		if (!$page) {
-			return [ParserHelper::error('metatemplate-listsaved-template-missing', $template)];
+			return [ParserHelper::error('metatemplate-listsaved-template-missing', $templateTitle->getFullText())];
 		}
 
+		$output = $parser->getOutput();
 		// Track the page here rather than earlier or later since the template should be tracked even if it doesn't
 		// exist, but not if it's invalid. We use $page for values instead of $templateTitle
 		$output->addTemplate($templateTitle, $page->getId(), $page->getLatest());
@@ -179,21 +159,35 @@ class MetaTemplateData
 			return [ParserHelper::error('metatemplate-listsaved-template-toolong', $template, $maxLen)];
 		}
 
-		$articleId = $templateTitle->getArticleID();
+		// Load any #preload data. Don't load anything that's already loaded and in the cache.
+		$sql = MetaTemplateSql::getInstance();
 
-		/** @var MetaTemplateSet[] $sets */
-		$sets = $output->getExtensionData(self::KEY_PRELOAD_VARS) ?? [];
-		$preloadSet = new MetaTemplateSet(null, [self::KEY_PRELOAD_DATA => false]);
-		MetaTemplateSql::getInstance()->getPreloadInfo($sets, $articleId, $preloadSet, self::PRELOAD_SEP);
-		$output->setExtensionData(self::KEY_PRELOAD_VARS, $sets);
-		/** @todo Check if the above setExtensionData is necessary. */
+		/**
+		 * @var array $conditions
+		 * @var array $extrasnamed
+		 */
+		[$conditions, $extras] = ParserHelper::splitNamedArgs($frame, $values);
+		if (!count($conditions)) {
+			// Is this actually an error? Could there be a condition of wanting all rows (perhaps in namespace)?
+			return [ParserHelper::error('metatemplate-listsaved-conditions-missing')];
+		}
 
-		$namespace = isset($magicArgs[self::NA_NAMESPACE])
-			? $parser->getConverterLanguage()->getNsIndex($magicArgs[self::NA_NAMESPACE])
-			: null;
-		#RHecho($namespace, "\n", $conditions, "\n", $sets);
-		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $conditions, $sets, $frame);
-		#RHshow('Pages', $pages);
+		foreach ($conditions as &$value) {
+			$value = $frame->expand($value);
+		}
+
+		RHshow('Conditions', $conditions);
+		$rows = $sql->loadListSavedData($magicArgs[self::NA_NAMESPACE] ?? null, $magicArgs[MetaTemplateData::NA_SET] ?? null, $conditions, $frame);
+
+		$output = $parser->getOutput();
+		if (!empty($extras)) {
+			// While extra parameters are still allowed and used, and probably desirable to keep, for now, it's best to
+			// track them and make sure any uses are legit. Most if not all probably belong in a {{#preload}}.
+			$parser->addTrackingCategory('metatemplate-tracking-listsaved-extraparams');
+			$output->addWarning(wfMessage('metatemplate-listsaved-warn-extraparams')->plain());
+		}
+		// You should always be able to comment out this line without affecting the function in any way.
+		// self::loadPreloadData($output, $templateTitle, $conditions, $frame);
 
 		$orderNames = $magicArgs[self::NA_ORDER] ?? null;
 		$orderNames = $orderNames ? explode(',', $orderNames) : [];
@@ -201,6 +195,7 @@ class MetaTemplateData
 		$orderNames[] = 'set';
 		$pages = self::processListSaved($rows, $orderNames);
 		$output->setExtensionData(self::KEY_BULK_LOAD, $pages);
+		#RHshow('Pages', $pages);
 
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
 		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
@@ -216,7 +211,7 @@ class MetaTemplateData
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, null);
 		}
 
-		return ParserHelper::formatPFForDebug($retval, $debug, true);
+		return ParserHelper::formatPFForDebug($retval, $debug);
 	}
 
 	/**
@@ -341,7 +336,7 @@ class MetaTemplateData
 		}
 
 		#RHshow('Trying to load vars from database [[', $page->getTitle()->getFullText(), ']]', $set);
-		$success = MetaTemplateSql::getInstance()->loadSetFromDb($pageId, $set);
+		$success = MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
 		if ($success) {
 			$set->resolveVariables($frame);
 			foreach ($set->variables as $varName => $varValue) {
@@ -639,6 +634,72 @@ class MetaTemplateData
 		}
 
 		return $retval;
+	}
+
+	private static function loadPreloadData(ParserOutput $output, Title $templateTitle, array $conditions, PPFrame $frame)
+	{
+		// Given that caching should take care of most of this, does this level of precaching and such make sense?
+		// Might be overly complicating things for very little gain.
+		$pageId = $templateTitle->getArticleID();
+
+		/** @var MetaTemplateset[] $preloadSets */
+		$preloadSets = $output->getExtensionData(self::KEY_PRELOAD_VARS) ?? [];
+
+		// Get precache variable sets
+		/** @todo Combine all preload info into a cache object to ensure they travel together and remain synced. */
+		/** @var MetaTemplateset[] $preloadSets */
+		$newSets = [];
+
+		/**
+		 * Could be further optimized by not loading/parsing preload data that's already loaded
+		 * (i.e., array_keys($pageSets)), but given that this should only happen with a save/purge, it probably
+		 * doesn't make sense to optimize that much.
+		 */
+		$sql = MetaTemplateSql::getInstance();
+		$varNames[] = self::KEY_PRELOAD_DATA;
+		$tempSets = $sql->loadSetsFromPage($pageId, $varNames);
+		RHshow('tempSets', $tempSets);
+		foreach ($tempSets as $preloadData) {
+			if (!isset($preloadSets[$preloadData->name])) {
+				$newSets[$preloadData->name] = $preloadData;
+			}
+		}
+
+		// Set up database queries to include all condition and preload data.
+		foreach ($newSets as $preloadData) {
+			$varNames = $preloadData->variables[self::KEY_PRELOAD_DATA] ?? null;
+			if ($varNames) {
+				$varNames = explode(self::PRELOAD_SEP, $varNames);
+				foreach ($varNames as $varName) {
+					if (!isset($preloadData->variables[$varName])) {
+						$preloadData->variables[$varName] = false;
+					}
+				}
+
+				unset($preloadData->variables[self::KEY_PRELOAD_DATA]);
+			}
+		}
+
+		$namespace = isset($magicArgs[self::NA_NAMESPACE])
+			? $frame->parser->getConverterLanguage()->getNsIndex($magicArgs[self::NA_NAMESPACE])
+			: null;
+		$paramSet = $magicArgs[MetaTemplateData::NA_SET] ?? null;
+		if ($paramSet) {
+			if (!isset($preloadSets[$paramSet])) {
+				$preloadData = new MetaTemplateSet($paramSet, array_merge($conditions, [self::KEY_PRELOAD_DATA => false]));
+				RHshow('preloadData Before', $preloadData);
+				$sql->loadSetFromPage($pageId, $preloadData);
+				RHshow('preloadData After', $preloadData);
+				$newSets[$preloadData->name] = $preloadData;
+			}
+		}
+
+		#RHshow('Namespace', (int)$namespace, "\nConditions: ", $conditions, "\n$", $sets);
+
+		// Query and sort the data.
+		RHshow('newSets', $newSets);
+		$pages = $sql->loadPreloadPages($namespace, $newSets);
+		RHshow('Pages', $pages);
 	}
 
 	/**

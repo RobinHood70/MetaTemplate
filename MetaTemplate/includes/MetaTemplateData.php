@@ -26,7 +26,7 @@ class MetaTemplateData
 	 *
 	 * @var string (?MetaTemplateSet[])
 	 */
-	public const KEY_PRELOAD = MetaTemplate::KEY_METATEMPLATE . '#preload';
+	public const KEY_PRELOAD_VARS = MetaTemplate::KEY_METATEMPLATE . '#preload';
 
 	/**
 	 * Key to use when saving the {{#preload}} information to the template page. Note that this is currently the same
@@ -182,10 +182,10 @@ class MetaTemplateData
 		$articleId = $templateTitle->getArticleID();
 
 		/** @var MetaTemplateSet[] $sets */
-		$sets = $output->getExtensionData(self::KEY_PRELOAD) ?? [];
+		$sets = $output->getExtensionData(self::KEY_PRELOAD_VARS) ?? [];
 		$preloadSet = new MetaTemplateSet(null, [self::KEY_PRELOAD_DATA => false]);
 		MetaTemplateSql::getInstance()->getPreloadInfo($sets, $articleId, $preloadSet, self::PRELOAD_SEP);
-		$output->setExtensionData(self::KEY_PRELOAD, $sets);
+		$output->setExtensionData(self::KEY_PRELOAD_VARS, $sets);
 		/** @todo Check if the above setExtensionData is necessary. */
 
 		$namespace = isset($magicArgs[self::NA_NAMESPACE])
@@ -292,7 +292,7 @@ class MetaTemplateData
 
 		// Next, check preloaded variables
 		/** @var MetaTemplateSet $preloadSet */
-		$preloadSet = $output->getExtensionData(self::KEY_PRELOAD)[$setName] ?? null;
+		$preloadSet = $output->getExtensionData(self::KEY_PRELOAD_VARS)[$setName] ?? null;
 		if ($preloadSet) {
 			/** @var MetaTemplatePage $bulkPage */
 			$bulkPage = $output->getExtensionData(self::KEY_BULK_LOAD)[$pageId] ?? null;
@@ -379,7 +379,7 @@ class MetaTemplateData
 			: $magicArgs[self::NA_SET] ?? '';
 
 		/** @var MetaTemplateSet[] $sets */
-		$sets = $output->getExtensionData(self::KEY_PRELOAD) ?? [];
+		$sets = $output->getExtensionData(self::KEY_PRELOAD_VARS) ?? [];
 		if (isset($sets[$setName])) {
 			$set = $sets[$setName];
 		} else {
@@ -394,7 +394,7 @@ class MetaTemplateData
 
 		$varList = implode(self::PRELOAD_SEP, array_keys($set->variables));
 		self::addToSet($parser->getTitle(), $output, $setName, [self::KEY_PRELOAD_DATA => new MetaTemplateVariable($varList, false)]);
-		$output->setExtensionData(self::KEY_PRELOAD, $sets);
+		$output->setExtensionData(self::KEY_PRELOAD_VARS, $sets);
 	}
 
 	/**

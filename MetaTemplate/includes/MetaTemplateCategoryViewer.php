@@ -170,7 +170,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		/** @var MetaTemplateSet[] $varNames */
-		$varNames = self::$parserOutput->getExtensionData(MetaTemplateData::KEY_PRELOAD);
+		$varNames = self::$parserOutput->getExtensionData(MetaTemplateData::KEY_PRELOAD_VARS);
 		if (!$varNames) {
 			return;
 		}

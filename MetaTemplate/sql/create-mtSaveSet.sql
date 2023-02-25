@@ -13,11 +13,11 @@
 -- benefit even more if specific set names are in use rather than the default empty string.
 
 CREATE TABLE IF NOT EXISTS /*_*/mtSaveSet (
+	setId INT UNSIGNED NOT NULL AUTO_INCREMENT,
 	setName VARCHAR(50) NOT NULL DEFAULT '',
 	pageId INT UNSIGNED NOT NULL,
 	revId INT UNSIGNED NOT NULL,
-	setId INT UNSIGNED NOT NULL AUTO_INCREMENT,
 	-- FOREIGN KEY (pageId) references page (page_id), -- Unable right now due to page being MyISAM and mtSaveSet being InnoDB
-	PRIMARY KEY (pageId, setName, revId),
-	UNIQUE INDEX (setId)
+	PRIMARY KEY (setId),
+	UNIQUE INDEX (pageId, setName, revId)
 ) /*$wgDBTableOptions*/;

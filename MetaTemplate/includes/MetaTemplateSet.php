@@ -20,11 +20,11 @@ class MetaTemplateSet
 	public $hasUnparsed = true;
 
 	/**
-	 * $setName
 	 *
-	 * @var ?string
+	 *
+	 * @var ?string The name of the set.
 	 */
-	public $setName;
+	public $name;
 
 	/**
 	 * $variables
@@ -37,12 +37,14 @@ class MetaTemplateSet
 	/**
 	 * Creates an instance of the MetaTemplateSet class.
 	 *
-	 * @param mixed $setName The name of the set to create.
+	 * @param ?string $name The name of the set to create.
+	 * @param ?string[] $variables Any variables to pre-initialize the set with.
+	 * @param bool $anyCase
 	 *
 	 */
-	public function __construct(?string $setName = null, ?array $variables = [], bool $anyCase = false)
+	public function __construct(?string $name = null, ?array $variables = [], bool $anyCase = false)
 	{
-		$this->setName = $setName;
+		$this->name = $name;
 		$this->anyCase = $anyCase;
 		$this->variables = $variables ?? [];
 	}
@@ -78,6 +80,6 @@ class MetaTemplateSet
 
 	public function toText()
 	{
-		return ($this->setName ? $this->setName : '(Main)') . ':' . implode('|', array_keys($this->variables));
+		return ($this->name ? $this->name : '(Main)') . ':' . implode('|', array_keys($this->variables));
 	}
 }

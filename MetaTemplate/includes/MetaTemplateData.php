@@ -619,7 +619,7 @@ class MetaTemplateData
 		}
 
 		#RHshow('Page Variables', $pageVars);
-		$pageSet = $pageVars->sets[$set->setName];
+		$pageSet = $pageVars->sets[$set->name];
 		if (!$pageSet) {
 			return false;
 		}

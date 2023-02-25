@@ -399,7 +399,7 @@ class MetaTemplateSql
 			RHshow('Set', $set);
 			if (count($set->variables)) {
 				$varNames = array_keys($set->variables);
-				$conds[self::SET_SET_NAME] = $set->setName;
+				$conds[self::SET_SET_NAME] = $set->name;
 				$joinConds = array_merge($baseJoinConds, [self::TABLE_DATA => ['LEFT JOIN', [self::SET_SET_ID . '=' . self::DATA_SET_ID, self::DATA_VAR_NAME => $varNames]]]);
 				#RHshow('Tables', $tables, "\n\nFields: ", $fields, "\n\nConds: ", $conds, "\n\nOptions: ", $options, "\n\nJoin Conds: ", $joinConds);
 				$query = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds);
@@ -505,8 +505,8 @@ class MetaTemplateSql
 	{
 		[$tables, $fields, $options, $joinConds] = self::baseQuery();
 		$conds[self::SET_PAGE_ID] = $pageId;
-		if (isset($set->setName)) {
-			$conds[self::SET_SET_NAME] = $set->setName;
+		if (isset($set->name)) {
+			$conds[self::SET_SET_NAME] = $set->name;
 		} else {
 			$fields[] = self::SET_SET_NAME;
 		}
@@ -789,7 +789,7 @@ class MetaTemplateSql
 		foreach ($upserts->inserts as $newSet) {
 			$record = [
 				self::FIELD_PAGE_ID => $pageId,
-				self::FIELD_SET_NAME => $newSet->setName,
+				self::FIELD_SET_NAME => $newSet->name,
 				self::FIELD_REV_ID => $newRevId
 			];
 			#RHshow('Insert', $record);
@@ -863,7 +863,7 @@ class MetaTemplateSql
 		}
 
 		if (count($newVars)) {
-			$this->insertData($setId, new MetaTemplateSet($newSet->setName, $newVars));
+			$this->insertData($setId, new MetaTemplateSet($newSet->name, $newVars));
 		}
 
 		if (count($deletes)) {

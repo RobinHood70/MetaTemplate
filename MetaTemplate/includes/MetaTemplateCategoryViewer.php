@@ -249,7 +249,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$frame = self::$frame->newChild([], $title);
 		MetaTemplate::setVar($frame, self::$mwPagelength, (string)$pageLength);
 		MetaTemplate::setVar($frame, self::$mwPagename, $title->getFullText());
-		MetaTemplate::setVar($frame, self::$mwSet, $set->setName);
+		MetaTemplate::setVar($frame, self::$mwSet, $set->name);
 		MetaTemplate::setVar($frame, self::$mwSortkey, explode("\n", $sortkey)[0]);
 		foreach ($set->variables as $varName => $varValue) {
 			MetaTemplate::setVar($frame, $varName, $varValue->value);
@@ -327,7 +327,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$texts = [];
 		if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
 			foreach (array_values($setsFound) as $setkey => $setValues) {
-				#RHshow('Set', $setValues->setName, ' => ', $setValues);
+				#RHshow('Set', $setValues->name, ' => ', $setValues);
 				$setVars = $this->parseCatPageTemplate($template, $title, $setValues, null, -1);
 				if ($setVars) {
 					$texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)

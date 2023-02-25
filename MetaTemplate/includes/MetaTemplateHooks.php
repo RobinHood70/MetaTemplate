@@ -195,9 +195,8 @@ class MetaTemplateHooks
 	 */
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
-		if (!MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) || (!$parser->getRevisionId() /* && !$wgCommandLineMode */)) {
-			// global $wgCommandLineMode;
-			RHwriteFile('ParserAfterTidy skipped: ', $text);
+		global $wgCommandLineMode;
+		if (!MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) || (!$parser->getRevisionId() && !$wgCommandLineMode)) {
 			return;
 		}
 		#RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));

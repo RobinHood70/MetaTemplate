@@ -8,7 +8,7 @@ $magicWords['en'] = [
 	MetaTemplate::NA_CASE => [0, 'case'],
 ];
 
-if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 	$magicWords['en'] += [
 		MetaTemplate::PF_FULLPAGENAMEx => [1, 'FULLPAGENAMEx'],
 		MetaTemplate::PF_NAMESPACEx => [1, 'NAMESPACEx'],
@@ -22,7 +22,7 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 	];
 }
 
-if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 	$magicWords['en'] += [
 		MetaTemplateCategoryViewer::NA_IMAGE => [0, 'image'],
 		MetaTemplateCategoryViewer::NA_PAGE => [0, 'page'],
@@ -48,7 +48,7 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
 	];
 }
 
-if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 	$magicWords['en'] += [
 		MetaTemplateData::NA_NAMESPACE => [0, 'namespace'],
 		MetaTemplateData::NA_ORDER => [0, 'order'],
@@ -66,7 +66,7 @@ if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
 	];
 }
 
-if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)) {
+if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE)) {
 	$magicWords['en'] += [
 		MetaTemplate::NA_SHIFT => [0, 'shift', 'shiftdown'],
 

@@ -44,9 +44,7 @@ class MetaTemplate
 	#region Private Static Variables
 	private static $config;
 	private static $varExpandFlags;
-	#endregion
 
-	#region Public Static Functions
 	/**
 	 * An array of strings containing the names of parameters that should be passed through to a template, even if
 	 * displayed on its own page.
@@ -54,25 +52,9 @@ class MetaTemplate
 	 * @var array $bypassVars // @ var MagicWordArray
 	 */
 	private static $bypassVars = null;
+	#endregion
 
-	/**
-	 * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
-	 * section of extension.json. Prepend the names with $metatemplate to alter their values in LocalSettings.php.
-	 * Currently, these include:
-	 *
-	 *     EnableCatPageTemplate - if set to false, the <catpagetemplate> tag will be disabled.
-	 *     EnableData - if set to false, #load, #save, #listsaved and <savemarkup> are all disabled.
-	 *
-	 * @param string $setting
-	 *
-	 * @return bool Whether MetaTemplate can/should use a particular feature.
-	 */
-	public static function can($setting): bool
-	{
-		$config = self::getConfig();
-		return (bool)$config->get($setting);
-	}
-
+	#region Public Static Functions
 	/**
 	 * Checks the `case` parameter to see if it matches `case=any` or any of the localized equivalents.
 	 *
@@ -412,6 +394,32 @@ class MetaTemplate
 	}
 
 	/**
+	 * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
+	 * section of extension.json. Prepend the names with $metatemplate to alter their values in LocalSettings.php.
+	 * Currently, these include:
+	 *
+	 *     EnableCatPageTemplate (self::STTNG_ENABLECPT) - if set to false, the following features are disabled:
+	 *         <catpagetemplate>
+	 *     EnableData (self::STTNG_ENABLEDATA) - if set to false, the following features are disabled:
+	 *         {{#listsaved}}, {{#load}}, {{#save}}, <savemarkup>
+	 *     EnableDefine (self::STTNG_ENABLEDEFINE) - if set to false, the following features are disabled:
+	 *         {{#define}}, {{#inherit}}, {{#local}}, {{#preview}}, {{#return}}, {{#unset}}
+	 *     EnablePageNames (self::STTNG_ENABLEPAGENAMES) - if set to false, the following features are disabled:
+	 *         {{FULLPAGENAME0}}, {{FULLPAGENAMEx}}, {{NAMESPACEx}}, {{NAMESPACE0}}, {{NESTLEVEL}}, {{PAGENAME0}},
+	 *         {{PAGENAMEx}}
+	 *     ListsavedMaxTemplateSize	- templates with lengths above the size listed here will not be exectued.
+	 *
+	 * @param string $setting
+	 *
+	 * @return bool Whether MetaTemplate can/should use a particular feature.
+	 */
+	public static function getSetting($setting): bool
+	{
+		$config = self::getConfig();
+		return (bool)$config->get($setting);
+	}
+
+	/**
 	 * Gets a raw variable from the frame or, optionally, the entire stack. Use $frame->getXargument() in favour of
 	 * this unless you need to parse the raw argument yourself or need case-insensitive retrieval.
 	 *
@@ -447,7 +455,7 @@ class MetaTemplate
 	public static function getVarExpandFlags()
 	{
 		if (!isset(self::$varExpandFlags)) {
-			self::$varExpandFlags = self::can(self::STTNG_ENABLEDATA)
+			self::$varExpandFlags = self::getSetting(self::STTNG_ENABLEDATA)
 				? PPFrame::STRIP_COMMENTS | PPFrame::NO_TEMPLATES
 				: PPFrame::STRIP_COMMENTS;
 		}

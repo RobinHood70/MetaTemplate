@@ -17,7 +17,7 @@ class MetaTemplateHooks
 	 */
 	public static function migrateDataTable(DatabaseUpdater $updater, string $dir): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			MetaTemplateSql::getInstance()->migrateDataTable($updater, $dir);
 		}
 	}
@@ -33,7 +33,7 @@ class MetaTemplateHooks
 	 */
 	public static function migrateSetTable(DatabaseUpdater $updater, string $dir): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			MetaTemplateSql::getInstance()->migrateSetTable($updater, $dir);
 		}
 	}
@@ -54,7 +54,7 @@ class MetaTemplateHooks
 	 */
 	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			#RHlogFunctionText('Deleted: ', $article->getTitle()->getFullText());
 			MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
 		}
@@ -76,7 +76,7 @@ class MetaTemplateHooks
 	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): void
 	{
 		if ($title->getNamespace() === NS_CATEGORY) {
-			if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+			if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 				$article = new MetaTemplateCategoryPage($title);
 			} elseif (class_exists('CategoryTreeCategoryPage', false)) {
 				$article = new CategoryTreeCategoryPage($title);
@@ -86,7 +86,7 @@ class MetaTemplateHooks
 
 	public static function onDoCategoryQuery(string $type, IResultWrapper $result)
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			MetaTemplateCategoryViewer::onDoCategoryQuery($type, $result);
 		}
 	}
@@ -103,7 +103,7 @@ class MetaTemplateHooks
 	 */
 	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			MetaTemplateSql::getInstance()->onLoadExtensionSchemaUpdates($updater);
 		}
 	}
@@ -118,7 +118,7 @@ class MetaTemplateHooks
 	 */
 	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 			$aCustomVariableIds[] = MetaTemplate::VR_FULLPAGENAME0;
 			$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
 			$aCustomVariableIds[] = MetaTemplate::VR_NESTLEVEL;
@@ -150,7 +150,7 @@ class MetaTemplateHooks
 
 	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput)
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			MetaTemplateCategoryViewer::init($parserOutput);
 		}
 	}
@@ -175,7 +175,7 @@ class MetaTemplateHooks
 		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
 		// the same number and order of parameters, just with different object types.
 		#RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
 			$title = $new instanceof MediaWiki\Linker\LinkTarget
 				? Title::newFromLinkTarget($new)
@@ -196,7 +196,7 @@ class MetaTemplateHooks
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
 		global $wgCommandLineMode;
-		if (!MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) || (!$parser->getRevisionId() && !$wgCommandLineMode)) {
+		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) || (!$parser->getRevisionId() && !$wgCommandLineMode)) {
 			return;
 		}
 		#RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
@@ -247,8 +247,8 @@ class MetaTemplateHooks
 		// with a derivative, then override getPreproessor() in the derived class. The only question then is how to get
 		// the derived parser to be the default.
 		if (
-			MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) ||
-			MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)
+			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) ||
+			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE)
 		) {
 			$parser->mPreprocessor = new MetaTemplatePreprocessor($parser);
 		}
@@ -272,7 +272,7 @@ class MetaTemplateHooks
 	 */
 	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame): bool
 	{
-		if (!MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 			return true;
 		}
 
@@ -303,14 +303,14 @@ class MetaTemplateHooks
 	 */
 	private static function initParserFunctions(Parser $parser): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA) && MetaTemplateSql::getInstance()->tablesExist()) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) && MetaTemplateSql::getInstance()->tablesExist()) {
 			$parser->setFunctionHook(MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_PRELOAD, 'MetaTemplateData::doPreload', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS);
 		}
 
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDEFINE)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE)) {
 			$parser->setFunctionHook(MetaTemplate::PF_DEFINE, 'MetaTemplate::doDefine', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplate::PF_INHERIT, 'MetaTemplate::doInherit', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplate::PF_LOCAL, 'MetaTemplate::doLocal', SFH_OBJECT_ARGS);
@@ -319,7 +319,7 @@ class MetaTemplateHooks
 			$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS);
 		}
 
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 			$parser->setFunctionHook(MetaTemplate::PF_FULLPAGENAMEx, 'MetaTemplate::doFullPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH);
 			$parser->setFunctionHook(MetaTemplate::PF_NAMESPACEx, 'MetaTemplate::doNamespaceX', SFH_OBJECT_ARGS | SFH_NO_HASH);
 			$parser->setFunctionHook(MetaTemplate::PF_PAGENAMEx, 'MetaTemplate::doPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH);
@@ -335,11 +335,11 @@ class MetaTemplateHooks
 	 */
 	private static function initTagFunctions(Parser $parser): void
 	{
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLECPT)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			ParserHelper::setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
 		}
 
-		if (MetaTemplate::can(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			ParserHelper::setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		}
 	}

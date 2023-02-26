@@ -170,7 +170,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		/** @var MetaTemplateSet[] $varNames */
-		$varNames = self::$parserOutput->getExtensionData(MetaTemplateData::KEY_PRELOAD_VARS);
+		$varNames = self::$parserOutput->getExtensionData(MetaTemplateData::KEY_VAR_CACHE_WANTED);
 		if (!$varNames) {
 			return;
 		}
@@ -179,7 +179,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$pageIds = [];
 		$varNames = array_keys($varNames['']->variables ?? []);
 		#RHshow('Has varnames', $varNames);
-		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
+		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, null);
 		for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
 			$pageIds[$row['page_id']] = new MetaTemplatePage($row['page_namespace'], $row['page_title']);
 		}
@@ -187,7 +187,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$result->rewind();
 
 		MetaTemplateSql::getInstance()->catQuery($pageIds, $varNames ?? []);
-		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, $pageIds);
+		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, $pageIds);
 	}
 	#endregion
 
@@ -239,7 +239,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 	public function finaliseCategoryState()
 	{
-		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_BULK_LOAD, null);
+		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, null);
 	}
 	#endregion
 
@@ -252,7 +252,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		MetaTemplate::setVar($frame, self::$mwSet, $set->name);
 		MetaTemplate::setVar($frame, self::$mwSortkey, explode("\n", $sortkey)[0]);
 		foreach ($set->variables as $varName => $varValue) {
-			MetaTemplate::setVar($frame, $varName, $varValue->value);
+			MetaTemplate::setVar($frame, $varName, $varValue);
 		}
 
 		return $frame;
@@ -301,7 +301,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	{
 		$output = self::$parserOutput;
 		/** @var MetaTemplatePage[] $allPages */
-		$allPages = $output->getExtensionData(MetaTemplateData::KEY_BULK_LOAD) ??  new MetaTemplatePage($title->getNamespace(), $title->getText());
+		$allPages = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE) ??  new MetaTemplatePage($title->getNamespace(), $title->getText());
 		$articleId = $title->getArticleID();
 		if (isset($allPages[$articleId])) {
 			$setsFound = $allPages[$articleId]->sets;

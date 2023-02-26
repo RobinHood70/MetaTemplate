@@ -5,14 +5,6 @@
  */
 class MetaTemplateData
 {
-	#region Constants
-	/**
-	 * Key for the value housing the {{#preload}} cache.
-	 *
-	 * @var string (?MetaTemplatePage[])
-	 */
-	public const KEY_BULK_LOAD = MetaTemplate::KEY_METATEMPLATE . '#bulkLoad';
-
 	/**
 	 * Key for the value indicating whether catpagetemplate is in initial startup mode and should ignore the |set=
 	 * parameter for anything that calls {{#preload}}.
@@ -22,16 +14,7 @@ class MetaTemplateData
 	public const KEY_IGNORE_SET = MetaTemplate::KEY_METATEMPLATE . '#ignoreSet';
 
 	/**
-	 * Key for the value holding the preload variables that should be loaded.
-	 *
-	 * @var string (?MetaTemplateSet[])
-	 */
-	public const KEY_PRELOAD_VARS = MetaTemplate::KEY_METATEMPLATE . '#preload';
-
-	/**
-	 * Key to use when saving the {{#preload}} information to the template page. Note that this is currently the same
-	 * as the value above, but they're separated since they're used for two different puruposes and have two different
-	 * associated values.
+	 * Key to use when saving the {{#preload}} information to the template page.
 	 *
 	 * @var string (string[])
 	 */
@@ -43,6 +26,21 @@ class MetaTemplateData
 	 * @var string (?MetaTemplateSetCollection)
 	 */
 	public const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
+
+	#region Constants
+	/**
+	 * Key for the value housing the {{#preload}} cache.
+	 *
+	 * @var string (?MetaTemplatePage[])
+	 */
+	public const KEY_VAR_CACHE = MetaTemplate::KEY_METATEMPLATE . '#cache';
+
+	/**
+	 * Key for the value holding the preload variables that should be loaded.
+	 *
+	 * @var string (?MetaTemplateSet[])
+	 */
+	public const KEY_VAR_CACHE_WANTED = MetaTemplate::KEY_METATEMPLATE . '#cacheWanted';
 
 	public const NA_NAMESPACE = 'metatemplate-namespace';
 	public const NA_ORDER = 'metatemplate-order';
@@ -159,9 +157,6 @@ class MetaTemplateData
 			return [ParserHelper::error('metatemplate-listsaved-template-toolong', $template, $maxLen)];
 		}
 
-		// Load any #preload data. Don't load anything that's already loaded and in the cache.
-		$sql = MetaTemplateSql::getInstance();
-
 		/**
 		 * @var array $conditions
 		 * @var array $extrasnamed
@@ -176,25 +171,33 @@ class MetaTemplateData
 			$value = $frame->expand($value);
 		}
 
-		RHshow('Conditions', $conditions);
-		$rows = $sql->loadListSavedData($magicArgs[self::NA_NAMESPACE] ?? null, $magicArgs[MetaTemplateData::NA_SET] ?? null, $conditions, $frame);
+		#RHshow('Conditions', $conditions);
 
-		$output = $parser->getOutput();
 		if (!empty($extras)) {
-			// While extra parameters are still allowed and used, and probably desirable to keep, for now, it's best to
-			// track them and make sure any uses are legit. Most if not all probably belong in a {{#preload}}.
+			// Extra parameters are now irrelevant, so we track and report any calls that still use the old format.
 			$parser->addTrackingCategory('metatemplate-tracking-listsaved-extraparams');
 			$output->addWarning(wfMessage('metatemplate-listsaved-warn-extraparams')->plain());
 		}
-		// You should always be able to comment out this line without affecting the function in any way.
-		// self::loadPreloadData($output, $templateTitle, $conditions, $frame);
 
-		$orderNames = $magicArgs[self::NA_ORDER] ?? null;
-		$orderNames = $orderNames ? explode(',', $orderNames) : [];
-		$orderNames[] = 'pagename';
-		$orderNames[] = 'set';
-		$pages = self::processListSaved($rows, $orderNames);
-		$output->setExtensionData(self::KEY_BULK_LOAD, $pages);
+		$preloadVars = MetaTemplateSql::getInstance()->loadSetsFromPage($templateTitle->getArticleID(), [self::KEY_PRELOAD_DATA]);
+		$varSets = [];
+		foreach ($preloadVars as $varSet) {
+			$varNames = explode(self::PRELOAD_SEP, $varSet->variables[self::KEY_PRELOAD_DATA]);
+			$vars = [];
+			foreach ($varNames as $varName) {
+				$vars[$varName] = false;
+			}
+
+			$varSets[$varSet->name] = new MetaTemplateSet($varSet->name, $vars);
+		}
+
+		// Set up database queries to include all condition and preload data.
+		$namespace = isset($magicArgs[self::NA_NAMESPACE]) ? $frame->expand($magicArgs[self::NA_NAMESPACE]) : null;
+		$setName = isset($magicArgs[MetaTemplateData::NA_SET]) ? $frame->expand($magicArgs[MetaTemplateData::NA_SET]) : null;
+		$sortOrder = isset($magicArgs[self::NA_ORDER]) ? $frame->expand($magicArgs[self::NA_ORDER]) : null;
+		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $sortOrder, $conditions, $varSets, $frame);
+		$pages = self::pagifyRows($rows);
+		self::cachePages($output, $pages, empty($varSets));
 		#RHshow('Pages', $pages);
 
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
@@ -247,7 +250,8 @@ class MetaTemplateData
 			return;
 		}
 
-		$loadTitle = Title::newFromText($frame->expand($values[0]));
+		$loadTitle = $frame->expand($values[0]);
+		$loadTitle = Title::newFromText($loadTitle);
 		if (
 			!$loadTitle ||
 			!$loadTitle->canExist()
@@ -256,18 +260,17 @@ class MetaTemplateData
 		}
 
 		unset($values[0]);
-		$page = WikiPage::factory($loadTitle);
-		$pageId = $page->getId();
+		$pageId = $loadTitle->getArticleID();
 		$output = $parser->getOutput();
 		#RHecho($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
-		$output->addTemplate($loadTitle, $pageId, $page->getLatest());
+		$output->addTemplate($loadTitle, $pageId, $loadTitle->getLatestRevID());
 
 		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		$setName = isset($magicArgs[self::NA_SET])
 			? substr($magicArgs[self::NA_SET], 0, self::SAVE_SETNAME_WIDTH)
 			: null;
-		$set = new MetaTemplateSet($setName, [], $anyCase);
+		$set = new MetaTemplateSet($setName, []);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $key => $value) {
 			if (!MetaTemplate::getVar($frame, $value, $anyCase)) {
@@ -277,72 +280,41 @@ class MetaTemplateData
 
 		#RHshow('Set', $set);
 
-		// If all are already loaded, there's nothing else to do.
 		if (!count($set->variables)) {
 			return;
 		}
 
-		#RHecho('Set will be loaded.');
-		$pageId = $page->getId();
-
-		// Next, check preloaded variables
+		// Next, check preloaded variables. Note that the if conditions are also assignments, for brevity. Inner
+		// condition only occurs if all are non-null.
 		/** @var MetaTemplateSet $preloadSet */
-		$preloadSet = $output->getExtensionData(self::KEY_PRELOAD_VARS)[$setName] ?? null;
-		if ($preloadSet) {
-			/** @var MetaTemplatePage $bulkPage */
-			$bulkPage = $output->getExtensionData(self::KEY_BULK_LOAD)[$pageId] ?? null;
-			if ($bulkPage) {
-				$bulkSet = $bulkPage->sets[$setName] ?? null;
-				if ($bulkSet) {
-					#RHecho('Preload \'', Title::newFromID($pageId)->getFullText(), '\' Set \'', $setName, "'\nWant set: ", $set, "\n\nGot set: ", $bulkSet);
-					$bulkSet->resolveVariables($frame);
-					foreach ($preloadSet->variables as $varName => $value) {
-						$varValue = $bulkSet->variables[$varName] ?? false;
-						if ($varValue !== false) {
-							$varValue = $frame->expand($varValue, MetaTemplate::getVarExpandFlags());
-							MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
-						}
-
-						// We unset the variable whether or not it was found so that any future #loads don't try to get
-						// something that we already know isn't there.
-						#RHshow('Unsetting', $varName);
-						unset($set->variables[$varName]);
-					}
-
-					// If we got everything, there's nothing else to do.
-					if (!count($set->variables)) {
-						return;
-					}
+		/** @var MetaTemplatePage $bulkPage */
+		if (($preloadSet = $output->getExtensionData(self::KEY_VAR_CACHE_WANTED)[$setName] ?? null) &&
+			($bulkPage = $output->getExtensionData(self::KEY_VAR_CACHE)[$pageId] ?? null) &&
+			($bulkSet = $bulkPage->sets[$setName] ?? null)
+		) {
+			#RHecho('Preload \'', Title::newFromID($pageId)->getFullText(), '\' Set \'', $setName, "'\nWant set: ", $set, "\n\nGot set: ", $bulkSet);
+			foreach ($preloadSet->variables as $varName => $value) {
+				$varValue = $bulkSet->variables[$varName] ?? null;
+				if (!is_null($varValue)) {
+					MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
 				}
+
+				unset($set->variables[$varName]);
+			}
+
+			if (!count($set->variables)) {
+				return;
 			}
 		}
 
-		#RHshow('Trying to load vars from page [[', $page->getTitle()->getFullText(), ']]', $set);
-		/** @var MetaTemplateSetCollection $vars */
-		$vars = $output->getExtensionData(MetaTemplateData::KEY_SAVE);
-		if ($vars && self::loadFromOutput($output, $set)) {
-			$set->resolveVariables($frame);
-			foreach ($set->variables as $varName => $varValue) {
-				if ($varValue !== false) {
-					MetaTemplate::setVar($frame, $varName, $varValue, $set->anyCase);
-					unset($set->variables[$varName]);
-				}
-			}
+		#RHshow('Trying to load vars from page [[', $loadTitle->getFullText(), ']]', $set);
+		if (!self::loadFromOutput($output, $set)) {
+			MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
 		}
 
-		// If all are already loaded, there's nothing else to do.
-		if (!count($set->variables)) {
-			return;
-		}
-
-		#RHshow('Trying to load vars from database [[', $page->getTitle()->getFullText(), ']]', $set);
-		$success = MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
-		if ($success) {
-			$set->resolveVariables($frame);
-			foreach ($set->variables as $varName => $varValue) {
-				if ($varValue !== false) {
-					MetaTemplate::setVar($frame, $varName, $varValue, $set->anyCase);
-				}
+		foreach ($set->variables as $varName => $varValue) {
+			if ($varValue !== false) {
+				MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
 			}
 		}
 	}
@@ -374,7 +346,7 @@ class MetaTemplateData
 			: $magicArgs[self::NA_SET] ?? '';
 
 		/** @var MetaTemplateSet[] $sets */
-		$sets = $output->getExtensionData(self::KEY_PRELOAD_VARS) ?? [];
+		$sets = $output->getExtensionData(self::KEY_VAR_CACHE_WANTED) ?? [];
 		if (isset($sets[$setName])) {
 			$set = $sets[$setName];
 		} else {
@@ -384,12 +356,12 @@ class MetaTemplateData
 
 		foreach ($values as $value) {
 			$varName = $frame->expand(ParserHelper::getKeyValue($frame, $value)[1]);
-			$set->variables[$varName] = new MetaTemplateVariable(false, false);
+			$set->variables[$varName] = false;
 		}
 
 		$varList = implode(self::PRELOAD_SEP, array_keys($set->variables));
-		self::addToSet($parser->getTitle(), $output, $setName, [self::KEY_PRELOAD_DATA => new MetaTemplateVariable($varList, false)]);
-		$output->setExtensionData(self::KEY_PRELOAD_VARS, $sets);
+		self::addToSet($parser->getTitle(), $output, $setName, [self::KEY_PRELOAD_DATA => $varList]);
+		$output->setExtensionData(self::KEY_VAR_CACHE_WANTED, $sets);
 	}
 
 	/**
@@ -512,7 +484,8 @@ class MetaTemplateData
 	 */
 	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame_Hash $frame): array
 	{
-		$saveMode = $parser->getOutput()->getExtensionData(self::KEY_SAVE_MODE);
+		$output = $parser->getOutput();
+		$saveMode = $output->getExtensionData(self::KEY_SAVE_MODE);
 		if (is_null($saveMode)) { // Not saving, just displaying <savemarkup> or {{#save:...|savemarkup=1}}
 			$value = $parser->recursiveTagParse($content, $frame);
 			#RHshow('Recursive Tag Parse', $value);
@@ -521,7 +494,7 @@ class MetaTemplateData
 
 		$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
 		if (self::treeHasTemplate($value)) {
-			$parser->getOutput()->setExtensionData(self::KEY_PARSEONLOAD, true);
+			$output->setExtensionData(self::KEY_PARSEONLOAD, true);
 		}
 
 		if ($saveMode) { // Saving <savemarkup> inside {{#save:...|savemarkup=1}}
@@ -570,6 +543,74 @@ class MetaTemplateData
 	}
 
 	/**
+	 * Sets or updates pages in the cache from the #listsaved data as needed.
+	 *
+	 * @param ParserOutput $output The current ParserOutput.
+	 * @param MetaTemplatePage[] $pages The pages to store in the cache.
+	 * @param bool $fullyLoaded Whether or not all data was loaded from the page or only a subset.
+	 *
+	 * @return void
+	 *
+	 */
+	private static function cachePages(ParserOutput $output, array $pages, bool $fullyLoaded): void
+	{
+		/** @var MetaTemplatePage[] $cache */
+		$cache = $output->getExtensionData(self::KEY_VAR_CACHE);
+		foreach ($pages as $pageId => $page) {
+			$cachePage = &$cache[$pageId];
+			if ($fullyLoaded || !isset($cachePage)) {
+				$cachePage = $page;
+			} else {
+				foreach ($page->sets as $set) {
+					$cachePage->addToSet($set->name, $set->variables);
+				}
+			}
+		}
+
+		$output->setExtensionData(self::KEY_VAR_CACHE, $cache);
+	}
+
+	/**
+	 * Sorts the results according to user-specified order (if any), then page name, and finally set.
+	 *
+	 * @param array $arr The array of page/set data to sort.
+	 * @param string[] $sortOrder A list of field names to sort by. In the event of duplication, only the first instance
+	 *                         counts.
+	 *
+	 * @note This function serves to not only add the data to the cache, but also to convert the data into pages.
+	 *
+	 * @return MetaTemplatePage[] The sorted array.
+	 */
+	private static function pagifyRows(array $rows): array
+	{
+		// Now that sorting is done, morph records into MetaTemplatePages.
+		$retval = [];
+		$pageId = 0;
+		foreach ($rows as $row) {
+			if ($row['pageid'] !== $pageId) {
+				$pageId = $row['pageid'];
+				$page = new MetaTemplatePage($row['namespace'], $row['pagename']);
+				// $retval[$pageId] does not maintain order; array_merge does, with RHS overriding LHS in the event of
+				// duplicates.
+				$retval += [$pageId => $page];
+			}
+
+			// Unset the parent data/sortable fields, leaving only the set data.
+			$setName = $row['set'];
+			unset(
+				$row['namespace'],
+				$row['pageid'],
+				$row['pagename'],
+				$row['set'],
+			);
+
+			$page->sets += [$setName => $row];
+		}
+
+		return $retval;
+	}
+
+	/**
 	 * Converts the results of loadListSavedData() to the text of the templates to execute.
 	 *
 	 * @param Language $language The language to use for namespace text.
@@ -603,7 +644,7 @@ class MetaTemplateData
 	 * @param ParserOutput $output The current ParserOutput object.
 	 * @param MetaTemplateSet $set The set to load.
 	 *
-	 * @return bool True if variables were loaded.
+	 * @return bool True if all variables were loaded.
 	 */
 	private static function loadFromOutput(ParserOutput $output, MetaTemplateSet &$set): bool
 	{
@@ -619,137 +660,18 @@ class MetaTemplateData
 			return false;
 		}
 
-		$retval = false;
+		$retval = true;
 		#RHshow('Page Set', $pageSet);
 		if ($set->variables) {
 			foreach ($set->variables as $varName => &$var) {
 				if ($var === false && isset($pageSet->variables[$varName])) {
-					$copy = $pageSet->variables[$varName];
-					$var = new MetaTemplateVariable($copy->value, $copy->parseOnLoad);
-					$retval = true;
+					$var = $pageSet->variables[$varName];
+				} else {
+					$retval = false;
 				}
 			}
 
 			unset($var);
-		}
-
-		return $retval;
-	}
-
-	private static function loadPreloadData(ParserOutput $output, Title $templateTitle, array $conditions, PPFrame $frame)
-	{
-		// Given that caching should take care of most of this, does this level of precaching and such make sense?
-		// Might be overly complicating things for very little gain.
-		$pageId = $templateTitle->getArticleID();
-
-		/** @var MetaTemplateset[] $preloadSets */
-		$preloadSets = $output->getExtensionData(self::KEY_PRELOAD_VARS) ?? [];
-
-		// Get precache variable sets
-		/** @todo Combine all preload info into a cache object to ensure they travel together and remain synced. */
-		/** @var MetaTemplateset[] $preloadSets */
-		$newSets = [];
-
-		/**
-		 * Could be further optimized by not loading/parsing preload data that's already loaded
-		 * (i.e., array_keys($pageSets)), but given that this should only happen with a save/purge, it probably
-		 * doesn't make sense to optimize that much.
-		 */
-		$sql = MetaTemplateSql::getInstance();
-		$varNames[] = self::KEY_PRELOAD_DATA;
-		$tempSets = $sql->loadSetsFromPage($pageId, $varNames);
-		RHshow('tempSets', $tempSets);
-		foreach ($tempSets as $preloadData) {
-			if (!isset($preloadSets[$preloadData->name])) {
-				$newSets[$preloadData->name] = $preloadData;
-			}
-		}
-
-		// Set up database queries to include all condition and preload data.
-		foreach ($newSets as $preloadData) {
-			$varNames = $preloadData->variables[self::KEY_PRELOAD_DATA] ?? null;
-			if ($varNames) {
-				$varNames = explode(self::PRELOAD_SEP, $varNames);
-				foreach ($varNames as $varName) {
-					if (!isset($preloadData->variables[$varName])) {
-						$preloadData->variables[$varName] = false;
-					}
-				}
-
-				unset($preloadData->variables[self::KEY_PRELOAD_DATA]);
-			}
-		}
-
-		$namespace = isset($magicArgs[self::NA_NAMESPACE])
-			? $frame->parser->getConverterLanguage()->getNsIndex($magicArgs[self::NA_NAMESPACE])
-			: null;
-		$paramSet = $magicArgs[MetaTemplateData::NA_SET] ?? null;
-		if ($paramSet) {
-			if (!isset($preloadSets[$paramSet])) {
-				$preloadData = new MetaTemplateSet($paramSet, array_merge($conditions, [self::KEY_PRELOAD_DATA => false]));
-				RHshow('preloadData Before', $preloadData);
-				$sql->loadSetFromPage($pageId, $preloadData);
-				RHshow('preloadData After', $preloadData);
-				$newSets[$preloadData->name] = $preloadData;
-			}
-		}
-
-		#RHshow('Namespace', (int)$namespace, "\nConditions: ", $conditions, "\n$", $sets);
-
-		// Query and sort the data.
-		RHshow('newSets', $newSets);
-		$pages = $sql->loadPreloadPages($namespace, $newSets);
-		RHshow('Pages', $pages);
-	}
-
-	/**
-	 * Sorts the results according to user-specified order (if any), then page name, and finally set.
-	 *
-	 * @param array $arr The array of page/set data to sort.
-	 * @param string[] $sortOrder A list of field names to sort by. In the event of duplication, only the first instance
-	 *                         counts.
-	 *
-	 * @return MetaTemplatePage[] The sorted array.
-	 */
-	private static function processListSaved(array $arr, array $sortOrder): array
-	{
-		$used = [];
-		$columns = [];
-		foreach ($sortOrder as $field) {
-			if (!isset($used[$field])) {
-				// We can't use array_column here since rows are not guaranteed to have $field.
-				$column = [];
-				foreach ($arr as $key => $data) {
-					$column[$key] = $data[$field] ?? false;
-				}
-
-				$columns[] = $column;
-				$used[$field] = true;
-			}
-		}
-
-		$columns[] = $arr;
-		call_user_func_array('array_multisort', $columns);
-
-		// Now that sorting is done, morph records into MetaTemplatePages.
-		$retval = [];
-		foreach ($arr as $record) {
-			$pageId = $record['pageid'];
-			if (!isset($retval[$record['pageid']])) {
-				$page = new MetaTemplatePage($record['namespace'], $record['pagename']);
-				$retval[$pageId] = $page;
-			}
-
-			// Unset the parent data/sortable fields, leaving only the set data.
-			$setName = $record['set'];
-			unset(
-				$record['namespace'],
-				$record['pageid'],
-				$record['pagename'],
-				$record['set'],
-			);
-
-			$page->addToSet($setName, $record);
 		}
 
 		return $retval;

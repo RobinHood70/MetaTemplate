@@ -202,10 +202,11 @@ class MetaTemplateSql
 			}
 
 			#RHshow('CatQuery Set', $set);
-			$set->variables[$row[self::FIELD_VAR_NAME]] = new MetaTemplateVariable(
-				$row[self::FIELD_VAR_VALUE],
-				$row[self::FIELD_PARSE_ON_LOAD]
-			);
+			$varName = $row[self::FIELD_VAR_NAME];
+			$varValue = $row[self::FIELD_PARSE_ON_LOAD]
+				? [$row[self::FIELD_VAR_VALUE]] // No $frame available anywhere in the hierarchy, so we have to leave this marked as non-string.
+				: $row[self::FIELD_VAR_VALUE];
+			$set->variables[$varName] = $varValue;
 		}
 	}
 
@@ -315,14 +316,35 @@ class MetaTemplateSql
 	/**
 	 * Preloads any variables specified by the template.
 	 *
-	 * @param int $namespace The integer namespace to restrict results to.
-	 * @param array $conditions An array of key=>value strings to use for query conditions.
-	 * @param MetaTemplateSet[] $sets The array sets and names to be loaded.
+	 * @param ?int $namespace The integer namespace to restrict results to.
+	 * @param ?string $setName The name of the set to be filtered to.
+	 * @param MetaTemplateSet[] $conditions An array of key=>value strings to use for query conditions.
+	 * @param MetaTemplateSet[] $preloadSets The data to be preloaded.
+	 * @param PPFrame $sets The frame in use.
 	 *
 	 * @return array An array of page row data indexed by Page ID.
 	 */
-	public function loadListSavedData(?int $namespace, ?string $setName, array $conditions, PPFrame $frame): array
+	public function loadListSavedData(?int $namespace, ?string $setName, ?string $sortOrder, array $conditions, array $preloadSets, PPFrame $frame): array
 	{
+		$sortOrder = explode(',', $sortOrder);
+		$extraFields = array_merge($sortOrder, array_keys($conditions));
+		$preloadSets = $preloadSets ?? [];
+		if (is_null($setName) && empty($preloadSets)) {
+			$setLimit = [];
+		} else {
+			$setLimit = is_null($setName) ? [] : [$setName];
+			foreach ($preloadSets as $preloadSet) {
+				foreach ($preloadSet->variables as $key => $value) {
+					$extraFields[] = $key;
+				}
+
+				$setLimit[] = $preloadSet->name;
+			}
+		}
+
+		$extraFields = array_unique($extraFields);
+		$setLimit = array_unique($setLimit);
+
 		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
 		$tables = [
 			'page',
@@ -353,8 +375,8 @@ class MetaTemplateSql
 			$conds['page.page_namespace'] = $namespace;
 		}
 
-		if (!is_null($setName)) {
-			$conds[self::SET_SET_NAME] = $setName;
+		if (!empty($setLimit)) {
+			$conds[self::SET_SET_NAME] = $setLimit;
 		}
 
 		$joinConds = [
@@ -372,13 +394,19 @@ class MetaTemplateSql
 			++$filter;
 		}
 
+		#RHecho(__METHOD__ . " query:\n", $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 
 		$retval = [];
 		$prevPageId = 0;
 		$prevSetId = 0;
-		unset($data);
 		for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
+			$rowSetName = $row[self::FIELD_SET_NAME];
+			if (!is_null($setName) && $rowSetName !== $setName) {
+				// Due to conditions/ordering/preloading, we may have more sets than we want, so filter the extras out.
+				continue;
+			}
+
 			if ($row[self::FIELD_PAGE_ID] != $prevPageId || $row[self::FIELD_SET_ID] != $prevSetId) {
 				if (isset($data)) {
 					$retval[] = $data;
@@ -393,7 +421,7 @@ class MetaTemplateSql
 				$data['namespace'] = $title->getNsText();
 				$data['pageid'] = $row[self::FIELD_PAGE_ID];
 				$data['pagename'] = $title->getText();
-				$data['set'] = $row[self::FIELD_SET_NAME];
+				$data['set'] = $rowSetName;
 			}
 
 			$varValue = $row[self::FIELD_PARSE_ON_LOAD]
@@ -406,137 +434,25 @@ class MetaTemplateSql
 			$retval[] = $data;
 		}
 
-		RHshow('Retval', $retval);
-		return $retval;
-	}
-
-	/**
-	 * Loads the list of pages and sets that are available on the wiki, given the specified conditions.
-	 *
-	 * @param int $namespace The integer namespace to restrict results to.
-	 * @param array $conditions An array of key=>value strings to use for query conditions.
-	 * @param MetaTemplateSet[] $preloads The preload sets to load.
-	 *
-	 * @return MetaTemplatePage[] An array of page row data indexed by Page ID.
-	 */
-	public function loadPreloadPages(?int $namespace, ?array $preloads): array
-	{
-		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
-		$tables = [
-			'page',
-			self::TABLE_SET
-		];
-
-		if ($preloads) {
-			// This simple addition converts the query from finding the desired pages to finding all the preload data
-			// on all the pages.
-			$tables[] = self::TABLE_DATA;
-		}
-
-		$fields = [
-			'page.page_title',
-			'page.page_namespace',
-			self::SET_PAGE_ID,
-			self::SET_SET_NAME
-		];
-
-		$joinConds = [
-			self::TABLE_SET =>
-			['JOIN', ['page.page_id=' . self::SET_PAGE_ID]]
-		];
-
-		$baseConds = is_null($namespace) ? [] : ['page.page_namespace' => $namespace];
-
-		$queries = [];
-		$conds = $baseConds;
-		RHshow('preloads', $preloads);
-		foreach ($preloads as $preload) {
-			$conds = $baseConds;
-			$filter = 1;
-			foreach ($preload->variables as $key => $value) {
-				if ($value !== false) {
-					$dataName = 'filter' . $filter;
-					$tables[$dataName] = self::TABLE_DATA;
-					$joinConds[$dataName] = ['JOIN', [self::SET_SET_ID . '=' . $dataName . '.setId']];
-					$conds[$dataName . '.' . self::FIELD_VAR_NAME] = $key;
-					$conds[$dataName . '.' . self::FIELD_VAR_VALUE] = $value;
-					++$filter;
+		$sortOrder[] = 'pagename';
+		$sortOrder[] = 'set';
+		$used = [];
+		$args = [];
+		foreach ($sortOrder as $field) {
+			if (!isset($used[$field])) {
+				// We can't use array_column here since rows are not guaranteed to have $field.
+				$arg = [];
+				foreach ($retval as $key => $data) {
+					$arg[$key] = $data[$field] ?? false;
 				}
+
+				$args[] = $arg;
+				$used[$field] = true;
 			}
-
-			$queries[] = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds);
 		}
 
-		$options = ['ORDER BY' => [
-			self::FIELD_PAGE_ID,
-			self::FIELD_SET_NAME
-		]];
-
-		// Remove the last query and replace it with the same query plus the ORDER BY clause, which sorts the entire
-		// union at once. Note that this also has the side-effect of ensuring that there's always a valid underlying
-		// query (everything on the page) in the event that nothing was specified.
-		array_pop($queries);
-		$queries[] = $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds);
-
-		// unionQueries() only supports parenthesized unions, while this should use unparenthesized unions, so we do it manually.
-		$query = implode(" UNION ", $queries);
-		RHshow('Queries', $query);
-		$rows = $this->dbRead->query($query);
-		#RHecho($union, "\n{$rows->numRows()} rows found.");
-
-		$retval = [];
-		$formatter = MediaWikiServices::getInstance()->getTitleFormatter();
-		$row = $rows->fetchRow() ?? null;
-		while ($row) {
-			$pageName = $row['page_title'];
-			$ns = $formatter->getNamespaceName($row['page_namespace'], $pageName);
-			$page = new MetaTemplatePage($ns, $pageName);
-			$retval[] = $page;
-			$pageId = $row[self::FIELD_PAGE_ID];
-			do {
-				$page->sets[] = new MetaTemplateSet($row[self::FIELD_SET_NAME]);
-				$row = $rows->fetchRow();
-			} while ($row && $pageId === $row[self::FIELD_PAGE_ID]);
-		}
-
-		return $retval;
-	}
-
-	/**
-	 * Loads variables for a specific page.
-	 *
-	 * @param Title $title The title to load.
-	 *
-	 * @return MetaTemplateSetCollection
-	 */
-	public function loadPageVariables(Title $title): ?MetaTemplateSetCollection
-	{
-		// Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
-		// data is tracked with $deleteIds.
-
-		// logFunctionText("($pageId)");
-		$pageId = $title->getArticleID();
-		[$tables, $fields, $options, $joinConds] = self::baseQuery(
-			self::SET_SET_ID,
-			self::SET_SET_NAME,
-			self::SET_REV_ID
-		);
-		$conds = [self::SET_PAGE_ID => $pageId];
-		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
-		$row = $this->dbRead->fetchRow($result);
-		if (!$row) {
-			return null;
-		}
-
-		$retval = new MetaTemplateSetCollection($title, $row[self::FIELD_REV_ID]);
-		while ($row) {
-			$set =  $retval->addToSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
-			$set->variables[$row[self::FIELD_VAR_NAME]] = new MetaTemplateVariable(
-				$row[self::FIELD_VAR_VALUE],
-				$row[self::FIELD_PARSE_ON_LOAD]
-			);
-			$row = $this->dbRead->fetchRow($result);
-		}
+		$args[] = $retval;
+		call_user_func_array('array_multisort', $args);
 
 		return $retval;
 	}
@@ -599,12 +515,11 @@ class MetaTemplateSql
 		// We don't have page info yet, so this doesn't make sense to be put into a MetaTemplatePage object here.
 		// Instead, we stick to an array of MetaTemplateSet objects.
 		$sets = [];
-		RHshow(__METHOD__ . ' query', $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+		#RHshow('Query', $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
 		if ($result) {
 			for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
 				$setName = $row[self::FIELD_SET_NAME];
-				RHshow('setName', $setName);
 				if (isset($sets[$setName])) {
 					$set = $sets[$setName];
 				} else {
@@ -705,11 +620,12 @@ class MetaTemplateSql
 	 */
 	public function recursiveInvalidateCache(Title $title): void
 	{
+		return;
+
 		// Note: this is recursive only in the sense that it will cause page re-evaluation, which will, in turn, cause
 		// their dependents to be re-evaluated. This should not be left in-place in the final product, as it's very
 		// server-intensive. (Is it, though? Test on large job on dev.) Instead, call the cache's enqueue jobs method
 		// to put things on the queue or possibly just send this page to be purged with forcerecursivelinksupdate.
-
 		#RHwriteFile('Recursive Invalidate');
 		$templateLinks = 'templatelinks';
 		$linkIds = [];
@@ -735,7 +651,7 @@ class MetaTemplateSql
 
 		foreach ($linkIds as $linkId) {
 			if (!isset(self::$pagesPurged[$linkId])) {
-				self::$pagesPurged[$linkId] = true;
+				/* self::$pagesPurged[$linkId] = true;
 				$title = Title::newFromID($linkId);
 				if (isset($recursiveIds[$linkId])) {
 					$prefText = $title->getPrefixedText();
@@ -748,10 +664,10 @@ class MetaTemplateSql
 					);
 
 					JobQueueGroup::singleton()->push($job);
-				} else {
-					$page = WikiPage::factory($title);
-					$page->doPurge();
-				}
+				} else { */
+				$page = WikiPage::factory($title);
+				$page->doPurge();
+				/* } */
 			}
 		}
 
@@ -830,6 +746,44 @@ class MetaTemplateSql
 	#endregion
 
 	#region Private Functions
+	/**
+	 * Loads variables for a specific page.
+	 *
+	 * @param Title $title The title to load.
+	 *
+	 * @return MetaTemplateSetCollection
+	 */
+	private function loadPageVariables(Title $title): ?MetaTemplateSetCollection
+	{
+		// Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
+		// data is tracked with $deleteIds.
+
+		// logFunctionText("($pageId)");
+		$pageId = $title->getArticleID();
+		[$tables, $fields, $options, $joinConds] = self::baseQuery(
+			self::SET_SET_ID,
+			self::SET_SET_NAME,
+			self::SET_REV_ID
+		);
+		$conds = [self::SET_PAGE_ID => $pageId];
+		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
+		$row = $this->dbRead->fetchRow($result);
+		if (!$row) {
+			return null;
+		}
+
+		$retval = new MetaTemplateSetCollection($title, $row[self::FIELD_REV_ID]);
+		while ($row) {
+			$set =  $retval->addToSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
+			$varName = $row[self::FIELD_VAR_NAME];
+			$varValue = $row[self::FIELD_VAR_VALUE]; // Don't need to parse this, as we're only looking at the raw data here.
+			$set->variables[$varName] = $varValue;
+			$row = $this->dbRead->fetchRow($result);
+		}
+
+		return $retval;
+	}
+
 	/**
 	 * @todo See how much of this can be converted to bulk updates. Even though MW internally wraps most of these in a
 	 * transaction (supposedly...unverified), speed could probably still be improved with bulk updates.

@@ -3,14 +3,6 @@
 class MetaTemplateSet
 {
 	/**
-	 * Whether the set should allow case-insensitive compares.
-	 * @internal It's useful to have this travel with the set when used alongside #load().
-	 *
-	 * @var bool
-	 */
-	public $anyCase;
-
-	/**
 	 * Whether or not any $variables are unparsed. Used as an optimization to avoid unnecessary checks and loops.
 	 * In future, this should default to false and only be set to true if MetaTemplateUnparsedValues exist in
 	 * $this->variables.
@@ -42,10 +34,9 @@ class MetaTemplateSet
 	 * @param bool $anyCase
 	 *
 	 */
-	public function __construct(?string $name = null, ?array $variables = [], bool $anyCase = false)
+	public function __construct(?string $name = null, ?array $variables = [])
 	{
 		$this->name = $name;
-		$this->anyCase = $anyCase;
 		$this->variables = $variables ?? [];
 	}
 

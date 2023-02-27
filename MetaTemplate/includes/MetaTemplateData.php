@@ -5,6 +5,7 @@
  */
 class MetaTemplateData
 {
+	#region Public Constants
 	/**
 	 * Key for the value indicating whether catpagetemplate is in initial startup mode and should ignore the |set=
 	 * parameter for anything that calls {{#preload}}.
@@ -27,7 +28,6 @@ class MetaTemplateData
 	 */
 	public const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
 
-	#region Constants
 	/**
 	 * Key for the value housing the {{#preload}} cache.
 	 *
@@ -42,8 +42,10 @@ class MetaTemplateData
 	 */
 	public const KEY_VAR_CACHE_WANTED = MetaTemplate::KEY_METATEMPLATE . '#cacheWanted';
 
+	public const NA_FULLPAGENAME = 'metatemplate-fullpagename';
 	public const NA_NAMESPACE = 'metatemplate-namespace';
 	public const NA_ORDER = 'metatemplate-order';
+	public const NA_PAGEID = 'metatemplate-pageid';
 	public const NA_PAGELENGTH = 'metatemplate-pagelength';
 	public const NA_PAGENAME = 'metatemplate-pagename';
 	public const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
@@ -59,7 +61,9 @@ class MetaTemplateData
 	public const SAVE_VARNAME_WIDTH = 50;
 
 	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
+	#endregion
 
+	#region Private Constants
 	/**
 	 * Key for the value indicating whether we're currently processing a {{#save:...|savemarkup=1}}.
 	 *

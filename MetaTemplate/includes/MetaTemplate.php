@@ -41,6 +41,23 @@ class MetaTemplate
 	public const VR_PAGENAME0 = 'metatemplate-pagename0';
 	#endregion
 
+	/** @var ?string */
+	public static $mwFullPageName = null;
+
+	/** @var ?string */
+	public static $mwNamespace = null;
+
+	#region Public Static Variables
+	/** @var ?string */
+	public static $mwPageId = null;
+
+	/** @var ?string */
+	public static $mwPageName = null;
+
+	/** @var ?string */
+	public static $mwSet = null;
+	#endregion
+
 	#region Private Static Variables
 	private static $config;
 	private static $varExpandFlags;

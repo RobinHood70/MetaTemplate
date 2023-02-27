@@ -418,10 +418,11 @@ class MetaTemplateSql
 				// newFromRow() is overkill here, since we're just parsing ns and title.
 				$title = Title::makeTitle($row['page_namespace'], $row['page_title']);
 				$data = [];
-				$data['namespace'] = $title->getNsText();
-				$data['pageid'] = $row[self::FIELD_PAGE_ID];
-				$data['pagename'] = $title->getText();
-				$data['set'] = $rowSetName;
+				$data[MetaTemplate::$mwFullPageName] = $title->getFullText();
+				$data[MetaTemplate::$mwNamespace] = $title->getNsText();
+				$data[MetaTemplate::$mwPageId] = $row[self::FIELD_PAGE_ID];
+				$data[MetaTemplate::$mwPageName] = $title->getText();
+				$data[MetaTemplate::$mwSet] = $rowSetName;
 			}
 
 			$varValue = $row[self::FIELD_PARSE_ON_LOAD]
@@ -434,8 +435,8 @@ class MetaTemplateSql
 			$retval[] = $data;
 		}
 
-		$sortOrder[] = 'pagename';
-		$sortOrder[] = 'set';
+		$sortOrder[] = MetaTemplate::$mwPageName;
+		$sortOrder[] = MetaTemplate::$mwSet;
 		$used = [];
 		$args = [];
 		foreach ($sortOrder as $field) {

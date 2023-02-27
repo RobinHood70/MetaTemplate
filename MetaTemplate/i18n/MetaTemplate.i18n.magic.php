@@ -50,8 +50,10 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 
 if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 	$magicWords['en'] += [
+		MetaTemplateData::NA_FULLPAGENAME => [0, 'fullpagename'],
 		MetaTemplateData::NA_NAMESPACE => [0, 'namespace'],
 		MetaTemplateData::NA_ORDER => [0, 'order'],
+		MetaTemplateData::NA_PAGEID => [0, 'pageid'],
 		MetaTemplateData::NA_PAGELENGTH => [0, 'pagelength'],
 		MetaTemplateData::NA_PAGENAME => [0, 'pagename'],
 		MetaTemplateData::NA_SAVEMARKUP => [0, 'savemarkup'],

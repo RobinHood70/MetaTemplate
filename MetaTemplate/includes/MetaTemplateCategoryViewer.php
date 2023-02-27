@@ -58,16 +58,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	private static $frame = null;
 
 	/** @var ?string */
-	private static $mwPagelength = null;
+	private static $mwPageLength = null;
 
 	/** @var ?string */
-	private static $mwPagename = null;
-
-	/** @var ?string */
-	private static $mwSet = null;
-
-	/** @var ?string */
-	private static $mwSortkey = null;
+	private static $mwSortKey = null;
 
 	/** @var ?Parser */
 	private static $parser = null;
@@ -157,10 +151,12 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		// outside our own wikis; we can just switch once we get to 1.32.
 		self::$contLang = self::$contLang ?? wfGetLangObj(true);
 		// self::$contLang = self::$contLang ?? MediaWikiServices::getInstance()->getContentLanguage();
-		self::$mwPagelength = self::$mwPagelength ?? MagicWord::get(MetaTemplateData::NA_PAGELENGTH)->getSynonym(0);
-		self::$mwPagename = self::$mwPagename ?? MagicWord::get(MetaTemplateData::NA_PAGENAME)->getSynonym(0);
-		self::$mwSet = self::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
-		self::$mwSortkey = self::$mwSortkey ?? MagicWord::get(self::NA_SORTKEY)->getSynonym(0);
+		MetaTemplate::$mwFullPageName = MetaTemplate::$mwFullPageName ?? MagicWord::get(MetaTemplateData::NA_PAGENAME)->getSynonym(0);
+		MetaTemplate::$mwPageId = MetaTemplate::$mwPageId ?? MagicWord::get(MetaTemplateData::NA_PAGEID)->getSynonym(0);
+		MetaTemplate::$mwPageName = MetaTemplate::$mwPageName ?? MagicWord::get(MetaTemplateData::NA_PAGENAME)->getSynonym(0);
+		MetaTemplate::$mwSet = MetaTemplate::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
+		self::$mwPageLength = self::$mwPageLength ?? MagicWord::get(MetaTemplateData::NA_PAGELENGTH)->getSynonym(0);
+		self::$mwSortKey = self::$mwSortKey ?? MagicWord::get(self::NA_SORTKEY)->getSynonym(0);
 	}
 
 	public static function onDoCategoryQuery(string $type, IResultWrapper $result)
@@ -247,10 +243,13 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	private static function createFrame(Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPFrame
 	{
 		$frame = self::$frame->newChild([], $title);
-		MetaTemplate::setVar($frame, self::$mwPagelength, (string)$pageLength);
-		MetaTemplate::setVar($frame, self::$mwPagename, $title->getFullText());
-		MetaTemplate::setVar($frame, self::$mwSet, $set->name);
-		MetaTemplate::setVar($frame, self::$mwSortkey, explode("\n", $sortkey)[0]);
+		/** @todo Have this set (and later check for) all synonyms of the MagicWord, not just the first one. */
+		MetaTemplate::setVar($frame, MetaTemplate::$mwFullPageName, $title->getFullText());
+		MetaTemplate::setVar($frame, MetaTemplate::$mwNamespace, $title->getNsText());
+		MetaTemplate::setVar($frame, MetaTemplate::$mwPageName, $title->getFullText()); // Should be changed to getText() for consistency.
+		MetaTemplate::setVar($frame, MetaTemplate::$mwSet, $set->name);
+		MetaTemplate::setVar($frame, self::$mwPageLength, (string)$pageLength);
+		MetaTemplate::setVar($frame, self::$mwSortKey, explode("\n", $sortkey)[0]);
 		foreach ($set->variables as $varName => $varValue) {
 			MetaTemplate::setVar($frame, $varName, $varValue);
 		}

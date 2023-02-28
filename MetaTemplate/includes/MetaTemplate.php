@@ -73,6 +73,23 @@ class MetaTemplate
 
 	#region Public Static Functions
 	/**
+	 * Substitutes values for all {{{arguments}}}.
+	 *
+	 * @param PPFrame $frame
+	 * @param PPNode|string $dom
+	 *
+	 * @return string
+	 *
+	 */
+	public static function argSubtitution(PPFrame $frame, $dom)
+	{
+		$retval = $frame->expand($dom, PPFrame::NO_TEMPLATES | PPFrame::STRIP_COMMENTS);
+		/** @var ?string $retval */
+		$retval = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($retval);
+		return $retval ?? '';
+	}
+
+	/**
 	 * Checks the `case` parameter to see if it matches `case=any` or any of the localized equivalents.
 	 *
 	 * @param array $magicArgs The magic-word arguments as created by getMagicArgs().
@@ -347,9 +364,9 @@ class MetaTemplate
 		$anyCase = self::checkAnyCase($magicArgs);
 		$translations = self::getVariableTranslations($frame, $values);
 		foreach ($translations as $srcName => $destName) {
-			$varValue = self::getVar($frame, $srcName, $anyCase);
-			if ($varValue) {
-				$varValue = $frame->expand($varValue, self::getVarExpandFlags());
+			$dom = self::getVar($frame, $srcName, $anyCase);
+			if ($dom) {
+				$varValue = self::argSubtitution($frame, $dom);
 				self::setVar($parent, $destName, $varValue, $anyCase);
 			}
 		}
@@ -464,23 +481,6 @@ class MetaTemplate
 	}
 
 	/**
-	 * Gets the flags to use when expanding variables related to variable assignment.
-	 *
-	 * @return int The flags to use with relevant PPFrame->expand() calls.
-	 *
-	 */
-	public static function getVarExpandFlags()
-	{
-		if (!isset(self::$varExpandFlags)) {
-			self::$varExpandFlags = self::getSetting(self::STTNG_ENABLEDATA)
-				? PPFrame::STRIP_COMMENTS | PPFrame::NO_TEMPLATES
-				: PPFrame::STRIP_COMMENTS;
-		}
-
-		return self::$varExpandFlags;
-	}
-
-	/**
 	 * Splits a variable list of the form 'x->xPrime' to a proper associative array.
 	 *
 	 * @param PPFrame $frame If the variable names may need to be expanded, this should be set to the active frame;
@@ -551,7 +551,7 @@ class MetaTemplate
 
 		self::unsetVar($frame, $varName, $anyCase);
 
-		$dom = $frame->parser->preprocessToDom($varValue, $frame->depth ? Parser::PTD_FOR_INCLUSION : 0);
+		$dom = $frame->parser->preprocessToDom($varValue); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
 		$dom->name = 'value';
 		$checkText = $dom->getFirstChild();
 		if ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling())) {
@@ -690,13 +690,15 @@ class MetaTemplate
 				// This occurs with constructs like: {{#local:MiXeD|case=any}}
 				$varValue = self::getVar($frame, $varName, $anyCase);
 				if ($varValue) {
-					// Even internally, we expand, just in case something's changed based on any change in name.
-					$varValue = $frame->expand($varValue, self::getVarExpandFlags());
-					self::setVar($frame, $varName, $varValue, $anyCase);
+					// Does this need expanded?
+					self::setVarDirect($frame, $varName, $varValue, $anyCase);
 				}
 			}
 		} elseif ($overwrite || ($frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false) === false) {
-			$varValue = $frame->expand($values[1], self::getVarExpandFlags());
+			// Do argument substitution
+			// Could do this faster by recursing tree and calling parser->argSubtitution on tplarg nodes.
+			$varValue = $frame->expand($values[1], PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS); // We need tag recovery with this, so don't use standard argSubstitution
+			$varValue = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($varValue);
 			self::setVar($frame, $varName, $varValue, $anyCase);
 		}
 	}
@@ -788,8 +790,10 @@ class MetaTemplate
 			$curFrame = $curFrame->parent;
 		}
 
+		/** @var PPNode_Hash_Tree|string $varValue */
+		/** @var PPFrame|false $curFrame */
 		if ($varValue && $curFrame) {
-			$varValue = $curFrame->expand($varValue, self::getVarExpandFlags());
+			$varValue = self::argSubtitution($curFrame, $varValue);
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
 

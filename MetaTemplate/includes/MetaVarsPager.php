@@ -39,8 +39,7 @@ class MetaVarsPager extends TablePager
 		$fieldNames = $fieldNames ?? [
 			MetaTemplateSql::FIELD_SET_NAME => $this->msg('metatemplate-pageswithmetavar-set')->text(),
 			MetaTemplateSql::FIELD_VAR_NAME => $this->msg('metatemplate-pageswithmetavar-varname')->text(),
-			MetaTemplateSql::FIELD_VAR_VALUE => $this->msg('metatemplate-pageswithmetavar-varvalue')->text(),
-			MetaTemplateSql::FIELD_PARSE_ON_LOAD => $this->msg('metatemplate-pageswithmetavar-parseonload')->text(),
+			MetaTemplateSql::FIELD_VAR_VALUE => $this->msg('metatemplate-pageswithmetavar-varvalue')->text()
 		];
 
 		return $fieldNames;
@@ -49,8 +48,6 @@ class MetaVarsPager extends TablePager
 	function formatValue($name, $value): string
 	{
 		switch ($name) {
-			case MetaTemplateSql::FIELD_PARSE_ON_LOAD:
-				return $value ? 'Yes' : '';
 			case MetaTemplateSql::FIELD_SET_NAME:
 				return Html::rawElement(
 					'span',

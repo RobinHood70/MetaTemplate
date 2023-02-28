@@ -10,13 +10,11 @@ use Wikimedia\Rdbms\IResultWrapper;
 class MetaTemplateSql
 {
 	#region Public Constants
-	public const DATA_PARSE_ON_LOAD = self::TABLE_DATA . '.' . self::FIELD_PARSE_ON_LOAD;
 	public const DATA_SET_ID = self::TABLE_DATA . '.' . self::FIELD_SET_ID;
 	public const DATA_VAR_NAME = self::TABLE_DATA . '.' . self::FIELD_VAR_NAME;
 	public const DATA_VAR_VALUE = self::TABLE_DATA . '.' . self::FIELD_VAR_VALUE;
 
 	public const FIELD_PAGE_ID = 'pageId';
-	public const FIELD_PARSE_ON_LOAD = 'parseOnLoad';
 	public const FIELD_REV_ID = 'revId';
 	public const FIELD_SET_ID = 'setId';
 	public const FIELD_SET_NAME = 'setName';
@@ -203,9 +201,7 @@ class MetaTemplateSql
 
 			#RHshow('CatQuery Set', $set);
 			$varName = $row[self::FIELD_VAR_NAME];
-			$varValue = $row[self::FIELD_PARSE_ON_LOAD]
-				? [$row[self::FIELD_VAR_VALUE]] // No $frame available anywhere in the hierarchy, so we have to leave this marked as non-string.
-				: $row[self::FIELD_VAR_VALUE];
+			$varValue = $row[self::FIELD_VAR_VALUE];
 			$set->variables[$varName] = $varValue;
 		}
 	}
@@ -301,12 +297,11 @@ class MetaTemplateSql
 	public function insertData($setId, MetaTemplateSet $newSet): void
 	{
 		$data = [];
-		foreach ($newSet->variables as $key => $var) {
+		foreach ($newSet->variables as $varName => $varValue) {
 			$data[] = [
 				self::FIELD_SET_ID => $setId,
-				self::FIELD_VAR_NAME => $key,
-				self::FIELD_VAR_VALUE => $var->value,
-				self::FIELD_PARSE_ON_LOAD => $var->parseOnLoad
+				self::FIELD_VAR_NAME => $varName,
+				self::FIELD_VAR_VALUE => $varValue,
 			];
 		}
 
@@ -320,11 +315,10 @@ class MetaTemplateSql
 	 * @param ?string $setName The name of the set to be filtered to.
 	 * @param MetaTemplateSet[] $conditions An array of key=>value strings to use for query conditions.
 	 * @param MetaTemplateSet[] $preloadSets The data to be preloaded.
-	 * @param PPFrame $sets The frame in use.
 	 *
 	 * @return array An array of page row data indexed by Page ID.
 	 */
-	public function loadListSavedData(?int $namespace, ?string $setName, ?string $sortOrder, array $conditions, array $preloadSets, PPFrame $frame): array
+	public function loadListSavedData(?int $namespace, ?string $setName, ?string $sortOrder, array $conditions, array $preloadSets): array
 	{
 		$sortOrder = explode(',', $sortOrder);
 		$extraFields = array_merge($sortOrder, array_keys($conditions));
@@ -360,8 +354,7 @@ class MetaTemplateSql
 			self::SET_REV_ID,
 			self::SET_SET_NAME,
 			self::DATA_VAR_NAME,
-			self::DATA_VAR_VALUE,
-			self::DATA_PARSE_ON_LOAD
+			self::DATA_VAR_VALUE
 		];
 
 		$options = ['ORDER BY' => [
@@ -425,9 +418,7 @@ class MetaTemplateSql
 				$data[MetaTemplate::$mwSet] = $rowSetName;
 			}
 
-			$varValue = $row[self::FIELD_PARSE_ON_LOAD]
-				? $frame->expand($row[self::FIELD_VAR_VALUE])
-				: $row[self::FIELD_VAR_VALUE];
+			$varValue = $row[self::FIELD_VAR_VALUE];
 			$data[$row[self::FIELD_VAR_NAME]] = $varValue;
 		}
 
@@ -485,12 +476,6 @@ class MetaTemplateSql
 				// Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
 				// will overwrite the older values.
 				$varValue = $row[self::FIELD_VAR_VALUE];
-				if ($row[self::FIELD_PARSE_ON_LOAD]) {
-					$varValue = $frame
-						? $frame->expand($varValue)
-						: [$varValue, true];
-				}
-
 				$set->variables[$row[self::FIELD_VAR_NAME]] = $varValue;
 			}
 		}
@@ -529,12 +514,6 @@ class MetaTemplateSql
 				}
 
 				$varValue = $row[self::FIELD_VAR_VALUE];
-				if ($row[self::FIELD_PARSE_ON_LOAD]) {
-					$varValue = $frame
-						? $frame->expand($varValue)
-						: [$varValue, true];
-				}
-
 				$set->variables[$row[self::FIELD_VAR_NAME]] = $varValue;
 			}
 		}
@@ -685,6 +664,7 @@ class MetaTemplateSql
 	 */
 	public function saveVars(MetaTemplateSetCollection $vars)
 	{
+		#RHshow('Vars', $vars);
 		// Whether or not the data changed, the page has been evaluated, so add it to the list.
 		$title = $vars->title;
 		self::$pagesPurged[$title->getArticleID()] = true;
@@ -726,8 +706,7 @@ class MetaTemplateSql
 
 		$fields = array_merge($addFields, [
 			self::DATA_VAR_NAME,
-			self::DATA_VAR_VALUE,
-			self::DATA_PARSE_ON_LOAD
+			self::DATA_VAR_VALUE
 		]);
 
 		$options = ['ORDER BY' => [
@@ -867,8 +846,7 @@ class MetaTemplateSql
 					$this->dbWrite->update(
 						self::TABLE_DATA,
 						[
-							self::FIELD_VAR_VALUE => $newValue->value,
-							self::FIELD_PARSE_ON_LOAD => $newValue->parseOnLoad
+							self::FIELD_VAR_VALUE => $newValue
 						],
 						[
 							self::FIELD_SET_ID => $setId,

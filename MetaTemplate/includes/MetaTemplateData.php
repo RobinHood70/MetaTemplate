@@ -65,18 +65,12 @@ class MetaTemplateData
 
 	#region Private Constants
 	/**
-	 * Key for the value indicating whether we're currently processing a {{#save:...|savemarkup=1}}.
-	 *
-	 * @var string (?true)
-	 */
-	private const KEY_PARSEONLOAD = MetaTemplate::KEY_METATEMPLATE . '#parseOnLoad';
-
-	/**
 	 * Key for the value indicating if we're in save mode.
 	 *
 	 * @var string (?bool) True if in save mode.
 	 */
 	private const KEY_SAVE_MODE = MetaTemplate::KEY_METATEMPLATE . '#saving';
+	private static $isSaving = false;
 
 	/**
 	 * Key for the value indicating that a #save operation was attempted during a #listsaved operation and ignored.
@@ -265,11 +259,14 @@ class MetaTemplateData
 
 		unset($values[0]);
 		$pageId = $loadTitle->getArticleID();
+		if ($pageId <= 0) {
+			return;
+		}
+
 		$output = $parser->getOutput();
 		#RHecho($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
 		$output->addTemplate($loadTitle, $pageId, $loadTitle->getLatestRevID());
-
 		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		$setName = isset($magicArgs[self::NA_SET])
 			? substr($magicArgs[self::NA_SET], 0, self::SAVE_SETNAME_WIDTH)
@@ -415,33 +412,34 @@ class MetaTemplateData
 			return [''];
 		}
 
-		$output = $parser->getOutput();
-		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
-		$saveMarkup = $magicArgs[self::NA_SAVEMARKUP] ?? false;
 		/** @var MetaTemplateVariable[] $varsToSave */
 		$varsToSave = [];
+		self::$isSaving = true;
+		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
+		$saveMarkup = (bool)($magicArgs[self::NA_SAVEMARKUP] ?? false);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
-		#RHshow('Translations', $translations);
 		foreach ($translations as $srcName => $destName) {
 			$varNodes = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($varNodes) {
-				$output->setExtensionData(self::KEY_SAVE_MODE, $saveMarkup);
-
-				// For some reason, this seems to be necessary at all expansion levels during save, not just the top.
+				// Redo as includeable so includeonly works as expected.
 				MetaTemplate::unsetVar($frame, $srcName, $anyCase);
-				$varValue = $frame->expand($varNodes, $saveMarkup ? MetaTemplate::getVarExpandFlags() : PPFrame::STRIP_COMMENTS);
+				/** @var string $saveValue */
+				if ($saveMarkup) {
+					$saveValue = $frame->expand($varNodes, PPFrame::NO_TEMPLATES);
+					$saveDom = $parser->preprocessToDom($saveValue, Parser::PTD_FOR_INCLUSION);
+					$saveValue = MetaTemplate::argSubtitution($frame, $saveDom);
+				} else {
+					$saveValue = $frame->expand($varNodes, PPFrame::NO_TAGS);
+					$saveDom = $parser->preprocessToDom($saveValue, Parser::PTD_FOR_INCLUSION);
+					$saveValue = MetaTemplate::argSubtitution($frame, $saveDom);
+				}
 				MetaTemplate::setVarDirect($frame, $srcName, $varNodes);
-
-				$varValue = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($varValue);
-				$parseOnLoad =
-					($saveMarkup && self::treeHasTemplate($varNodes)) ||
-					$output->getExtensionData(self::KEY_PARSEONLOAD);
-				$output->setExtensionData(self::KEY_PARSEONLOAD, null);
-				$output->setExtensionData(self::KEY_SAVE_MODE, null);
-				$varsToSave[$destName] = new MetaTemplateVariable($varValue, $parseOnLoad);
+				$varsToSave[$destName] = $saveValue;
 			}
 		}
 
+		self::$isSaving = false;
+		//$output->setExtensionData(self::KEY_SAVE_MODE, null);
 		#RHshow('Vars to Save', $varsToSave);
 
 		// Normally, the "ignored" value will be null when #save is run. If it's false, then we know we got here via
@@ -449,27 +447,21 @@ class MetaTemplateData
 		// we flip the flag value to true to let the caller know that that's what happened. This will only occur if all
 		// checks were passed and this is unambiguously active code. The check for false instead of !is_null() makes
 		// sure we only set it to true if we haven't already done so.
+		$output = $parser->getOutput();
 		if ($output->getExtensionData(self::KEY_SAVE_IGNORED) === false) {
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, true);
 		}
 
 		$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
 		self::addToSet($title, $output, $setName, $varsToSave);
-
 		if ($debug && count($varsToSave)) {
 			$out = [];
 			foreach ($varsToSave as $key => $value) {
-				$text = $key;
-				if ($value->parseOnLoad) {
-					$text .= ' (parse on load)';
-				}
-
-				$text .= ' = ' . (string)$value->value;
-				$out[] = $text;
+				$out[] = "$key = $value";
 			}
 
 			$out = implode("\n", $out);
-			#RHshow('Test', $out);
+
 			return ParserHelper::formatPFForDebug($out, true);
 		}
 
@@ -484,35 +476,17 @@ class MetaTemplateData
 	 * @param Parser $parser The parser in use.
 	 * @param PPFrame $frame The template frame in use.
 	 *
-	 * @return string The value text with templates and tags left unparsed.
+	 * @return array The half-parsed text and marker type.
 	 */
 	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame_Hash $frame): array
 	{
-		$output = $parser->getOutput();
-		$saveMode = $output->getExtensionData(self::KEY_SAVE_MODE);
-		if (is_null($saveMode)) { // Not saving, just displaying <savemarkup> or {{#save:...|savemarkup=1}}
-			$value = $parser->recursiveTagParse($content, $frame);
-			#RHshow('Recursive Tag Parse', $value);
-			return [$value, 'markerType' => 'general'];
+		if (!self::$isSaving) {
+			return [$parser->recursiveTagParse($content, $frame), 'markerType' => 'general'];
 		}
 
 		$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
-		if (self::treeHasTemplate($value)) {
-			$output->setExtensionData(self::KEY_PARSEONLOAD, true);
-		}
-
-		if ($saveMode) { // Saving <savemarkup> inside {{#save:...|savemarkup=1}}
-			$parent = $frame->parent ?? $frame;
-			$value = $parent->expand($value, MetaTemplate::getVarExpandFlags());
-			#RHshow('Double Parsed', $value);
-		} else {
-			// Saving with standard {{#save:...|savemarkup=1}}
-			$value = $frame->expand($value, MetaTemplate::getVarExpandFlags());
-			$value = VersionHelper::getInstance()->getStripState($parser)->unstripBoth($value);
-			#RHshow('Value', $value);
-		}
-
-		return [$value, 'markerType' => 'nowiki'];
+		$value = MetaTemplate::argSubtitution($frame->parent ?? $frame, $value);
+		return [$value, 'markerType' => 'none'];
 	}
 	#endregion
 
@@ -534,12 +508,10 @@ class MetaTemplateData
 			return;
 		}
 
-		$page = WikiPage::factory($title);
-		$revId = $page->getLatest();
 		/** @var MetaTemplateSetCollection $pageVars */
 		$pageVars = $output->getExtensionData(self::KEY_SAVE);
 		if (!$pageVars) {
-			$pageVars = new MetaTemplateSetCollection($title, $revId);
+			$pageVars = new MetaTemplateSetCollection($title, $title->getLatestRevID());
 			$output->setExtensionData(self::KEY_SAVE, $pageVars);
 		}
 
@@ -572,46 +544,6 @@ class MetaTemplateData
 		}
 
 		$output->setExtensionData(self::KEY_VAR_CACHE, $cache);
-	}
-
-	/**
-	 * Sorts the results according to user-specified order (if any), then page name, and finally set.
-	 *
-	 * @param array $arr The array of page/set data to sort.
-	 * @param string[] $sortOrder A list of field names to sort by. In the event of duplication, only the first instance
-	 *                         counts.
-	 *
-	 * @note This function serves to not only add the data to the cache, but also to convert the data into pages.
-	 *
-	 * @return MetaTemplatePage[] The sorted array.
-	 */
-	private static function pagifyRows(array $rows): array
-	{
-		// Now that sorting is done, morph records into MetaTemplatePages.
-		$retval = [];
-		$pageId = 0;
-		foreach ($rows as $row) {
-			if ($row['pageid'] !== $pageId) {
-				$pageId = $row['pageid'];
-				$page = new MetaTemplatePage($row['namespace'], $row['pagename']);
-				// $retval[$pageId] does not maintain order; array_merge does, with RHS overriding LHS in the event of
-				// duplicates.
-				$retval += [$pageId => $page];
-			}
-
-			// Unset the parent data/sortable fields, leaving only the set data.
-			$setName = $row['set'];
-			unset(
-				$row['namespace'],
-				$row['pageid'],
-				$row['pagename'],
-				$row['set'],
-			);
-
-			$page->sets += [$setName => $row];
-		}
-
-		return $retval;
 	}
 
 	/**
@@ -676,6 +608,43 @@ class MetaTemplateData
 			}
 
 			unset($var);
+		}
+
+		return $retval;
+	}
+
+	/**
+	 * Converts existing #listsaved row data into MetaTemplatePages.
+	 *
+	 * @param array $arr The array of rows to work on.
+	 *
+	 * @return MetaTemplatePage[] The sorted array.
+	 */
+	private static function pagifyRows(array $rows): array
+	{
+		// Now that sorting is done, morph records into MetaTemplatePages.
+		$retval = [];
+		$pageId = 0;
+		foreach ($rows as $row) {
+			if ($row[MetaTemplate::$mwPageId] !== $pageId) {
+				$pageId = $row[MetaTemplate::$mwPageId];
+				$page = new MetaTemplatePage($row[MetaTemplate::$mwNamespace], $row[MetaTemplate::$mwPageName]);
+				// $retval[$pageId] does not maintain order; array_merge does, with RHS overriding LHS in the event of
+				// duplicates.
+				$retval += [$pageId => $page];
+			}
+
+			// Unset the parent data/sortable fields, leaving only the set data.
+			$setName = $row[MetaTemplate::$mwSet];
+			unset(
+				$row[MetaTemplate::$mwFullPageName],
+				$row[MetaTemplate::$mwNamespace],
+				$row[MetaTemplate::$mwPageId],
+				$row[MetaTemplate::$mwPageName],
+				$row[MetaTemplate::$mwSet],
+			);
+
+			$page->sets += [$setName => $row];
 		}
 
 		return $retval;

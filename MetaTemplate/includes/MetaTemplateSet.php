@@ -3,15 +3,6 @@
 class MetaTemplateSet
 {
 	/**
-	 * Whether or not any $variables are unparsed. Used as an optimization to avoid unnecessary checks and loops.
-	 * In future, this should default to false and only be set to true if MetaTemplateUnparsedValues exist in
-	 * $this->variables.
-	 *
-	 * @var bool
-	 */
-	public $hasUnparsed = true;
-
-	/**
 	 *
 	 *
 	 * @var ?string The name of the set.
@@ -21,7 +12,7 @@ class MetaTemplateSet
 	/**
 	 * $variables
 	 *
-	 * @var MetaTemplateVariable[]|string[];
+	 * @var array[]|string[];
 	 *
 	 */
 	public $variables = [];
@@ -38,39 +29,5 @@ class MetaTemplateSet
 	{
 		$this->name = $name;
 		$this->variables = $variables ?? [];
-	}
-
-	/**
-	 * After running this, all variables will be resolved values instead of MetaTemplateVariables.
-	 *
-	 * @param PPFrame $frame
-	 *
-	 * @return void
-	 *
-	 */
-	public function resolveVariables(PPFrame $frame): void
-	{
-		// Most things that rely on $variables should be converted to run this by default and then only use the
-		// straight values after that instead of checking for parseOnLoad. Convert MetaTemplateVariable to
-		// MetaTemplateUnparsedValue.
-		if (!$this->hasUnparsed) {
-			return;
-		}
-
-		foreach ($this->variables as $key => &$value) {
-			if ($value instanceof MetaTemplateVariable) {
-				$value = $value->parseOnLoad
-					? $frame->expand($value->value)
-					: $value->value;
-			}
-		}
-
-		unset($value);
-		$this->hasUnparsed = false;
-	}
-
-	public function toText()
-	{
-		return ($this->name ? $this->name : '(Main)') . ':' . implode('|', array_keys($this->variables));
 	}
 }

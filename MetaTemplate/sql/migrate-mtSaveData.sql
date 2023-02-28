@@ -5,16 +5,14 @@
 INSERT INTO /*_*/mtSaveData (
 	setId,
 	varName,
-	varValue,
-	parseOnLoad)
+	varValue)
 SELECT
 	mt_save_id,
 	mt_save_varname,
-	mt_save_value,
-	!mt_save_parsed
+	mt_save_value
 FROM
 	mt_save_data
-		INNER JOIN
+		JOIN
 	mt_save_set ON mt_save_data.mt_save_id = mt_save_set.mt_set_id
-		INNER JOIN
+		JOIN
 	page ON mt_save_set.mt_set_page_id = page.page_id;

@@ -22,13 +22,6 @@ class MetaTemplateData
 	public const KEY_PRELOAD_DATA = MetaTemplate::KEY_METATEMPLATE . '#preload';
 
 	/**
-	 * Key for the value holding the variables to save at the end of the page.
-	 *
-	 * @var string (?MetaTemplateSetCollection)
-	 */
-	public const KEY_SAVE = MetaTemplate::KEY_METATEMPLATE . '#save';
-
-	/**
 	 * Key for the value housing the {{#preload}} cache.
 	 *
 	 * @var string (?MetaTemplatePage[])
@@ -61,6 +54,9 @@ class MetaTemplateData
 	public const SAVE_VARNAME_WIDTH = 50;
 
 	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
+
+	/** @var ?MetaTemplateSetCollection $saveData */
+	private static $saveData;
 	#endregion
 
 	#region Private Constants
@@ -107,7 +103,7 @@ class MetaTemplateData
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
-			MetaTemplateData::NA_SET,
+			self::NA_SET,
 			ParserHelper::NA_DEBUG,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
@@ -191,7 +187,7 @@ class MetaTemplateData
 
 		// Set up database queries to include all condition and preload data.
 		$namespace = isset($magicArgs[self::NA_NAMESPACE]) ? $frame->expand($magicArgs[self::NA_NAMESPACE]) : null;
-		$setName = isset($magicArgs[MetaTemplateData::NA_SET]) ? $frame->expand($magicArgs[MetaTemplateData::NA_SET]) : null;
+		$setName = isset($magicArgs[self::NA_SET]) ? $frame->expand($magicArgs[self::NA_SET]) : null;
 		$sortOrder = isset($magicArgs[self::NA_ORDER]) ? $frame->expand($magicArgs[self::NA_ORDER]) : null;
 		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $sortOrder, $conditions, $varSets, $frame);
 		$pages = self::pagifyRows($rows);
@@ -309,7 +305,7 @@ class MetaTemplateData
 		}
 
 		#RHshow('Trying to load vars from page [[', $loadTitle->getFullText(), ']]', $set);
-		if (!self::loadFromOutput($output, $set)) {
+		if (!self::loadFromSaveData($output, $set)) {
 			MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
 		}
 
@@ -488,6 +484,45 @@ class MetaTemplateData
 		$value = MetaTemplate::argSubtitution($frame->parent ?? $frame, $value);
 		return [$value, 'markerType' => 'none'];
 	}
+
+	/**
+	 * Saves all pending data.
+	 *
+	 * @param Parser $parser
+	 *
+	 * @return Title[]
+	 *
+	 */
+	public static function save(Title $title): bool
+	{
+		// This algorithm is based on the assumption that data is rarely changed, therefore:
+		// * It's best to read the existing DB data before making any DB updates/inserts.
+		// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
+		//   once instead of individually or by set.
+		// * It's best to use the read-only DB until we know we need to write.
+
+		/** @var MetaTemplateSetCollection $vars */
+		$vars = self::$saveData;
+		$sql = MetaTemplateSql::getInstance();
+
+		$retval = false;
+		if ($vars && !empty($vars->sets)) {
+			// The above check below will only be satisfied on Template-space pages that use #save.
+			if ($vars->revId !== -1 && $sql->saveVars($vars)) {
+				$retval =  true;
+			}
+
+			// $sql->recursiveInvalidateCache($title);
+		} elseif ($sql->hasPageVariables($title)) {
+			// We check whether the page used to have variables; if we don't, delete will cause cascading refreshes.
+			$sql->deleteVariables($title);
+			WikiPage::onArticleEdit($title);
+			$retval = true;
+		}
+
+		self::$saveData = null;
+		return $retval;
+	}
 	#endregion
 
 	#region Private Static Functions
@@ -509,10 +544,10 @@ class MetaTemplateData
 		}
 
 		/** @var MetaTemplateSetCollection $pageVars */
-		$pageVars = $output->getExtensionData(self::KEY_SAVE);
+		$pageVars = self::$saveData;
 		if (!$pageVars) {
 			$pageVars = new MetaTemplateSetCollection($title, $title->getLatestRevID());
-			$output->setExtensionData(self::KEY_SAVE, $pageVars);
+			self::$saveData = $pageVars;
 		}
 
 		$pageVars->addToSet(0, $setName, $variables);
@@ -582,10 +617,9 @@ class MetaTemplateData
 	 *
 	 * @return bool True if all variables were loaded.
 	 */
-	private static function loadFromOutput(ParserOutput $output, MetaTemplateSet &$set): bool
+	private static function loadFromSaveData(ParserOutput $output, MetaTemplateSet &$set): bool
 	{
-		/** @var MetaTemplateSetCollection $pageVars */
-		$pageVars = $output->getExtensionData(self::KEY_SAVE);
+		$pageVars = self::$saveData;
 		if (!$pageVars) {
 			return false; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
 		}

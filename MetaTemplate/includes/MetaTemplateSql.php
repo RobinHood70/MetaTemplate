@@ -215,12 +215,9 @@ class MetaTemplateSql
 	 */
 	public function deleteVariables(Title $title): void
 	{
-		$pageId = $title->getArticleID();
-
 		// Assumes cascading is in effect to delete TABLE_DATA rows.
+		$pageId = $title->getArticleID();
 		$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId]);
-		self::$pagesPurged[$pageId] = true;
-		$this->recursiveInvalidateCache($title);
 	}
 
 	public function getNamespaces(): IResultWrapper
@@ -555,23 +552,6 @@ class MetaTemplateSql
 		}
 	}
 
-	/**
-	 * Moves variables from one page ID to another during a page move.
-	 *
-	 * @param int $oldid The original page ID.
-	 * @param int $newid The new page ID.
-	 *
-	 * @return void
-	 */
-	public function moveVariables(int $oldid, int $newid): void
-	{
-		$this->dbRead->update(
-			self::TABLE_SET,
-			[self::FIELD_PAGE_ID => $newid],
-			[self::FIELD_PAGE_ID => $oldid]
-		);
-	}
-
 	public function pagerQuery(int $pageId): array
 	{
 		[$tables, $fields, $options, $joinConds] = self::baseQuery(self::SET_SET_NAME);
@@ -592,79 +572,16 @@ class MetaTemplateSql
 	}
 
 	/**
-	 * Does a simple purge on all direct backlinks from a page. Needs tested to see if this should be used in the long run. Might be too server intensive, but
-	 *
-	 * @param Title $title
-	 *
-	 * @return void
-	 */
-	public function recursiveInvalidateCache(Title $title): void
-	{
-		return;
-
-		// Note: this is recursive only in the sense that it will cause page re-evaluation, which will, in turn, cause
-		// their dependents to be re-evaluated. This should not be left in-place in the final product, as it's very
-		// server-intensive. (Is it, though? Test on large job on dev.) Instead, call the cache's enqueue jobs method
-		// to put things on the queue or possibly just send this page to be purged with forcerecursivelinksupdate.
-		#RHwriteFile('Recursive Invalidate');
-		$templateLinks = 'templatelinks';
-		$linkIds = [];
-		foreach ($title->getBacklinkCache()->getLinks($templateLinks) as $link) {
-			$linkIds[] = $link->getArticleID();
-		}
-
-		if (!count($linkIds)) {
-			return;
-		}
-
-		$result = $this->dbRead->select(
-			self::TABLE_SET,
-			[self::FIELD_PAGE_ID],
-			[self::FIELD_PAGE_ID => $linkIds],
-			__METHOD__
-		);
-
-		$recursiveIds = [];
-		for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-			$recursiveIds[] = $row[self::FIELD_PAGE_ID];
-		}
-
-		foreach ($linkIds as $linkId) {
-			if (!isset(self::$pagesPurged[$linkId])) {
-				/* self::$pagesPurged[$linkId] = true;
-				$title = Title::newFromID($linkId);
-				if (isset($recursiveIds[$linkId])) {
-					$prefText = $title->getPrefixedText();
-					$job = new RefreshLinksJob(
-						$title,
-						[
-							'table' => $templateLinks,
-							'recursive' => true,
-						] + Job::newRootJobParams("refreshlinks:$templateLinks:$prefText")
-					);
-
-					JobQueueGroup::singleton()->push($job);
-				} else { */
-				$page = WikiPage::factory($title);
-				$page->doPurge();
-				/* } */
-			}
-		}
-
-		#RHwriteFile('End Recursive Update');
-	}
-
-	/**
 	 * Saves all upserts and purges any dependent pages.
 	 *
 	 * @param Title $title The title where the data is being saved.
 	 * @param MetaTemplateSetCollection $vars The sets to be saved.
 	 *
-	 * @return [type]
+	 * @return bool True if any updates were made.
 	 */
-	public function saveVars(MetaTemplateSetCollection $vars)
+	public function saveVars(MetaTemplateSetCollection $vars): bool
 	{
-		#RHshow('Vars', $vars);
+		#RHecho('Vars', $vars);
 		// Whether or not the data changed, the page has been evaluated, so add it to the list.
 		$title = $vars->title;
 		self::$pagesPurged[$title->getArticleID()] = true;
@@ -673,7 +590,10 @@ class MetaTemplateSql
 		if ($upserts->getTotal() > 0) {
 			#RHwriteFile('Normal Save: ', $title->getFullText());
 			$this->saveUpserts($upserts);
+			return true;
 		}
+
+		return false;
 	}
 
 	/**

@@ -1,11 +1,15 @@
 <?php
 // name space MediaWiki\Extension\MetaTemplate;
 
+use \MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /** @todo Add {{#define/local/preview:a=b|c=d}} */
 class MetaTemplateHooks
 {
+	/** @var true[] */
+	private static $purgedIds = [];
+
 	/**
 	 * Migrates the MetaTemplate 1.0 data table to the current version.
 	 *
@@ -159,28 +163,34 @@ class MetaTemplateHooks
 	 * During a move, this function moves data from the original page to the new one, then forces re-evaluation of the
 	 * new page to ensure all information is up to date.
 	 *
-	 * @param MediaWiki\Linker\LinkTarget $old The original LinkTarget for the page.
-	 * @param MediaWiki\Linker\LinkTarget $new The new LinkTarget for the page.
-	 * @param MediaWiki\User\UserIdentity $userIdentity The user performing the move.
+	 * @param MediaWiki\Linker\LinkTarget|Title $old The original LinkTarget for the page.
+	 * @param MediaWiki\Linker\LinkTarget|Title $new The new LinkTarget for the page.
+	 * @param MediaWiki\User\UserIdentity|User $userIdentity The user performing the move.
 	 * @param int $pageid The original page ID.
 	 * @param int $redirid The new page ID.
 	 * @param string $reason The reason for the move.
-	 * @param MediaWiki\Revision\RevisionRecord $revision The RevisionRecord.
+	 * @param MediaWiki\Revision\RevisionRecord|Revision $revision The RevisionRecord.
+	 * @internal This hook handles both the MW 1.35+ PageMoveComplete and 1.34- TitleMoveComplete events. It takes
+	 *     advantage of PHP's loose typing and the fact that both versions have the same number and order of
+	 *     parameters with somewhat compatible object types.
 	 *
 	 * @return void
 	 *
 	 */
 	public static function onPageMoveComplete($old, $new, $userIdentity, int $pageid, int $redirid, string $reason, $revision): void
 	{
-		// The function header here takes advantage of PHP's loose typing and the fact that both 1.35+ and 1.34- have
-		// the same number and order of parameters, just with different object types.
 		#RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplateSql::getInstance()->moveVariables($pageid, $redirid);
-			$title = $new instanceof MediaWiki\Linker\LinkTarget
+			$titleOld = $old instanceof MediaWiki\Linker\LinkTarget
+				? Title::newFromLinkTarget($old)
+				: $old;
+			MetaTemplateSql::getInstance()->deleteVariables($titleOld);
+			LinksUpdate::queueRecursiveJobsForTable($titleOld, 'templatelinks');
+
+			$titleNew = $new instanceof MediaWiki\Linker\LinkTarget
 				? Title::newFromLinkTarget($new)
 				: $new;
-			MetaTemplateSql::getInstance()->recursiveInvalidateCache($title);
+			WikiPage::onArticleEdit($titleNew, $revision);
 		}
 	}
 
@@ -196,39 +206,11 @@ class MetaTemplateHooks
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
 		global $wgCommandLineMode;
-		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) || (!$parser->getRevisionId() && !$wgCommandLineMode)) {
-			return;
-		}
-		#RHwriteFile('onParserAfterTidy => ', $parser->getTitle()->getFullText(), ' / ', $parser->getRevisionId(), ' ', is_null($parser->getRevisionId() ? ' is null!' : ''));
-		#RHwriteFile(substr($text, 0, 30) . "\n");
-		// This algorithm is based on the assumption that data is rarely changed, therefore:
-		// * It's best to read the existing DB data before making any DB updates/inserts.
-		// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
-		//   once instead of individually or by set.
-		// * It's best to use the read-only DB until we know we need to write.
-
-		$title = $parser->getTitle();
-		$output = $parser->getOutput();
-		/** @var MetaTemplateSetCollection $vars */
-		$vars = $output->getExtensionData(MetaTemplateData::KEY_SAVE);
-
-		#RHwriteFile("Saving:\n", $vars);
-		$sql = MetaTemplateSql::getInstance();
-		if ($vars && !empty($vars->sets)) {
-			if ($vars->revId !== -1) {
-				// revId check is to skip Template-space pages with <includeonly>{{#save}}</includeonly>.
-				#RHshow('Save Vars', $title->getFullText());
-				$sql->saveVars($vars);
-			} else {
-				$sql->recursiveInvalidateCache($title);
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) && ($parser->getRevisionId() || $wgCommandLineMode)) {
+			$title = $parser->getTitle();
+			if (MetaTemplateData::save($title)) {
+				WikiPage::onArticleEdit($title, $parser->getRevisionObject());
 			}
-
-			$output->setExtensionData(MetaTemplateData::KEY_SAVE, null);
-		} elseif ($sql->hasPageVariables($title)) {
-			// We check whether the page used to have variables; if we don't, delete will cause cascading refreshes.
-			#RHshow('Delete Vars', $title->getFullText());
-			$sql->deleteVariables($title);
-			$output->setExtensionData(MetaTemplateData::KEY_SAVE, null);
 		}
 	}
 

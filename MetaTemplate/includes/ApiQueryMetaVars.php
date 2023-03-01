@@ -76,7 +76,7 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 
 		$this->addTables(MetaTemplateSql::TABLE_DATA);
 		$this->addTables(MetaTemplateSql::TABLE_SET);
-		$this->addJoinConds([MetaTemplateSql::TABLE_DATA => ['INNER JOIN', MetaTemplateSql::SET_SET_ID . '=' . MetaTemplateSql::DATA_SET_ID]]);
+		$this->addJoinConds([MetaTemplateSql::TABLE_DATA => ['JOIN', MetaTemplateSql::SET_SET_ID . '=' . MetaTemplateSql::DATA_SET_ID]]);
 		$this->addFields([
 			MetaTemplateSql::SET_SET_ID,
 			MetaTemplateSql::SET_PAGE_ID,

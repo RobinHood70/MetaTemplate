@@ -5,7 +5,8 @@ use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
- * Handles all SQL-related functions for MetaTemplate.
+ * Handles all SQL-related functions for MetaTemplate. For the time being, write methods to a read-only database will
+ * simply fail silently, as did the original, though they will return at least some minimal indication of failure.
  */
 class MetaTemplateSql
 {
@@ -211,13 +212,18 @@ class MetaTemplateSql
 	 *
 	 * @param Title $title The title of the page to delete from.
 	 *
-	 * @return void
+	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	public function deleteVariables(Title $title): void
+	public function deleteVariables(Title $title): bool
 	{
+		if (wfReadOnly()) {
+			return false;
+		}
+
 		// Assumes cascading is in effect to delete TABLE_DATA rows.
 		$pageId = $title->getArticleID();
 		$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId]);
+		return true;
 	}
 
 	public function getNamespaces(): IResultWrapper
@@ -289,10 +295,14 @@ class MetaTemplateSql
 	 * @param mixed $setId The set ID to insert.
 	 * @param MetaTemplateSet $newSet The set to insert.
 	 *
-	 * @return void
+	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	public function insertData($setId, MetaTemplateSet $newSet): void
+	public function insertData($setId, MetaTemplateSet $newSet): bool
 	{
+		if (wfReadOnly()) {
+			return false;
+		}
+
 		$data = [];
 		foreach ($newSet->variables as $varName => $varValue) {
 			$data[] = [
@@ -303,6 +313,7 @@ class MetaTemplateSql
 		}
 
 		$this->dbWrite->insert(self::TABLE_DATA, $data);
+		return true;
 	}
 
 	/**
@@ -542,10 +553,14 @@ class MetaTemplateSql
 	 * @param DatabaseUpdater $updater
 	 * @param string $dir
 	 *
-	 * @return void
+	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	public function migrateDataTable(DatabaseUpdater $updater, string $dir): void
+	public function migrateDataTable(DatabaseUpdater $updater, string $dir): bool
 	{
+		if (wfReadOnly()) {
+			return false;
+		}
+
 		$db = $updater->getDB();
 		if (!$db->tableExists(self::OLDTABLE_DATA)) {
 			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_SET . '.sql');
@@ -559,15 +574,21 @@ class MetaTemplateSql
 	 * @param DatabaseUpdater $updater
 	 * @param string $dir
 	 *
-	 * @return void
+	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	public function migrateSetTable(DatabaseUpdater $updater, string $dir): void
+	public function migrateSetTable(DatabaseUpdater $updater, string $dir): bool
 	{
+		if (wfReadOnly()) {
+			return false;
+		}
+
 		$db = $this->dbWrite;
 		if (!$db->tableExists(self::OLDTABLE_SET)) {
 			$updater->addExtensionTable(self::TABLE_SET, "$dir/sql/create-" . self::TABLE_SET . '.sql');
 			$updater->addExtensionUpdate([[$this, 'migrateSet']]);
 		}
+
+		return true;
 	}
 
 	public function pagerQuery(int $pageId): array
@@ -595,10 +616,15 @@ class MetaTemplateSql
 	 * @param Title $title The title where the data is being saved.
 	 * @param MetaTemplateSetCollection $vars The sets to be saved.
 	 *
-	 * @return bool True if any updates were made.
+	 * @return bool True if any updates were made; false is no updates are required or the database is in read-only
+	 *     mode.
 	 */
 	public function saveVars(MetaTemplateSetCollection $vars): bool
 	{
+		if (wfReadOnly()) {
+			return false;
+		}
+
 		#RHecho('Vars', $vars);
 		// Whether or not the data changed, the page has been evaluated, so add it to the list.
 		$title = $vars->title;
@@ -710,10 +736,14 @@ class MetaTemplateSql
 	 *
 	 * @param MetaTemplateUpserts $upserts
 	 *
-	 * @return void
+	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	private function saveUpserts(MetaTemplateUpserts $upserts): void
+	private function saveUpserts(MetaTemplateUpserts $upserts): bool
 	{
+		if (wfReadOnly()) {
+			return false;
+		}
+
 		$deletes = $upserts->deletes;
 		// writeFile('  Deletes: ', count($deletes));
 		if (count($deletes)) {
@@ -756,6 +786,8 @@ class MetaTemplateSql
 				);
 			}
 		}
+
+		return true;
 	}
 
 	/**
@@ -765,10 +797,14 @@ class MetaTemplateSql
 	 * @param MetaTemplateSet $oldSet The previous revision's set data.
 	 * @param MetaTemplateSet $newSet The current revision's set data.
 	 *
-	 * @return void
+	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet): void
+	private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet): bool
 	{
+		if (wfReadOnly()) {
+			return false;
+		}
+
 		#RHecho('Update Set Data');
 		$oldVars = &$oldSet->variables;
 		$newVars = $newSet->variables;

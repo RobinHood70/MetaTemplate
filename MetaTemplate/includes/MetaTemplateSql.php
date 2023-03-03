@@ -454,16 +454,34 @@ class MetaTemplateSql
 	 *
 	 * @return void
 	 */
-	public function loadSetFromPage(int $pageId, MetaTemplateSet &$set, PPFrame $frame = null): void
+	public function loadSetFromPage(int $pageId, MetaTemplateSet &$set): void
 	{
+		// No variables asked for means load all, but when specific values are asked for, we only want to load the ones
+		// we don't already have.
+		$loadSet = [];
+		if (count($set->variables)) {
+			// If specific variables were called for, iterate through them and add them to the set to be loaded if they
+			// don't already have a value.
+			foreach ($set->variables as $varName => $varValue) {
+				if ($varValue === false) {
+					$loadSet[$varName] = false;
+				}
+			}
+
+			// If all of them are already known, there's nothing to do, so return.
+			if (!count($loadSet)) {
+				return;
+			}
+		}
+
 		[$tables, $fields, $options, $joinConds] = self::baseQuery();
 		$conds = [
 			self::SET_PAGE_ID => $pageId,
 			self::SET_SET_NAME => $set->name ?? ''
 		];
 
-		if (count($set->variables)) {
-			$conds[self::DATA_VAR_NAME] = array_keys($set->variables);
+		if (count($loadSet)) {
+			$conds[self::DATA_VAR_NAME] = array_keys($loadSet);
 		}
 
 		#RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));

@@ -58,7 +58,7 @@ class MetaVarsPager extends TablePager
 					$value
 				);
 			case MetaTemplateSql::FIELD_VAR_VALUE:
-				return str_replace("\n", "<br>", $value);
+				return htmlspecialchars(str_replace("\n", "<br>", $value));
 			default:
 				return htmlspecialchars($value);
 		}

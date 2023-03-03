@@ -285,27 +285,21 @@ class MetaTemplateData
 		// condition only occurs if all are non-null.
 		/** @var MetaTemplateSet $preloadSet */
 		/** @var MetaTemplatePage $bulkPage */
-		if (($preloadSet = $output->getExtensionData(self::KEY_VAR_CACHE_WANTED)[$setName] ?? null) &&
-			($bulkPage = $output->getExtensionData(self::KEY_VAR_CACHE)[$pageId] ?? null) &&
-			($bulkSet = $bulkPage->sets[$setName] ?? null)
-		) {
+		$preloadSet = $output->getExtensionData(self::KEY_VAR_CACHE_WANTED)[$setName] ?? null;
+		$bulkPage = $preloadSet ? $output->getExtensionData(self::KEY_VAR_CACHE)[$pageId] ?? null : null;
+		$bulkSet = $bulkPage ? $bulkPage->sets[$setName] ?? null : null;
+		if ($bulkSet) {
 			#RHecho('Preload \'', Title::newFromID($pageId)->getFullText(), '\' Set \'', $setName, "'\nWant set: ", $set, "\n\nGot set: ", $bulkSet);
-			foreach ($preloadSet->variables as $varName => $value) {
+			foreach ($preloadSet->variables as $varName => $ignored) {
 				$varValue = $bulkSet->variables[$varName] ?? null;
 				if (!is_null($varValue)) {
-					MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
+					$set->variables[$varName] = $varValue;
 				}
-
-				unset($set->variables[$varName]);
-			}
-
-			if (!count($set->variables)) {
-				return;
 			}
 		}
 
 		#RHshow('Trying to load vars from page [[', $loadTitle->getFullText(), ']]', $set);
-		if (!self::loadFromSaveData($output, $set)) {
+		if (!self::loadFromSaveData($set)) {
 			MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
 		}
 
@@ -357,7 +351,7 @@ class MetaTemplateData
 		}
 
 		$varList = implode(self::PRELOAD_SEP, array_keys($set->variables));
-		self::addToSet($parser->getTitle(), $output, $setName, [self::KEY_PRELOAD_DATA => $varList]);
+		self::addToSet($parser->getTitle(), $setName, [self::KEY_PRELOAD_DATA => $varList]);
 		$output->setExtensionData(self::KEY_VAR_CACHE_WANTED, $sets);
 	}
 
@@ -417,18 +411,15 @@ class MetaTemplateData
 		foreach ($translations as $srcName => $destName) {
 			$varNodes = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($varNodes) {
-				// Redo as includeable so includeonly works as expected.
+				// Reparses the value as if included, so includeonly works as expected. Also surrounds any remaining
+				// {{{vars}}} with <nowiki> tags.
+				/** @todo There's a LOT of DOM/expand back-and-forth here when you count argSubstitution. Can any of it
+				 *  be optimized? */
 				MetaTemplate::unsetVar($frame, $srcName, $anyCase);
-				/** @var string $saveValue */
-				if ($saveMarkup) {
-					$saveValue = $frame->expand($varNodes, PPFrame::NO_TEMPLATES);
-					$saveDom = $parser->preprocessToDom($saveValue, Parser::PTD_FOR_INCLUSION);
-					$saveValue = MetaTemplate::argSubtitution($frame, $saveDom);
-				} else {
-					$saveValue = $frame->expand($varNodes, PPFrame::NO_TAGS);
-					$saveDom = $parser->preprocessToDom($saveValue, Parser::PTD_FOR_INCLUSION);
-					$saveValue = MetaTemplate::argSubtitution($frame, $saveDom);
-				}
+				$flags = $saveMarkup ? PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS : PPFrame::NO_TAGS;
+				$saveValue = $frame->expand($varNodes, $flags);
+				$saveDom = $parser->preprocessToDom($saveValue, Parser::PTD_FOR_INCLUSION);
+				$saveValue = MetaTemplate::argSubtitution($frame, $saveDom, $flags);
 				MetaTemplate::setVarDirect($frame, $srcName, $varNodes);
 				$varsToSave[$destName] = $saveValue;
 			}
@@ -449,7 +440,7 @@ class MetaTemplateData
 		}
 
 		$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
-		self::addToSet($title, $output, $setName, $varsToSave);
+		self::addToSet($title, $setName, $varsToSave);
 		if ($debug && count($varsToSave)) {
 			$out = [];
 			foreach ($varsToSave as $key => $value) {
@@ -481,7 +472,7 @@ class MetaTemplateData
 		}
 
 		$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
-		$value = MetaTemplate::argSubtitution($frame->parent ?? $frame, $value);
+		$value = MetaTemplate::argSubtitution($frame->parent ?? $frame, $value, PPFrame::NO_TEMPLATES);
 		return [$value, 'markerType' => 'none'];
 	}
 
@@ -536,7 +527,7 @@ class MetaTemplateData
 	 *
 	 * @return void
 	 */
-	private static function addToSet(Title $title, ParserOutput $output, string $setName, array $variables): void
+	private static function addToSet(Title $title, string $setName, array $variables): void
 	{
 		#RHshow('addVars', $variables);
 		if (!count($variables)) {
@@ -617,7 +608,7 @@ class MetaTemplateData
 	 *
 	 * @return bool True if all variables were loaded.
 	 */
-	private static function loadFromSaveData(ParserOutput $output, MetaTemplateSet &$set): bool
+	private static function loadFromSaveData(MetaTemplateSet &$set): bool
 	{
 		$pageVars = self::$saveData;
 		if (!$pageVars) {

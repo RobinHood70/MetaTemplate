@@ -81,12 +81,41 @@ class MetaTemplate
 	 * @return string
 	 *
 	 */
-	public static function argSubtitution(PPFrame $frame, $dom)
+	public static function argSubtitution(PPFrame $frame, $dom, int $flags): string
 	{
-		$retval = $frame->expand($dom, PPFrame::NO_TEMPLATES | PPFrame::STRIP_COMMENTS);
+		// This would have been easier with regex, but regex could mess up on wiki syntax where this can't.
+		$retval = $frame->expand($dom, $flags);
 		/** @var ?string $retval */
 		$retval = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($retval);
-		return $retval ?? '';
+		// We may have leftover arguments, so re-DOM it to figure out if they're real and if so, surround them with
+		// <nowiki> tags.
+		/** @var Parser $parser */
+		$dom = $frame->parser->preprocessToDom($retval);
+		$dom = self::argRecurse($frame, $dom->getRawChildren());
+		$dom = new PPNode_Hash_Tree([array_merge(['value'], [$dom])], 0);
+		$retval = $frame->expand($dom, $flags);
+
+		return $retval;
+	}
+
+	private static function argRecurse(PPFrame $frame, array $children): array
+	{
+		$newNodes = [];
+		foreach ($children as $node) {
+			if (is_array($node)) {
+				if (count($node) && $node[0] === 'tplarg') {
+					$newText = $frame->expand(PPNode_Hash_Tree::factory($node[1], 0), PPFrame::NO_ARGS);
+					// We insert this as a text node instead of an 'ext' hash so it doesn't get processed as a "real" nowiki, which would ultimately lead us right back to our starting point, interpreting the value as not having tags at all.
+					$newNodes[] = new PPNode_Hash_Text(['<nowiki>{{{' . $newText . '}}}</nowiki>'], 0);
+				} else {
+					$newNodes[] = self::argRecurse($frame, $node);
+				}
+			} else {
+				$newNodes[] = $node;
+			}
+		}
+
+		return $newNodes;
 	}
 
 	/**
@@ -233,6 +262,7 @@ class MetaTemplate
 	 */
 	public static function doLocal(Parser $parser, PPFrame $frame, array $args): void
 	{
+		/** @var PPTemplateFrame_Hash $frame */
 		self::checkAndSetVar($frame, $args, true);
 	}
 
@@ -366,7 +396,7 @@ class MetaTemplate
 		foreach ($translations as $srcName => $destName) {
 			$dom = self::getVar($frame, $srcName, $anyCase);
 			if ($dom) {
-				$varValue = self::argSubtitution($frame, $dom);
+				$varValue = self::argSubtitution($frame, $dom, 0);
 				self::setVar($parent, $destName, $varValue, $anyCase);
 			}
 		}
@@ -551,18 +581,14 @@ class MetaTemplate
 
 		self::unsetVar($frame, $varName, $anyCase);
 
-		$dom = $frame->parser->preprocessToDom($varValue); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
+		$dom = $frame->parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
 		$dom->name = 'value';
 		$checkText = $dom->getFirstChild();
-		if ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling())) {
-			// If value is text-only, which will be the case the vast majority of times, we can use it to set the cache
-			// without expansion.
-			$cache[$varName] = $varValue;
-		} elseif (!$frame->depth) {
-			// We still have to expand, however, due to the funky way we have to handle #local et al.
-			$cache[$varName] = $frame->expand($dom);
-		}
-
+		// If value is text-only, which will be the case the vast majority of times, we can use it to set the cache
+		// without expansion. We still have to expand, however, due to the funky way we have to handle variable et al.
+		$cache[$varName] = ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling()))
+			? $varValue
+			: $frame->expand($dom, PPFrame::NO_ARGS);
 		$args[$varName] = $dom;
 	}
 
@@ -793,7 +819,7 @@ class MetaTemplate
 		/** @var PPNode_Hash_Tree|string $varValue */
 		/** @var PPFrame|false $curFrame */
 		if ($varValue && $curFrame) {
-			$varValue = self::argSubtitution($curFrame, $varValue);
+			$varValue = self::argSubtitution($curFrame, $varValue, 0);
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
 

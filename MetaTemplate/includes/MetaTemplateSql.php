@@ -845,6 +845,8 @@ class MetaTemplateSql
 				self::FIELD_VAR_NAME => $deletes
 			]);
 		}
+
+		return true;
 	}
 	#endregion
 }

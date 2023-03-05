@@ -1,15 +1,11 @@
 <?php
 // name space MediaWiki\Extension\MetaTemplate;
 
-use \MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /** @todo Add {{#define/local/preview:a=b|c=d}} */
 class MetaTemplateHooks
 {
-	/** @var true[] */
-	private static $purgedIds = [];
-
 	/**
 	 * Migrates the MetaTemplate 1.0 data table to the current version.
 	 *
@@ -86,6 +82,11 @@ class MetaTemplateHooks
 				$article = new CategoryTreeCategoryPage($title);
 			}
 		}
+	}
+
+	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki)
+	{
+		$wgParserConf['preprocessorClass'] = MetaTemplatePreprocessor::class;
 	}
 
 	public static function onDoCategoryQuery(string $type, IResultWrapper $result)
@@ -237,7 +238,9 @@ class MetaTemplateHooks
 
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
-		MetaTemplateCategoryViewer::init();
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
+			MetaTemplateCategoryViewer::init();
+		}
 	}
 
 	/**

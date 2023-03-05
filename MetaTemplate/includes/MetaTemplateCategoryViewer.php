@@ -23,6 +23,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 	public const NA_IMAGE = 'metatemplate-image';
 	public const NA_PAGE = 'metatemplate-page';
+	public const NA_PAGELENGTH = 'metatemplate-pagelength';
 	public const NA_SORTKEY = 'metatemplate-sortkey';
 	public const NA_SUBCAT = 'metatemplate-subcat';
 
@@ -135,6 +136,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 	/**
 	 * @todo This is a HORRIBLE way to do this. Needs to be re-written to cache the data, not the parser and so forth.
+	 * @todo Leave magic words as magic words and use all synonyms when setting the names.
 	 * Initializes the class, accounting for possible parser caching.
 	 *
 	 * @param ?ParserOutput $parserOutput The current ParserOutput object if the page is retrieved from the cache.
@@ -161,12 +163,14 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		// outside our own wikis; we can just switch once we get to 1.32.
 		self::$contLang = self::$contLang ?? wfGetLangObj(true);
 		// self::$contLang = self::$contLang ?? MediaWikiServices::getInstance()->getContentLanguage();
-		MetaTemplate::$mwFullPageName = MetaTemplate::$mwFullPageName ?? MagicWord::get(MetaTemplateData::NA_PAGENAME)->getSynonym(0);
-		MetaTemplate::$mwPageId = MetaTemplate::$mwPageId ?? MagicWord::get(MetaTemplateData::NA_PAGEID)->getSynonym(0);
-		MetaTemplate::$mwPageName = MetaTemplate::$mwPageName ?? MagicWord::get(MetaTemplateData::NA_PAGENAME)->getSynonym(0);
-		MetaTemplate::$mwSet = MetaTemplate::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
-		self::$mwPageLength = self::$mwPageLength ?? MagicWord::get(MetaTemplateData::NA_PAGELENGTH)->getSynonym(0);
+		MetaTemplate::$mwFullPageName = MetaTemplate::$mwFullPageName ?? MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
+		MetaTemplate::$mwPageId = MetaTemplate::$mwPageId ?? MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonym(0);
+		MetaTemplate::$mwPageName = MetaTemplate::$mwPageName ?? MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonym(0);
+		self::$mwPageLength = self::$mwPageLength ?? MagicWord::get(self::NA_PAGELENGTH)->getSynonym(0);
 		self::$mwSortKey = self::$mwSortKey ?? MagicWord::get(self::NA_SORTKEY)->getSynonym(0);
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			MetaTemplate::$mwSet = MetaTemplate::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
+		}
 	}
 
 	/**

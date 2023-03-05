@@ -26,6 +26,7 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 	$magicWords['en'] += [
 		MetaTemplateCategoryViewer::NA_IMAGE => [0, 'image'],
 		MetaTemplateCategoryViewer::NA_PAGE => [0, 'page'],
+		MetaTemplateCategoryViewer::NA_PAGELENGTH => [0, 'pagelength'],
 		MetaTemplateCategoryViewer::NA_SORTKEY => [0, 'sortkey'],
 		MetaTemplateCategoryViewer::NA_SUBCAT => [0, 'subcat'],
 
@@ -50,12 +51,8 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 
 if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 	$magicWords['en'] += [
-		MetaTemplateData::NA_FULLPAGENAME => [0, 'fullpagename'],
 		MetaTemplateData::NA_NAMESPACE => [0, 'namespace'],
 		MetaTemplateData::NA_ORDER => [0, 'order'],
-		MetaTemplateData::NA_PAGEID => [0, 'pageid'],
-		MetaTemplateData::NA_PAGELENGTH => [0, 'pagelength'],
-		MetaTemplateData::NA_PAGENAME => [0, 'pagename'],
 		MetaTemplateData::NA_SAVEMARKUP => [0, 'savemarkup'],
 		MetaTemplateData::NA_SET => [0, 'set', 'subset'],
 
@@ -65,6 +62,17 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 		MetaTemplateData::PF_SAVE => [0, 'save'],
 
 		MetaTemplateData::TG_SAVEMARKUP => [0, 'savemarkup'],
+	];
+}
+
+if (
+	MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT) ||
+	MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)
+) {
+	$magicWords['en'] += [
+		MetaTemplate::NA_FULLPAGENAME => [0, 'fullpagename'],
+		MetaTemplate::NA_PAGEID => [0, 'pageid'],
+		MetaTemplate::NA_PAGENAME => [0, 'pagename'],
 	];
 }
 

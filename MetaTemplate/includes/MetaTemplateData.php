@@ -35,12 +35,8 @@ class MetaTemplateData
 	 */
 	public const KEY_VAR_CACHE_WANTED = MetaTemplate::KEY_METATEMPLATE . '#cacheWanted';
 
-	public const NA_FULLPAGENAME = 'metatemplate-fullpagename';
 	public const NA_NAMESPACE = 'metatemplate-namespace';
 	public const NA_ORDER = 'metatemplate-order';
-	public const NA_PAGEID = 'metatemplate-pageid';
-	public const NA_PAGELENGTH = 'metatemplate-pagelength';
-	public const NA_PAGENAME = 'metatemplate-pagename';
 	public const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
 	public const NA_SET = 'metatemplate-set';
 
@@ -575,6 +571,7 @@ class MetaTemplateData
 	}
 
 	/**
+	 * @todo This is currently hard-coded. It should be redone similar to (and possibly sharing names with) MetaTemplateCategoryViewer::createFrame().
 	 * Converts the results of loadListSavedData() to the text of the templates to execute.
 	 *
 	 * @param Language $language The language to use for namespace text.
@@ -668,7 +665,7 @@ class MetaTemplateData
 				$row[MetaTemplate::$mwNamespace],
 				$row[MetaTemplate::$mwPageId],
 				$row[MetaTemplate::$mwPageName],
-				$row[MetaTemplate::$mwSet],
+				$row[MetaTemplate::$mwSet]
 			);
 
 			$page->sets += [$setName => $row];

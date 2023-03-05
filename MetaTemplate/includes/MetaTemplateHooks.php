@@ -72,8 +72,9 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki): void
+	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki)
 	{
+		global $wgParserConf;
 		$wgParserConf['preprocessorClass'] = MetaTemplatePreprocessor::class;
 	}
 

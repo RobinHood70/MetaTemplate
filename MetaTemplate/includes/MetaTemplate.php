@@ -87,37 +87,8 @@ class MetaTemplate
 	{
 		// This would have been easier with regex, but regex could mess up on wiki syntax where this can't.
 		$retval = $frame->expand($dom, $flags);
-		/** @var ?string $retval */
-		$retval = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($retval);
-		// We may have leftover arguments, so re-DOM it to figure out if they're real and if so, surround them with
-		// <nowiki> tags.
-		/** @var Parser $parser */
-		$dom = $frame->parser->preprocessToDom($retval);
-		$dom = self::argRecurse($frame, $dom->getRawChildren());
-		$dom = new PPNode_Hash_Tree([array_merge(['value'], [$dom])], 0);
-		$retval = $frame->expand($dom, $flags);
-
+		$retval = $frame->parser->replaceVariables($retval, $frame, true);
 		return $retval;
-	}
-
-	private static function argRecurse(PPFrame $frame, array $children): array
-	{
-		$newNodes = [];
-		foreach ($children as $node) {
-			if (is_array($node)) {
-				if (count($node) && $node[0] === 'tplarg') {
-					$newText = $frame->expand(PPNode_Hash_Tree::factory($node[1], 0), PPFrame::NO_ARGS);
-					// We insert this as a text node instead of an 'ext' hash so it doesn't get processed as a "real" nowiki, which would ultimately lead us right back to our starting point, interpreting the value as not having tags at all.
-					$newNodes[] = new PPNode_Hash_Text(['<nowiki>{{{' . $newText . '}}}</nowiki>'], 0);
-				} else {
-					$newNodes[] = self::argRecurse($frame, $node);
-				}
-			} else {
-				$newNodes[] = $node;
-			}
-		}
-
-		return $newNodes;
 	}
 
 	/**

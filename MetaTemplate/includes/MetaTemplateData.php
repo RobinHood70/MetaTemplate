@@ -479,9 +479,9 @@ class MetaTemplateData
 	/**
 	 * Saves all pending data.
 	 *
-	 * @param Parser $parser
+	 * @param Title $title The title of the data to be saved.
 	 *
-	 * @return Title[]
+	 * @return bool True if data was updated; otherwise, false.
 	 *
 	 */
 	public static function save(Title $title): bool
@@ -491,6 +491,10 @@ class MetaTemplateData
 		// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
 		//   once instead of individually or by set.
 		// * It's best to use the read-only DB until we know we need to write.
+		//
+		// The wikiPage::onArticleEdit() calls ensure that data gets refreshed recursively, even on indirectly affected
+		// pages such as where there's a #load of #save'd data. Those types of pages don't seem to have their caches
+		// invalidated otherwise.
 
 		/** @var MetaTemplateSetCollection $vars */
 		$vars = self::$saveData;
@@ -501,14 +505,12 @@ class MetaTemplateData
 			// The above check below will only be satisfied on Template-space pages that use #save.
 			if ($vars->revId !== -1 && $sql->saveVars($vars)) {
 				$retval =  true;
+				WikiPage::onArticleEdit($title);
 			}
-
-			// $sql->recursiveInvalidateCache($title);
-		} elseif ($sql->hasPageVariables($title)) {
-			// We check whether the page used to have variables; if we don't, delete will cause cascading refreshes.
-			$sql->deleteVariables($title);
-			WikiPage::onArticleEdit($title);
+		} elseif ($sql->hasPageVariables($title) && $sql->deleteVariables($title)) {
+			// Check whether the page used to have variables; if not, delete will cause cascading refreshes.
 			$retval = true;
+			WikiPage::onArticleEdit($title);
 		}
 
 		self::$saveData = null;

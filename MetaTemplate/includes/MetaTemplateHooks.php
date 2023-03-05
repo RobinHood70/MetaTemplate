@@ -11,9 +11,6 @@ class MetaTemplateHooks
 	 *
 	 * @param DatabaseUpdater $updater
 	 * @param string $dir
-	 *
-	 * @return void
-	 *
 	 */
 	public static function migrateDataTable(DatabaseUpdater $updater, string $dir): void
 	{
@@ -27,9 +24,6 @@ class MetaTemplateHooks
 	 *
 	 * @param DatabaseUpdater $updater
 	 * @param string $dir
-	 *
-	 * @return void
-	 *
 	 */
 	public static function migrateSetTable(DatabaseUpdater $updater, string $dir): void
 	{
@@ -48,9 +42,6 @@ class MetaTemplateHooks
 	 * @param mixed $content The content of the deleted article, or null in case of an error.
 	 * @param LogEntry $logEntry The log entry used to record the deletion.
 	 * @param mixed $archivedRevisionCount The number of revisions archived during the page delete.
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onArticleDeleteComplete(WikiPage &$article, User &$user, $reason, $id, $content, LogEntry $logEntry, $archivedRevisionCount): void
 	{
@@ -69,9 +60,6 @@ class MetaTemplateHooks
 	 * @param Title $title The category's title.
 	 * @param ?Article $article The new article page.
 	 * @param IContextSource $context The request context.
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): void
 	{
@@ -84,27 +72,29 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki)
+	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki): void
 	{
 		$wgParserConf['preprocessorClass'] = MetaTemplatePreprocessor::class;
 	}
 
-	public static function onDoCategoryQuery(string $type, IResultWrapper $result)
+	/**
+	 * Passes the CategoryViewer::doCategoryQuery hook through to the category viewer, if enabled.
+	 *
+	 * @param string $type The type of results ('page', 'subcat', 'image').
+	 * @param IResultWrapper $result The database results.
+	 */
+	public static function onDoCategoryQuery(string $type, IResultWrapper $result): void
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			MetaTemplateCategoryViewer::onDoCategoryQuery($type, $result);
 		}
 	}
 
-	// Initial table setup/modifications from v1.
 	/**
 	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
 	 * have been altered and the datestamp removed.
 	 *
 	 * @param DatabaseUpdater $updater
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
 	{
@@ -117,9 +107,6 @@ class MetaTemplateHooks
 	 * Enables MetaTemplate's variables.
 	 *
 	 * @param array $aCustomVariableIds The list of custom variables to add to.
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds): void
 	{
@@ -136,9 +123,6 @@ class MetaTemplateHooks
 	 * viewing a template on its native page.
 	 *
 	 * @param array $bypassVars The active list of variable names to bypass.
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onMetaTemplateSetBypassVars(array &$bypassVars): void
 	{
@@ -153,7 +137,13 @@ class MetaTemplateHooks
 		$bypassVars[] = 'ns_id';
 	}
 
-	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput)
+	/**
+	 * Initializes the the category viewer when called from the parser cache.
+	 *
+	 * @param OutputPage $out
+	 * @param ParserOutput $parserOutput
+	 */
+	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput): void
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			MetaTemplateCategoryViewer::init($parserOutput);
@@ -171,12 +161,10 @@ class MetaTemplateHooks
 	 * @param int $redirid The new page ID.
 	 * @param string $reason The reason for the move.
 	 * @param MediaWiki\Revision\RevisionRecord|Revision $revision The RevisionRecord.
+	 *
 	 * @internal This hook handles both the MW 1.35+ PageMoveComplete and 1.34- TitleMoveComplete events. It takes
 	 *     advantage of PHP's loose typing and the fact that both versions have the same number and order of
 	 *     parameters with somewhat compatible object types.
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onPageMoveComplete($old, $new, $userIdentity, int $pageid, int $redirid, string $reason, $revision): void
 	{
@@ -200,9 +188,6 @@ class MetaTemplateHooks
 	 *
 	 * @param Parser $parser The parser in use.
 	 * @param mixed $text The text of the article.
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
@@ -219,9 +204,6 @@ class MetaTemplateHooks
 	 * Initialize parser and tag functions followed by MetaTemplate general initialization.
 	 *
 	 * @param Parser $parser The parser in use.
-	 *
-	 * @return void
-	 *
 	 */
 	public static function onParserFirstCallInit(Parser $parser): void
 	{
@@ -253,7 +235,6 @@ class MetaTemplateHooks
 	 * @param PPFrame $frame The frame in use.
 	 *
 	 * @return bool Always true
-	 *
 	 */
 	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame): bool
 	{
@@ -283,8 +264,6 @@ class MetaTemplateHooks
 	 * Initialize parser functions.
 	 *
 	 * @param Parser $parser The parser in use.
-	 *
-	 * @return void
 	 */
 	private static function initParserFunctions(Parser $parser): void
 	{
@@ -315,8 +294,6 @@ class MetaTemplateHooks
 	 * Initialize tag functions.
 	 *
 	 * @param Parser $parser The parser in use.
-	 *
-	 * @return void
 	 */
 	private static function initTagFunctions(Parser $parser): void
 	{

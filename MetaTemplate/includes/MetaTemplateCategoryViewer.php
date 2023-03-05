@@ -1,6 +1,5 @@
 <?php
 
-
 use Wikimedia\Rdbms\IResultWrapper;
 
 /* In theory, this process could be optimized further by subdividing <catpagetemplate> into a section for pages and a
@@ -9,6 +8,10 @@ use Wikimedia\Rdbms\IResultWrapper;
  * style would require, I don't think it's especially useful.
  */
 
+/**
+ * This class wraps around the base CategoryViewer class to provide MetaTemplate's custom capabilities like altering
+ * the title and showing set names on a page.
+ */
 class MetaTemplateCategoryViewer extends CategoryViewer
 {
 	#region Public Constants
@@ -81,14 +84,11 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 * @param array $attributes The tag attributes.
 	 * @param Parser $parser The parser in use.
 	 * @param PPFrame $frame The frame in use.
-	 *
-	 * @return string
-	 *
 	 */
-	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
+	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): void
 	{
 		if ($parser->getTitle()->getNamespace() !== NS_CATEGORY || !strlen(trim($content))) {
-			return '';
+			return;
 		}
 
 		$output = $parser->getOutput();
@@ -121,15 +121,25 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$parser->recursiveTagParse($content); // We don't care about the results, just that any #preload gets parsed.
 		$output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, null);
 		$output->setExtensionData(self::KEY_CPTDATA, [$frame, self::$templates]);
-		return '';
 	}
 
+	/**
+	 * Indicates whether any custom templates have been defined on the page.
+	 *
+	 * @return bool True if at least one custom template has been defined; otherwise, false.
+	 */
 	public static function hasTemplate(): bool
 	{
 		return !empty(self::$templates);
 	}
 
-	public static function init(ParserOutput $parserOutput = null)
+	/**
+	 * @todo This is a HORRIBLE way to do this. Needs to be re-written to cache the data, not the parser and so forth.
+	 * Initializes the class, accounting for possible parser caching.
+	 *
+	 * @param ?ParserOutput $parserOutput The current ParserOutput object if the page is retrieved from the cache.
+	 */
+	public static function init(ParserOutput $parserOutput = null): void
 	{
 		// Article::view();
 		if (!self::$parserOutput && $parserOutput) {
@@ -147,7 +157,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		// While we could just import the global $wgContLang here, the global function still works and isn't deprecated
 		// as of MediaWiki 1.40. In 1.32, however, MediaWiki introduces the method used on the commented out line, and
 		// it seems likely they'll eventually make that the official method. Given that it's valid for so much longer
-		// via this method, however, there's little point in versioning it via ParserHelper unless this code is used
+		// via this method, however, there's little point in versioning it via VersionHelper unless this code is used
 		// outside our own wikis; we can just switch once we get to 1.32.
 		self::$contLang = self::$contLang ?? wfGetLangObj(true);
 		// self::$contLang = self::$contLang ?? MediaWikiServices::getInstance()->getContentLanguage();
@@ -159,7 +169,13 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		self::$mwSortKey = self::$mwSortKey ?? MagicWord::get(self::NA_SORTKEY)->getSynonym(0);
 	}
 
-	public static function onDoCategoryQuery(string $type, IResultWrapper $result)
+	/**
+	 * Processes the category information for each type after the results have been retrieved from the database.
+	 *
+	 * @param string $type The type of results ('page', 'subcat', 'image').
+	 * @param IResultWrapper $result The database results.
+	 */
+	public static function onDoCategoryQuery(string $type, IResultWrapper $result): void
 	{
 		if (!self::$parser || $result->numRows() === 0 || !class_exists('MetaTemplateData', false)) {
 			return;
@@ -187,7 +203,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	}
 	#endregion
 
-	#region Public Functions
+	#region Public Override Functions
 	public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)
 	{
 		$type = isset(self::$templates[self::CV_FILE])
@@ -240,6 +256,17 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	#endregion
 
 	#region Private Static Functions
+	/**
+	 * Creates a new frame and sets the desired parameters.
+	 *
+	 * @param Title $title The title of the category entry.
+	 * @param MetaTemplateSet $set The current set.
+	 * @param string|null $sortkey The sort key for the entry.
+	 * @param int $pageLength The page length.
+	 *
+	 * @return PPFrame The newly created frame.
+	 *
+	 */
 	private static function createFrame(Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPFrame
 	{
 		$frame = self::$frame->newChild([], $title);

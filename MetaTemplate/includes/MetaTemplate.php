@@ -63,7 +63,6 @@ class MetaTemplate
 
 	#region Private Static Variables
 	private static $config;
-	private static $varExpandFlags;
 
 	/**
 	 * An array of strings containing the names of parameters that should be passed through to a template, even if
@@ -138,7 +137,7 @@ class MetaTemplate
 	 */
 	public static function configBuilder(): GlobalVarConfig
 	{
-		return new GlobalVarConfig('metatemplate');
+		return new GlobalVarConfig('egMetaTemplate');
 	}
 
 	/**

@@ -1,5 +1,5 @@
 {
-	"name": "MetaTemplate",
+	"name": "MetaTemplate 2",
 	"description": "Features to make templates more powerful",
 	"version": "2.0",
 	"author": [
@@ -7,7 +7,7 @@
 	],
 	"url": "https://en.uesp.net/wiki/UESPWiki:MetaTemplate",
 	"config": {
-		"_prefix": "metatemplate",
+		"_prefix": "egMetaTemplate",
 		"EnableCatPageTemplate": true,
 		"EnableData": true,
 		"EnableDefine": true,

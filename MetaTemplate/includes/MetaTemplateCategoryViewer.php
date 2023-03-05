@@ -143,6 +143,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 */
 	public static function init(ParserOutput $parserOutput = null): void
 	{
+		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
+			return;
+		}
+
 		// Article::view();
 		if (!self::$parserOutput && $parserOutput) {
 			// We got here via the parser cache (Article::view(), case 2), so reload everything we don't have.

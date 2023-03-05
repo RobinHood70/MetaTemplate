@@ -146,9 +146,7 @@ class MetaTemplateHooks
 	 */
 	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput): void
 	{
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
-			MetaTemplateCategoryViewer::init($parserOutput);
-		}
+		MetaTemplateCategoryViewer::init($parserOutput);
 	}
 
 	/**
@@ -221,9 +219,7 @@ class MetaTemplateHooks
 
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
-			MetaTemplateCategoryViewer::init();
-		}
+		MetaTemplateCategoryViewer::init();
 	}
 
 	/**

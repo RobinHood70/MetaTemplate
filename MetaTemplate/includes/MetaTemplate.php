@@ -45,26 +45,21 @@ class MetaTemplate
 	public const VR_PAGENAME0 = 'metatemplate-pagename0';
 	#endregion
 
+	#region Public Static Variables
 	/** @var ?string */
 	public static $mwFullPageName = null;
 
 	/** @var ?string */
 	public static $mwNamespace = null;
 
-	#region Public Static Variables
 	/** @var ?string */
 	public static $mwPageId = null;
 
 	/** @var ?string */
 	public static $mwPageName = null;
-
-	/** @var ?string */
-	public static $mwSet = null;
 	#endregion
 
 	#region Private Static Variables
-	private static $config;
-
 	/**
 	 * An array of strings containing the names of parameters that should be passed through to a template, even if
 	 * displayed on its own page.
@@ -72,6 +67,9 @@ class MetaTemplate
 	 * @var array $bypassVars // @ var MagicWordArray
 	 */
 	private static $bypassVars = null;
+
+	/** @var Config $config */
+	private static $config;
 	#endregion
 
 	#region Public Static Functions
@@ -180,6 +178,10 @@ class MetaTemplate
 	{
 		if (!$frame->depth) {
 			return;
+		}
+
+		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
+			throw new Exception('Invalid frame type: ', get_class($frame));
 		}
 
 		static $magicWords;
@@ -380,7 +382,7 @@ class MetaTemplate
 	 * Unsets (removes) variables from the template.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *        1+: The variable(s) to unset.
 	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
@@ -467,8 +469,12 @@ class MetaTemplate
 	 *
 	 * @return ?PPNode_Hash_Tree Returns the value in raw format and the frame it came from.
 	 */
-	public static function getVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase)
+	public static function getVar(PPFrame_Hash $frame, string $varName, bool $anyCase)
 	{
+		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
+			throw new Exception('Invalid frame type: ', get_class($frame));
+		}
+
 		#RHshow('GetVar', $varName);
 		// Try for an exact match without triggering expansion.
 		$varValue = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? null;
@@ -537,8 +543,12 @@ class MetaTemplate
 	 *
 	 * @return void
 	 */
-	public static function setVar(PPTemplateFrame_Hash $frame, string $varName, string $varValue, $anyCase = false): void
+	public static function setVar(PPFrame_Hash $frame, string $varName, string $varValue, $anyCase = false): void
 	{
+		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
+			throw new Exception('Invalid frame type: ', get_class($frame));
+		}
+
 		#RHshow('Setvar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		/*
             $args = Numbered/Named Args to add node value to.
@@ -582,8 +592,12 @@ class MetaTemplate
 	 *
 	 * @return void
 	 */
-	public static function setVarDirect(PPTemplateFrame_Hash $frame, string $varName, PPNode_Hash_Tree $dom, $anyCase = false): void
+	public static function setVarDirect(PPFrame_Hash $frame, string $varName, PPNode_Hash_Tree $dom, $anyCase = false): void
 	{
+		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
+			throw new Exception('Invalid frame type: ', get_class($frame));
+		}
+
 		#RHshow('Setvar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		/*
             $args = Numbered/Named Args to add node value to.
@@ -617,8 +631,12 @@ class MetaTemplate
 	 *
 	 * @return void
 	 */
-	public static function unsetVar(PPTemplateFrame_Hash $frame, $varName, bool $anyCase, bool $shift = false): void
+	public static function unsetVar(PPFrame_Hash $frame, $varName, bool $anyCase, bool $shift = false): void
 	{
+		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
+			throw new Exception('Invalid frame type: ', get_class($frame));
+		}
+
 		if (is_int($varName) || ctype_digit($varName)) {
 			if ($shift) {
 				self::unsetWithShift($frame, $varName);
@@ -664,6 +682,10 @@ class MetaTemplate
 	 */
 	private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
 	{
+		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
+			throw new Exception('Invalid frame type: ', get_class($frame));
+		}
+
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_IF,

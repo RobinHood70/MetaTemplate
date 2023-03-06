@@ -32,26 +32,25 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 
 		MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE => [0, 'catpagetemplate'],
 
-		MetaTemplateCategoryViewer::VAR_CATGROUP => [0, 'catgroup'],
-		MetaTemplateCategoryViewer::VAR_CATLABEL => [0, 'catlabel'],
-		MetaTemplateCategoryViewer::VAR_CATTEXTPOST => [0, 'cattextpost'],
-		MetaTemplateCategoryViewer::VAR_CATTEXTPRE => [0, 'cattextpre'],
+		MetaTemplateCategoryVars::VAR_CATGROUP => [0, 'catgroup'],
+		MetaTemplateCategoryVars::VAR_CATLABEL => [0, 'catlabel'],
+		MetaTemplateCategoryVars::VAR_CATTEXTPOST => [0, 'cattextpost'],
+		MetaTemplateCategoryVars::VAR_CATTEXTPRE => [0, 'cattextpre'],
 
-		MetaTemplateCategoryViewer::VAR_SETANCHOR => [0, 'setanchor'],
-		MetaTemplateCategoryViewer::VAR_SETLABEL => [0, 'setlabel'],
-		MetaTemplateCategoryViewer::VAR_SETPAGE => [0, 'setpage'],
-		MetaTemplateCategoryViewer::VAR_SETREDIRECT => [0, 'setredirect'],
-		MetaTemplateCategoryViewer::VAR_SETSEPARATOR => [0, 'setseparator'],
-		MetaTemplateCategoryViewer::VAR_SETSKIP => [0, 'setskip'],
-		MetaTemplateCategoryViewer::VAR_SETSORTKEY => [0, 'setsortkey'],
-		MetaTemplateCategoryViewer::VAR_SETTEXTPOST => [0, 'settextpost'],
-		MetaTemplateCategoryViewer::VAR_SETTEXTPRE => [0, 'settextpre'],
+		MetaTemplateCategoryVars::VAR_SETANCHOR => [0, 'setanchor'],
+		MetaTemplateCategoryVars::VAR_SETLABEL => [0, 'setlabel'],
+		MetaTemplateCategoryVars::VAR_SETPAGE => [0, 'setpage'],
+		MetaTemplateCategoryVars::VAR_SETREDIRECT => [0, 'setredirect'],
+		MetaTemplateCategoryVars::VAR_SETSEPARATOR => [0, 'setseparator'],
+		MetaTemplateCategoryVars::VAR_SETSKIP => [0, 'setskip'],
+		MetaTemplateCategoryVars::VAR_SETSORTKEY => [0, 'setsortkey'],
+		MetaTemplateCategoryVars::VAR_SETTEXTPOST => [0, 'settextpost'],
+		MetaTemplateCategoryVars::VAR_SETTEXTPRE => [0, 'settextpre'],
 	];
 }
 
 if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 	$magicWords['en'] += [
-		MetaTemplateData::NA_NAMESPACE => [0, 'namespace'],
 		MetaTemplateData::NA_ORDER => [0, 'order'],
 		MetaTemplateData::NA_SAVEMARKUP => [0, 'savemarkup'],
 		MetaTemplateData::NA_SET => [0, 'set', 'subset'],
@@ -71,6 +70,7 @@ if (
 ) {
 	$magicWords['en'] += [
 		MetaTemplate::NA_FULLPAGENAME => [0, 'fullpagename'],
+		MetaTemplate::NA_NAMESPACE => [0, 'namespace'],
 		MetaTemplate::NA_PAGEID => [0, 'pageid'],
 		MetaTemplate::NA_PAGENAME => [0, 'pagename'],
 	];

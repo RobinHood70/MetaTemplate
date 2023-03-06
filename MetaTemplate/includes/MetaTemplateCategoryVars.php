@@ -1,6 +1,24 @@
 <?php
 class MetaTemplateCategoryVars
 {
+	#region Public Constants
+	public const VAR_CATGROUP = 'metatemplate-catgroup';
+	public const VAR_CATLABEL = 'metatemplate-catlabel';
+	public const VAR_CATTEXTPOST = 'metatemplate-cattextpost';
+	public const VAR_CATTEXTPRE = 'metatemplate-cattextpre';
+
+	public const VAR_SETANCHOR = 'metatemplate-setanchor';
+	public const VAR_SETLABEL = 'metatemplate-setlabel';
+	public const VAR_SETPAGE = 'metatemplate-setpage';
+	public const VAR_SETREDIRECT = 'metatemplate-setredirect';
+	public const VAR_SETSEPARATOR = 'metatemplate-setseparator';
+	public const VAR_SETSKIP = 'metatemplate-setskip';
+	public const VAR_SETSORTKEY = 'metatemplate-setsortkey';
+	public const VAR_SETTEXTPOST = 'metatemplate-settextpost';
+	public const VAR_SETTEXTPRE = 'metatemplate-settextpre';
+	#endregion
+
+	#region Public Properties
 	/** @var string */
 	public $catGroup;
 
@@ -36,51 +54,53 @@ class MetaTemplateCategoryVars
 
 	/** @var string */
 	public $setTextPre;
+	#endregion
 
+	#region Constructor
 	public function __construct(PPFrame $frame, Title $title, string $templateOutput)
 	{
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
-			MetaTemplateCategoryViewer::VAR_CATGROUP,
-			MetaTemplateCategoryViewer::VAR_CATLABEL,
-			MetaTemplateCategoryViewer::VAR_CATTEXTPOST,
-			MetaTemplateCategoryViewer::VAR_CATTEXTPRE,
-			MetaTemplateCategoryViewer::VAR_SETANCHOR,
-			MetaTemplateCategoryViewer::VAR_SETLABEL,
-			MetaTemplateCategoryViewer::VAR_SETPAGE,
-			MetaTemplateCategoryViewer::VAR_SETREDIRECT,
-			MetaTemplateCategoryViewer::VAR_SETSEPARATOR,
-			MetaTemplateCategoryViewer::VAR_SETSKIP,
-			MetaTemplateCategoryViewer::VAR_SETSORTKEY,
-			MetaTemplateCategoryViewer::VAR_SETTEXTPOST,
-			MetaTemplateCategoryViewer::VAR_SETTEXTPRE
+			self::VAR_CATGROUP,
+			self::VAR_CATLABEL,
+			self::VAR_CATTEXTPOST,
+			self::VAR_CATTEXTPRE,
+			self::VAR_SETANCHOR,
+			self::VAR_SETLABEL,
+			self::VAR_SETPAGE,
+			self::VAR_SETREDIRECT,
+			self::VAR_SETSEPARATOR,
+			self::VAR_SETSKIP,
+			self::VAR_SETSORTKEY,
+			self::VAR_SETTEXTPOST,
+			self::VAR_SETTEXTPRE
 		]);
 
 		// While these aren't actually attributes, the function does exactly what's needed.
-		$args = ParserHelper::transformAttributes($frame->getArguments(), $magicWords);
+		$args = ParserHelper::transformAttributes($frame->getNamedArguments(), $magicWords);
 
-		$this->catGroup = $args[MetaTemplateCategoryViewer::VAR_CATGROUP] ?? null;
-		$this->catLabel = isset($args[MetaTemplateCategoryViewer::VAR_CATLABEL])
-			? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_CATLABEL])
+		$this->catGroup = $args[self::VAR_CATGROUP] ?? null;
+		$this->catLabel = isset($args[self::VAR_CATLABEL])
+			? Sanitizer::removeHTMLtags($args[self::VAR_CATLABEL])
 			: ($templateOutput === ''
 				? $title->getFullText()
 				: Sanitizer::removeHTMLtags($templateOutput));
-		$this->catTextPost = isset($args[MetaTemplateCategoryViewer::VAR_CATTEXTPOST])
-			? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_CATTEXTPOST])
+		$this->catTextPost = isset($args[self::VAR_CATTEXTPOST])
+			? Sanitizer::removeHTMLtags($args[self::VAR_CATTEXTPOST])
 			: '';
-		$this->catTextPre = isset($args[MetaTemplateCategoryViewer::VAR_CATTEXTPRE])
-			? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_CATTEXTPRE])
+		$this->catTextPre = isset($args[self::VAR_CATTEXTPRE])
+			? Sanitizer::removeHTMLtags($args[self::VAR_CATTEXTPRE])
 			: '';
-		$this->setSkip = $args[MetaTemplateCategoryViewer::VAR_SETSKIP] ?? false;
+		$this->setSkip = $args[self::VAR_SETSKIP] ?? false;
 		if ($this->setSkip) {
 			return;
 		}
 
-		$setPage = $args[MetaTemplateCategoryViewer::VAR_SETPAGE] ?? null;
+		$setPage = $args[self::VAR_SETPAGE] ?? null;
 		$setPage = $setPage === $title->getFullText()
 			? null
 			: Title::newFromText($setPage);
-		$setAnchor = $args[MetaTemplateCategoryViewer::VAR_SETANCHOR] ?? null;
+		$setAnchor = $args[self::VAR_SETANCHOR] ?? null;
 		if (!empty($setAnchor) && $setAnchor[0] === '#') {
 			$setAnchor = substr($setAnchor, 1);
 		}
@@ -97,8 +117,8 @@ class MetaTemplateCategoryVars
 		// Temporarily accepts catlabel as synonymous with setlabel if setlabel is not defined. This is done solely for
 		// backwards compatibility and it can be removed once all existing catpagetemplates have been converted.
 		$setLabel =
-			$args[MetaTemplateCategoryViewer::VAR_SETLABEL] ??
-			$args[MetaTemplateCategoryViewer::VAR_CATLABEL] ??
+			$args[self::VAR_SETLABEL] ??
+			$args[self::VAR_CATLABEL] ??
 			($templateOutput === ''
 				? null
 				: $templateOutput);
@@ -107,18 +127,19 @@ class MetaTemplateCategoryVars
 		}
 
 		$this->setLabel = $setLabel;
-		$this->setRedirect = $args[MetaTemplateCategoryViewer::VAR_SETREDIRECT] ?? null;
-		$this->setSeparator = isset($args[MetaTemplateCategoryViewer::VAR_SETSEPARATOR])
-			? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETSEPARATOR])
+		$this->setRedirect = $args[self::VAR_SETREDIRECT] ?? null;
+		$this->setSeparator = isset($args[self::VAR_SETSEPARATOR])
+			? Sanitizer::removeHTMLtags($args[self::VAR_SETSEPARATOR])
 			: null;
-		$this->setSortKey = isset($args[MetaTemplateCategoryViewer::VAR_SETSORTKEY])
-			? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETSORTKEY])
+		$this->setSortKey = isset($args[self::VAR_SETSORTKEY])
+			? Sanitizer::removeHTMLtags($args[self::VAR_SETSORTKEY])
 			: $setLabel ?? $setPage ?? $title->getFullText();
-		$this->setTextPost = isset($args[MetaTemplateCategoryViewer::VAR_SETTEXTPOST])
-			? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETTEXTPOST])
+		$this->setTextPost = isset($args[self::VAR_SETTEXTPOST])
+			? Sanitizer::removeHTMLtags($args[self::VAR_SETTEXTPOST])
 			: '';
-		$this->setTextPre = isset($args[MetaTemplateCategoryViewer::VAR_SETTEXTPRE])
-			? Sanitizer::removeHTMLtags($args[MetaTemplateCategoryViewer::VAR_SETTEXTPRE])
+		$this->setTextPre = isset($args[self::VAR_SETTEXTPRE])
+			? Sanitizer::removeHTMLtags($args[self::VAR_SETTEXTPRE])
 			: '';
-	}
+		}
+		#endregion
 }

@@ -18,6 +18,7 @@ class MetaTemplate
 
 	public const NA_CASE = 'metatemplate-case';
 	public const NA_FULLPAGENAME = 'metatemplate-fullpagename';
+	public const NA_NAMESPACE = 'metatemplate-namespace';
 	public const NA_PAGEID = 'metatemplate-pageid';
 	public const NA_PAGENAME = 'metatemplate-pagename';
 	public const NA_SHIFT = 'metatemplate-shift';

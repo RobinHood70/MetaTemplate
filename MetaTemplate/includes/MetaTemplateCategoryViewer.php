@@ -1,6 +1,5 @@
 <?php
 
-use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /* In theory, this process could be optimized further by subdividing <catpagetemplate> into a section for pages and a
@@ -29,21 +28,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	public const NA_SUBCAT = 'metatemplate-subcat';
 
 	public const TG_CATPAGETEMPLATE = 'metatemplate-catpagetemplate';
-
-	public const VAR_CATGROUP = 'metatemplate-catgroup';
-	public const VAR_CATLABEL = 'metatemplate-catlabel';
-	public const VAR_CATTEXTPOST = 'metatemplate-cattextpost';
-	public const VAR_CATTEXTPRE = 'metatemplate-cattextpre';
-
-	public const VAR_SETANCHOR = 'metatemplate-setanchor';
-	public const VAR_SETLABEL = 'metatemplate-setlabel';
-	public const VAR_SETPAGE = 'metatemplate-setpage';
-	public const VAR_SETREDIRECT = 'metatemplate-setredirect';
-	public const VAR_SETSEPARATOR = 'metatemplate-setseparator';
-	public const VAR_SETSKIP = 'metatemplate-setskip';
-	public const VAR_SETSORTKEY = 'metatemplate-setsortkey';
-	public const VAR_SETTEXTPOST = 'metatemplate-settextpost';
-	public const VAR_SETTEXTPRE = 'metatemplate-settextpre';
 	#endregion
 
 	#region Private Constants
@@ -59,14 +43,14 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	/** @var Language */
 	private static $contLang = null;
 
+	/** @var ?PPFrame_Hash */
+	private static $frame = null;
+
 	/** @var ?string */
 	private static $mwPageLength = null;
 
 	/** @var ?string */
 	private static $mwSortKey = null;
-
-	/** @var ?ParserOutput */
-	private static $parserOutput = null;
 
 	/** @var ?string[] */
 	private static $templates = null; // Must be null for proper init on refresh
@@ -89,12 +73,12 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		// The parser cache doesn't store our custom category data nor allow us to parse it in any way short of caching
 		// the entire parser and bringing it back in parseCatPageTemplate(), which seems inadvisable. Caching later in
-		// the proces also isn't an option as the cache is already saved by then. Short of custom caching, which is
-		// probably not advisable unless/until I understand the full dynamics of category generation, the only option
-		// is to disable the cache for any page with <catpagetemplate> on it.
+		// the process also isn't an option as the cache is already saved by then. Short of custom parser caching,
+		// which is probably not advisable unless/until I understand the full dynamics of category generation, the only
+		// option is to disable the cache for any page with <catpagetemplate> on it.
 		$output = $parser->getOutput();
 		$output->updateCacheExpiry(0);
-		self::$parserOutput = $output;
+		self::$frame = $frame;
 
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
@@ -151,10 +135,8 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		if ($parserOutput) {
-			RHecho('Why are you here?');
 			// We got here via the parser cache (Article::view(), case 2), so reload everything we don't have.
 			// Article::view();
-			self::$parserOutput = $parserOutput;
 			self::$templates = $parserOutput->getExtensionData(self::KEY_TEMPLATES);
 		}
 
@@ -165,18 +147,12 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		// outside our own wikis; we can just switch once we get to 1.32.
 		self::$contLang = self::$contLang ?? wfGetLangObj(true);
 		// self::$contLang = self::$contLang ?? MediaWikiServices::getInstance()->getContentLanguage();
-		MetaTemplate::$mwFullPageName = MetaTemplate::$mwFullPageName ?? MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
-		MetaTemplate::$mwPageId = MetaTemplate::$mwPageId ?? MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonym(0);
-		MetaTemplate::$mwPageName = MetaTemplate::$mwPageName ?? MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonym(0);
 		self::$mwPageLength = self::$mwPageLength ?? MagicWord::get(self::NA_PAGELENGTH)->getSynonym(0);
 		self::$mwSortKey = self::$mwSortKey ?? MagicWord::get(self::NA_SORTKEY)->getSynonym(0);
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplateData::$mwSet = MetaTemplateData::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
-		}
 	}
 
 	/**
-	 * Processes the category information for each type after the results have been retrieved from the database.
+	 * Gets any additional set variables requested.
 	 *
 	 * @param string $type The type of results ('page', 'subcat', 'image').
 	 * @param IResultWrapper $result The database results.
@@ -188,80 +164,88 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		/** @var MetaTemplateSet[] $varNames */
-		$varSets = self::$parserOutput->getExtensionData(MetaTemplateData::KEY_VAR_CACHE_WANTED);
+		$output = self::$frame->parser->getOutput();
+		$varSets = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE_WANTED);
 		if (!$varSets) {
 			return;
 		}
 
-		/** @var MetaTemplatePage[] $pageIds */
-		$pageIds = [];
+		/** @var MetaTemplatePage[] $pages */
+		$pages = [];
 		$varNames = $varSets['']->variables ?? [];
-		#RHshow('Has varnames', $varNames);
-		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, null);
+		$varNames = $varNames['*']
+			? []
+			: array_keys($varNames);
+
 		for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-			$pageIds[$row['page_id']] = new MetaTemplatePage($row['page_namespace'], $row['page_title']);
+			$pageId = $row['page_id'];
+			$ns = $row['page_namespace'];
+			$title = $row['page_title'];
+			$pages[$pageId] = new MetaTemplatePage($ns, $title);
 		}
 
 		$result->rewind();
 
 		MetaTemplateSql::getInstance()->catQuery($pages, $varNames);
-		$allPages = self::$parserOutput->getExtensionData(MetaTemplateData::KEY_VAR_CACHE);
+		$output = self::$frame->parser->getOutput();
+		$allPages = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE);
 		foreach ($pages as $pageId => $page) {
 			if (!isset($allPages[$pageId])) {
 				$allPages[$pageId] = $page;
 			}
 		}
 
-		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, $allPages);
+		$output->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, $allPages);
 	}
 	#endregion
 
 	#region Public Override Functions
 	public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)
 	{
-		$type = isset(self::$templates[self::CV_FILE])
-			? self::CV_FILE
-			: (isset(self::$templates[self::CV_PAGE])
-				? self::CV_PAGE
-				: null);
-		if (!$this->showGallery && !is_null($type) && isset(self::$templates[$type])) {
-			[$group, $link] = $this->processTemplate($type, $title, $sortkey, $pageLength, $isRedirect);
-			$this->imgsNoGallery[] = $link;
-			$this->imgsNoGallery_start_char[] = $group;
+		RHecho(__METHOD__);
+		if ($this->showGallery && isset(self::$templates[self::CV_FILE])) {
+			$type = self::CV_FILE;
+		} elseif (!$this->showGallery && isset(self::$templates[self::CV_PAGE])) {
+			$type = self::CV_PAGE;
 		} else {
-			parent::addImage($title, $sortkey, $pageLength, $isRedirect);
+			$type = null;
 		}
+
+		if (is_null(self::$templates[$type])) {
+			parent::addImage($title, $sortkey, $pageLength, $isRedirect);
+			return;
+		}
+
+		[$group, $link] = $this->processTemplate($type, $title, $sortkey, $pageLength, $isRedirect);
+		$this->imgsNoGallery[] = $link;
+		$this->imgsNoGallery_start_char[] = $group;
 	}
 
 	public function addPage($title, $sortkey, $pageLength, $isRedirect = false)
 	{
 		#RHshow('Add page', $title->getFullText());
 		$template = self::$templates[self::CV_PAGE] ?? null;
-		if (!is_null($template)) {
-			[$group, $link] = $this->processTemplate(self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
-			$this->articles[] = $link;
-			$this->articles_start_char[] = $group;
-		} else {
+		if (is_null($template)) {
 			parent::addPage($title, $sortkey, $pageLength, $isRedirect);
+			return;
 		}
+
+		[$group, $link] = $this->processTemplate(self::CV_PAGE, $title, $sortkey, $pageLength, $isRedirect);
+		$this->articles[] = $link;
+		$this->articles_start_char[] = $group;
 	}
 
 	public function addSubcategoryObject(Category $cat, $sortkey, $pageLength)
 	{
 		$template = self::$templates[self::CV_SUBCAT] ?? null;
-		if (!is_null($template)) {
-			$title = $cat->getTitle();
-			[$group, $link] = $this->processTemplate(self::CV_SUBCAT, $title, $sortkey, $pageLength);
-			$this->children[] = $link;
-			$this->children_start_char[] = $group;
-		} else {
+		if (is_null($template)) {
 			parent::addSubcategoryObject($cat, $sortkey, $pageLength);
+			return;
 		}
-	}
 
-	public function finaliseCategoryState()
-	{
-		self::$parserOutput->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, null);
+		[$group, $link] = $this->processTemplate(self::CV_SUBCAT, $cat->getTitle(), $sortkey, $pageLength);
+		$this->children[] = $link;
+		$this->children_start_char[] = $group;
 	}
 	#endregion
 
@@ -277,13 +261,14 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 * @return PPFrame The newly created frame.
 	 *
 	 */
-	private static function createFrame(Preprocessor $preprocessor, Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): PPFrame
+	private static function createFrame(Preprocessor $preprocessor, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): PPFrame
 	{
 		$frame = $preprocessor->newFrame();
 		/** @todo Have this set (and later check for) all synonyms of the MagicWord, not just the first one. */
 		MetaTemplate::setVar($frame, MetaTemplate::$mwFullPageName, $title->getFullText());
 		MetaTemplate::setVar($frame, MetaTemplate::$mwNamespace, $title->getNsText());
-		MetaTemplate::setVar($frame, MetaTemplate::$mwPageName, $title->getFullText()); // Should be changed to getText() for consistency.
+		/** @todo Below should be changed to getText() for consistency. */
+		MetaTemplate::setVar($frame, MetaTemplate::$mwPageName, $title->getFullText());
 		MetaTemplate::setVar($frame, self::$mwPageLength, (string)$pageLength);
 		MetaTemplate::setVar($frame, self::$mwSortKey, explode("\n", $sortkey)[0]);
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
@@ -310,15 +295,15 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 *
 	 * @return MetaTemplateCategoryVars
 	 */
-	private function parseCatPageTemplate(string $type, Title $title, MetaTemplateSet $set, ?string $sortkey, int $pageLength): MetaTemplateCategoryVars
+	private function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): MetaTemplateCategoryVars
 	{
-		$preprocessor = MediaWikiServices::getInstance()->getParser()->getPreprocessor();
+		$preprocessor = self::$frame->preprocessor;
 		$child = self::createFrame(
 			$preprocessor,
 			$title,
-			$set,
 			$sortkey,
-			$pageLength
+			$pageLength,
+			$set
 		);
 
 		$dom = $preprocessor->preprocessToObj(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
@@ -342,21 +327,21 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 */
 	private function processTemplate(string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
 	{
-		$output = self::$parserOutput;
+		$output = self::$frame->parser->getOutput();
 		/** @var MetaTemplatePage[] $allPages */
-		$allPages = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE) ??  [];
+		$allPages = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE) ?? [];
 		$articleId = $title->getArticleID();
-		if (isset($allPages[$articleId])) {
+		if (isset($allPages[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			$setsFound = $allPages[$articleId]->sets;
 			$defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
 		} else {
 			$defaultSet = new MetaTemplateSet('');
-			$setsFound = [$defaultSet];
+			$setsFound = [];
 		}
 		#RHshow('Sets found', count($setsFound), "\n", $setsFound);
 
 		unset($setsFound['']);
-		$catVars = $this->parseCatPageTemplate($type, $title, $defaultSet, $sortkey, $pageLength);
+		$catVars = $this->parseCatPageTemplate($type, $title, $sortkey, $pageLength, $defaultSet);
 
 		/* $catGroup does not need sanitizing as MW runs it through htmlspecialchars later in the process.
 		 * Unfortunately, that means you can't make links without deriving formatList(), which can then call either
@@ -371,7 +356,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
 			foreach (array_values($setsFound) as $setkey => $setValues) {
 				#RHshow('Set', $setValues->name, ' => ', $setValues);
-				$setVars = $this->parseCatPageTemplate($type, $title, $setValues, null, -1);
+				$setVars = $this->parseCatPageTemplate($type, $title, null, -1, $setValues);
 				if ($setVars) {
 					$texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)
 						? $setVars->setLabel

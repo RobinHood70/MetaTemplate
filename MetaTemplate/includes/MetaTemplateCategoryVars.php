@@ -140,6 +140,6 @@ class MetaTemplateCategoryVars
 		$this->setTextPre = isset($args[self::VAR_SETTEXTPRE])
 			? Sanitizer::removeHTMLtags($args[self::VAR_SETTEXTPRE])
 			: '';
-		}
-		#endregion
+	}
+	#endregion
 }

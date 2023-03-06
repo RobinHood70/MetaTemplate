@@ -528,6 +528,14 @@ class MetaTemplate
 		return $retval;
 	}
 
+	public static function init()
+	{
+		self::$mwFullPageName = MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
+		self::$mwNamespace = MagicWord::get(MetaTemplate::NA_NAMESPACE)->getSynonym(0);
+		self::$mwPageId = MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonym(0);
+		self::$mwPageName = MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonym(0);
+	}
+
 	/**
 	 * Takes the provided variable and adds it to the template frame as though it had been passed in. Automatically
 	 * unsets any previous values, including case-variant values if $anyCase is true.

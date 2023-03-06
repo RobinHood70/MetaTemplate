@@ -173,7 +173,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		self::$mwPageLength = self::$mwPageLength ?? MagicWord::get(self::NA_PAGELENGTH)->getSynonym(0);
 		self::$mwSortKey = self::$mwSortKey ?? MagicWord::get(self::NA_SORTKEY)->getSynonym(0);
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplate::$mwSet = MetaTemplate::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
+			MetaTemplateData::$mwSet = MetaTemplateData::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
 		}
 	}
 
@@ -282,9 +282,12 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		MetaTemplate::setVar($frame, MetaTemplate::$mwFullPageName, $title->getFullText());
 		MetaTemplate::setVar($frame, MetaTemplate::$mwNamespace, $title->getNsText());
 		MetaTemplate::setVar($frame, MetaTemplate::$mwPageName, $title->getFullText()); // Should be changed to getText() for consistency.
-		MetaTemplate::setVar($frame, MetaTemplate::$mwSet, $set->name);
 		MetaTemplate::setVar($frame, self::$mwPageLength, (string)$pageLength);
 		MetaTemplate::setVar($frame, self::$mwSortKey, explode("\n", $sortkey)[0]);
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			MetaTemplate::setVar($frame, MetaTemplateData::$mwSet, $set->name);
+		}
+
 		foreach ($set->variables as $varName => $varValue) {
 			MetaTemplate::setVar($frame, $varName, $varValue);
 		}

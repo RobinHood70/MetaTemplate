@@ -1,9 +1,13 @@
 <?php
-// name space MediaWiki\Extension\MetaTemplate;
 
 use Wikimedia\Rdbms\IResultWrapper;
 
 /** @todo Add {{#define/local/preview:a=b|c=d}} */
+/** @todo
+ * This is essentially four extensions in one and if desired in the future, could be fairly readily split for more of a
+ * single-purpse feel to each extension. Catpagetemplate would need a bit of work, as it's is a bit too coupled with
+ * the data features right now, but a few hooks would probably take care of that.
+ */
 class MetaTemplateHooks
 {
 	/**
@@ -72,10 +76,16 @@ class MetaTemplateHooks
 		}
 	}
 
+	public static function onArticleViewHeader(&$article, &$outputDone, &$pcache)
+	{
+	}
+
 	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki)
 	{
-		global $wgParserConf;
-		$wgParserConf['preprocessorClass'] = MetaTemplatePreprocessor::class;
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			global $wgParserConf;
+			$wgParserConf['preprocessorClass'] = MetaTemplatePreprocessor::class;
+		}
 	}
 
 	/**
@@ -219,6 +229,8 @@ class MetaTemplateHooks
 
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
+		MetaTemplate::init();
+		MetaTemplateData::init();
 		MetaTemplateCategoryViewer::init();
 	}
 

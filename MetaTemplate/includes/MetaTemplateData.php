@@ -35,7 +35,6 @@ class MetaTemplateData
 	 */
 	public const KEY_VAR_CACHE_WANTED = MetaTemplate::KEY_METATEMPLATE . '#cacheWanted';
 
-	public const NA_NAMESPACE = 'metatemplate-namespace';
 	public const NA_ORDER = 'metatemplate-order';
 	public const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
 	public const NA_SET = 'metatemplate-set';
@@ -72,6 +71,11 @@ class MetaTemplateData
 	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
 	#endregion
 
+	#region Public Static Properties
+	/** @var ?string */
+	public static $mwSet = null;
+	#endregion
+
 	#region Public Static Functions
 	/**
 	 * Queries the database based on the conditions provided and creates a list of templates, one for each row in the
@@ -104,7 +108,7 @@ class MetaTemplateData
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
 			ParserHelper::NA_SEPARATOR,
-			self::NA_NAMESPACE,
+			MetaTemplate::NA_NAMESPACE,
 			self::NA_ORDER
 		]);
 
@@ -182,7 +186,7 @@ class MetaTemplateData
 		}
 
 		// Set up database queries to include all condition and preload data.
-		$namespace = isset($magicArgs[self::NA_NAMESPACE]) ? $frame->expand($magicArgs[self::NA_NAMESPACE]) : null;
+		$namespace = isset($magicArgs[MetaTemplate::NA_NAMESPACE]) ? $frame->expand($magicArgs[MetaTemplate::NA_NAMESPACE]) : null;
 		$setName = isset($magicArgs[self::NA_SET]) ? $frame->expand($magicArgs[self::NA_SET]) : null;
 		$sortOrder = isset($magicArgs[self::NA_ORDER]) ? $frame->expand($magicArgs[self::NA_ORDER]) : null;
 		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $sortOrder, $conditions, $varSets, $frame);
@@ -472,6 +476,13 @@ class MetaTemplateData
 		return [$value, 'markerType' => 'none'];
 	}
 
+	public static function init()
+	{
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			self::$mwSet = self::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
+		}
+	}
+
 	/**
 	 * Saves all pending data.
 	 *
@@ -571,7 +582,6 @@ class MetaTemplateData
 	}
 
 	/**
-	 * @todo This is currently hard-coded. It should be redone similar to (and possibly sharing names with) MetaTemplateCategoryViewer::createFrame().
 	 * Converts the results of loadListSavedData() to the text of the templates to execute.
 	 *
 	 * @param Language $language The language to use for namespace text.
@@ -588,9 +598,14 @@ class MetaTemplateData
 		$open = '{{';
 		$close = '}}';
 		foreach ($pages as $mtPage) {
-			$pagename = strtr($mtPage->pagename, '_', ' ');
+			$title = Title::newFromText($mtPage->namespace . ':' . strtr($mtPage->pagename, '_', ' '));
 			foreach (array_keys($mtPage->sets) as $setname) {
-				$retval .= "$separator$open$templateName|namespace={$mtPage->namespace}|pagename=$pagename|set=$setname$close";
+				$retval .= "$separator$open$templateName";
+				$retval .= '|' . MetaTemplate::$mwFullPageName . '=' . $title->getPrefixedText();
+				$retval .= '|' . MetaTemplate::$mwNamespace . '=' . $title->getNsText();
+				$retval .= '|' . MetaTemplate::$mwPageName . '=' . $title->getText();
+				$retval .= '|' . self::$mwSet . '=' . $setname;
+				$retval .= $close;
 			}
 		}
 
@@ -659,13 +674,13 @@ class MetaTemplateData
 			}
 
 			// Unset the parent data/sortable fields, leaving only the set data.
-			$setName = $row[MetaTemplate::$mwSet];
+			$setName = $row[self::$mwSet];
 			unset(
 				$row[MetaTemplate::$mwFullPageName],
 				$row[MetaTemplate::$mwNamespace],
 				$row[MetaTemplate::$mwPageId],
 				$row[MetaTemplate::$mwPageName],
-				$row[MetaTemplate::$mwSet]
+				$row[self::$mwSet]
 			);
 
 			$page->sets += [$setName => $row];

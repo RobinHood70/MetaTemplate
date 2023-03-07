@@ -1,6 +1,7 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
+use Wikimedia\Assert\ParameterTypeException;
 
 /**
  * An extension to add data persistence and variable manipulation to MediaWiki.
@@ -180,10 +181,7 @@ class MetaTemplate
 			return;
 		}
 
-		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new Exception('Invalid frame type: ', get_class($frame));
-		}
-
+		self::checkFrameType($frame);
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_DEBUG,
@@ -471,10 +469,7 @@ class MetaTemplate
 	 */
 	public static function getVar(PPFrame_Hash $frame, string $varName, bool $anyCase)
 	{
-		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new Exception('Invalid frame type: ', get_class($frame));
-		}
-
+		self::checkFrameType($frame);
 		#RHshow('GetVar', $varName);
 		// Try for an exact match without triggering expansion.
 		$varValue = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? null;
@@ -553,10 +548,7 @@ class MetaTemplate
 	 */
 	public static function setVar(PPFrame_Hash $frame, string $varName, string $varValue, $anyCase = false): void
 	{
-		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new Exception('Invalid frame type: ', get_class($frame));
-		}
-
+		self::checkFrameType($frame);
 		#RHshow('Setvar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		/*
             $args = Numbered/Named Args to add node value to.
@@ -602,10 +594,7 @@ class MetaTemplate
 	 */
 	public static function setVarDirect(PPFrame_Hash $frame, string $varName, PPNode_Hash_Tree $dom, $anyCase = false): void
 	{
-		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new Exception('Invalid frame type: ', get_class($frame));
-		}
-
+		self::checkFrameType($frame);
 		#RHshow('Setvar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		/*
             $args = Numbered/Named Args to add node value to.
@@ -641,10 +630,7 @@ class MetaTemplate
 	 */
 	public static function unsetVar(PPFrame_Hash $frame, $varName, bool $anyCase, bool $shift = false): void
 	{
-		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new Exception('Invalid frame type: ', get_class($frame));
-		}
-
+		self::checkFrameType($frame);
 		if (is_int($varName) || ctype_digit($varName)) {
 			if ($shift) {
 				self::unsetWithShift($frame, $varName);
@@ -690,10 +676,7 @@ class MetaTemplate
 	 */
 	private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
 	{
-		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new Exception('Invalid frame type: ', get_class($frame));
-		}
-
+		self::checkFrameType($frame);
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_IF,
@@ -730,6 +713,19 @@ class MetaTemplate
 			$varValue = $frame->expand($values[1], PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS); // We need tag recovery with this, so don't use standard argSubstitution
 			$varValue = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($varValue);
 			self::setVar($frame, $varName, $varValue, $anyCase);
+		}
+	}
+
+	/**
+	 * Checks to see that the frame type is coming from either version of MetaTemplate.
+	 *
+	 * @param PPFrame $frame
+	 * @throws Exception Thrown if the frame type is not recognized.
+	 */
+	private static function checkFrameType(PPFrame $frame): void
+	{
+		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
+			throw new ParameterTypeException('frame', get_class($frame));
 		}
 	}
 

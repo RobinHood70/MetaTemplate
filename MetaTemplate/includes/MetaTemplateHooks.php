@@ -205,15 +205,21 @@ class MetaTemplateHooks
 	public static function onParserFirstCallInit(Parser $parser): void
 	{
 		// This should work up to 1.35. In 1.36, they change mPreprocessor to private. At that point, we can probably
-		// override this through reflection. A more legitimate method might be to override the default Parser class
-		// with a derivative, then override getPreproessor() in the derived class. The only question then is how to get
-		// the derived parser to be the default.
-		if (
+		// override this through reflection. It doesn't look like there are any other options, since even in a derived
+		// class, we can't set the private mPreprocessor property.
+
+		// This deliberately overrides mPreprocessor even if not using a custom preprocessor, as the default can still
+		// end up being Preprocessor_DOM at this point, which isn't supported. In later versions, Preprocessor_Hash is
+		// the only built-in option anyway.
+		$useMtParser =
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) ||
-			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE)
-		) {
-			$parser->mPreprocessor = new MetaTemplatePreprocessor($parser);
-		}
+			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE);
+		$preprocessorClass = $useMtParser
+			? MetaTemplatePreprocessor::class
+			: (class_exists('Preprocessor_Uesp', false)
+				? Preprocessor_Uesp::class
+				: Preprocessor_Hash::class);
+		$parser->mPreprocessor = new $preprocessorClass($parser);
 
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);

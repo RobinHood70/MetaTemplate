@@ -159,12 +159,16 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 */
 	public static function onDoCategoryQuery(string $type, IResultWrapper $result): void
 	{
-		if ($result->numRows() === 0 || !MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+		if (
+			!self::$frame || // No catpagetemplate
+			$result->numRows() === 0 || // No categories
+			!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) // No possible sets
+		) {
 			return;
 		}
 
-		/** @var MetaTemplateSet[] $varNames */
 		$output = self::$frame->parser->getOutput();
+		/** @var MetaTemplateSet[] $varSets */
 		$varSets = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE_WANTED);
 		if (!$varSets) {
 			return;
@@ -172,10 +176,11 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		/** @var MetaTemplatePage[] $pages */
 		$pages = [];
-		$varNames = $varSets['']->variables ?? [];
-		$varNames = $varNames['*']
-			? []
-			: array_keys($varNames);
+		$varNames = [];
+		if (isset($varSets[''])) {
+			$varNames = $varSets['']->variables;
+			$varNames = array_keys($varNames['*'] ?? []);
+		}
 
 		for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
 			$pageId = $row['page_id'];
@@ -202,7 +207,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	#region Public Override Functions
 	public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)
 	{
-		RHecho(__METHOD__);
 		if ($this->showGallery && isset(self::$templates[self::CV_FILE])) {
 			$type = self::CV_FILE;
 		} elseif (!$this->showGallery && isset(self::$templates[self::CV_PAGE])) {

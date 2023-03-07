@@ -48,7 +48,7 @@ class MetaTemplateSetCollection
 	 * @return MetaTemplateSet
 	 *
 	 */
-	public function addToSet(int $setId, string $setName, ?array $variables = null): MetaTemplateSet
+	public function addToSet(int $setId, string $setName, array $variables = []): MetaTemplateSet
 	{
 		if ($setId) {
 			$this->setIds[$setName] = $setId;
@@ -56,15 +56,7 @@ class MetaTemplateSetCollection
 
 		if (isset($this->sets[$setName])) {
 			$retval = $this->sets[$setName];
-			if ($variables !== null) {
-				#RHshow('To Merge', $variables, "\nBefore: ", $retval->variables);
-				foreach ($variables as $newKey => $newValue) {
-					if (!isset($retval->variables[$newKey])) {
-						$retval->variables[$newKey] = $newValue;
-					}
-				}
-				#RHshow('After', $retval->variables);
-			}
+			$retval->variables = array_merge($retval->variables, $variables);
 		} else {
 			$retval = new MetaTemplateSet($setName, $variables);
 			$this->sets[$setName] = $retval;

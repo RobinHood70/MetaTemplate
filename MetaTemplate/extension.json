@@ -52,7 +52,6 @@
 	},
 	"Hooks": {
 		"ArticleFromTitle": "MetaTemplateHooks::onArticleFromTitle",
-		"BeforeInitialize": "MetaTemplateHooks::onBeforeInitialize",
 		"CategoryViewer::doCategoryQuery": "MetaTemplateHooks::onDoCategoryQuery",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",

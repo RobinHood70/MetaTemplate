@@ -76,14 +76,6 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki)
-	{
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			global $wgParserConf;
-			$wgParserConf['preprocessorClass'] = MetaTemplatePreprocessor::class;
-		}
-	}
-
 	/**
 	 * Passes the CategoryViewer::doCategoryQuery hook through to the category viewer, if enabled.
 	 *

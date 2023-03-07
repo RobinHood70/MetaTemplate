@@ -76,10 +76,6 @@ class MetaTemplateHooks
 		}
 	}
 
-	public static function onArticleViewHeader(&$article, &$outputDone, &$pcache)
-	{
-	}
-
 	public static function onBeforeInitialize(\Title &$title, $unused, \OutputPage $output, \User $user, \WebRequest $request, \MediaWiki $mediaWiki)
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {

@@ -201,7 +201,7 @@ class MetaTemplateData
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, false);
 			$dom = $parser->preprocessToDom($retval);
 			$retval = $frame->expand($dom);
-			if ($output->getExtensionData(self::KEY_SAVE_IGNORED) ?? false) {
+			if ($output->getExtensionData(self::KEY_SAVE_IGNORED)) {
 				$retval = ParserHelper::error('metatemplate-listsaved-template-saveignored', $templateTitle->getFullText()) . $retval;
 			}
 

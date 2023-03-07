@@ -2,19 +2,10 @@
 
 class MetaTemplateSet
 {
-	/**
-	 *
-	 *
-	 * @var ?string The name of the set.
-	 */
+	/** @var ?string The name of the set. */
 	public $name;
 
-	/**
-	 * $variables
-	 *
-	 * @var array[]|string[];
-	 *
-	 */
+	/** @var ?string[] $variables */
 	public $variables = [];
 
 	/**
@@ -22,10 +13,8 @@ class MetaTemplateSet
 	 *
 	 * @param ?string $name The name of the set to create.
 	 * @param ?string[] $variables Any variables to pre-initialize the set with.
-	 * @param bool $anyCase
-	 *
 	 */
-	public function __construct(?string $name = null, ?array $variables = [])
+	public function __construct(?string $name = null, array $variables = [])
 	{
 		$this->name = $name;
 		$this->variables = $variables ?? [];

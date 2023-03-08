@@ -74,23 +74,6 @@ class MetaTemplate
 
 	#region Public Static Functions
 	/**
-	 * Substitutes values for all {{{arguments}}}.
-	 *
-	 * @param PPFrame $frame
-	 * @param PPNode|string $dom
-	 *
-	 * @return string
-	 *
-	 */
-	public static function argSubtitution(PPFrame $frame, $dom, int $flags): string
-	{
-		// This would have been easier with regex, but regex could mess up on wiki syntax where this can't.
-		$retval = $frame->expand($dom, $flags);
-		$retval = $frame->parser->replaceVariables($retval, $frame, true);
-		return $retval;
-	}
-
-	/**
 	 * Checks the `case` parameter to see if it matches `case=any` or any of the localized equivalents.
 	 *
 	 * @param array $magicArgs The magic-word arguments as created by getMagicArgs().
@@ -369,7 +352,7 @@ class MetaTemplate
 		foreach ($translations as $srcName => $destName) {
 			$dom = self::getVar($frame, $srcName, $anyCase);
 			if ($dom) {
-				$varValue = self::argSubtitution($frame, $dom, 0);
+				$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
 				self::setVar($parent, $destName, $varValue, $anyCase);
 			}
 		}
@@ -683,7 +666,7 @@ class MetaTemplate
 			}
 
 			if (!is_null($dom)) {
-				self::setVarDirect($frame, $varName, $dom, self::argSubtitution($frame, $dom, 0));
+				self::setVarDirect($frame, $varName, $dom, $frame->expand($dom, PPFrame::NO_TEMPLATES));
 			}
 		} elseif ($overwrite || ($frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false) === false) {
 			// Do argument substitution
@@ -797,7 +780,7 @@ class MetaTemplate
 		/** @var PPNode_Hash_Tree|string $varValue */
 		/** @var PPFrame|false $curFrame */
 		if ($varValue && $curFrame) {
-			$varValue = self::argSubtitution($curFrame, $varValue, 0);
+			$varValue = $frame->expand($varValue, PPFrame::NO_TEMPLATES);
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
 

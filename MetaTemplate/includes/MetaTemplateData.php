@@ -418,7 +418,7 @@ class MetaTemplateData
 				// {{{vars}}} with <nowiki> tags.
 				MetaTemplate::unsetVar($frame, $srcName, $anyCase);
 				$flags = $saveMarkup ? PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS : PPFrame::NO_TAGS;
-				$varValue = MetaTemplate::argSubtitution($frame, $dom, $flags);
+				$varValue = $frame->expand($dom, $flags);
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
 				MetaTemplate::setVarDirect($frame, $srcName, $dom, $varValue);
 				$varsToSave[$destName] = $varValue;
@@ -472,7 +472,8 @@ class MetaTemplateData
 		}
 
 		$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
-		$value = MetaTemplate::argSubtitution($frame->parent ?? $frame, $value, PPFrame::NO_TEMPLATES);
+		$parent = $frame->parent ?? $frame;
+		$value = $parent->expand($value, PPFrame::NO_TEMPLATES);
 		return [$value, 'markerType' => 'none'];
 	}
 

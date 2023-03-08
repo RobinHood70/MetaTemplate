@@ -65,10 +65,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 * @param Parser $parser The parser in use.
 	 * @param PPFrame $frame The frame in use.
 	 */
-	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): void
+	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
 	{
 		if ($parser->getTitle()->getNamespace() !== NS_CATEGORY || !strlen(trim($content))) {
-			return;
+			return '';
 		}
 
 		// The parser cache doesn't store our custom category data nor allow us to parse it in any way short of caching
@@ -109,6 +109,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$content = $frame->expand($dom);
 		$output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, null);
 		$output->setExtensionData(self::KEY_TEMPLATES, self::$templates);
+		return '';
 	}
 
 	/**

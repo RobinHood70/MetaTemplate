@@ -70,7 +70,7 @@ class MetaTemplateHooks
 		if ($title->getNamespace() === NS_CATEGORY) {
 			if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 				$article = new MetaTemplateCategoryPage($title);
-			} elseif (class_exists('CategoryTreeCategoryPage', false)) {
+			} elseif (class_exists('CategoryTreeCategoryPage')) {
 				$article = new CategoryTreeCategoryPage($title);
 			}
 		}
@@ -216,7 +216,7 @@ class MetaTemplateHooks
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE);
 		$preprocessorClass = $useMtParser
 			? MetaTemplatePreprocessor::class
-			: (class_exists('Preprocessor_Uesp', false)
+			: (class_exists('Preprocessor_Uesp')
 				? Preprocessor_Uesp::class
 				: Preprocessor_Hash::class);
 		$parser->mPreprocessor = new $preprocessorClass($parser);

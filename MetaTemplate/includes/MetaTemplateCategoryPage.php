@@ -6,7 +6,7 @@ class MetaTemplateCategoryPage extends CategoryPage
 	{
 		$this->mCategoryViewerClass = MetaTemplateCategoryViewer::hasTemplate()
 			? MetaTemplateCategoryViewer::class
-			: (class_exists('CategoryTreeCategoryViewer', false)
+			: (class_exists('CategoryTreeCategoryViewer')
 				? 'CategoryTreeCategoryViewer'
 				: 'CategoryViewer');
 		parent::closeShowCategory();

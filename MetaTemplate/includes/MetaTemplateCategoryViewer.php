@@ -105,9 +105,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		// the parser output seemed like a better choice than doing it via a static, in the event that there's somehow
 		// more than one parser active.
 		$output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, true);
-		$parser->recursiveTagParse($content);
+		$dom = $parser->preprocessToDom($content);
+		$content = $frame->expand($dom);
 		$output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, null);
-
 		$output->setExtensionData(self::KEY_TEMPLATES, self::$templates);
 	}
 
@@ -207,6 +207,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	#region Public Override Functions
 	public function addImage(Title $title, $sortkey, $pageLength, $isRedirect = false)
 	{
+		#RHshow(__METHOD__, $title->getPrefixedText());
 		if ($this->showGallery && isset(self::$templates[self::CV_FILE])) {
 			$type = self::CV_FILE;
 		} elseif (!$this->showGallery && isset(self::$templates[self::CV_PAGE])) {
@@ -227,7 +228,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 	public function addPage($title, $sortkey, $pageLength, $isRedirect = false)
 	{
-		#RHshow('Add page', $title->getFullText());
+		#RHshow(__METHOD__, $title->getPrefixedText());
 		$template = self::$templates[self::CV_PAGE] ?? null;
 		if (is_null($template)) {
 			parent::addPage($title, $sortkey, $pageLength, $isRedirect);
@@ -241,6 +242,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 	public function addSubcategoryObject(Category $cat, $sortkey, $pageLength)
 	{
+		#RHshow(__METHOD__, $cat->getTitle()->getPrefixedText());
 		$template = self::$templates[self::CV_SUBCAT] ?? null;
 		if (is_null($template)) {
 			parent::addSubcategoryObject($cat, $sortkey, $pageLength);
@@ -265,9 +267,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 * @return PPFrame The newly created frame.
 	 *
 	 */
-	private static function createFrame(Preprocessor $preprocessor, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): PPFrame
+	private static function createFrame(Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): PPFrame
 	{
-		$frame = $preprocessor->newFrame();
+		$frame = self::$frame->preprocessor->newFrame();
 		/** @todo Have this set (and later check for) all synonyms of the MagicWord, not just the first one. */
 		MetaTemplate::setVar($frame, MetaTemplate::$mwFullPageName, $title->getFullText());
 		MetaTemplate::setVar($frame, MetaTemplate::$mwNamespace, $title->getNsText());
@@ -301,16 +303,14 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 */
 	private function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): MetaTemplateCategoryVars
 	{
-		$preprocessor = self::$frame->preprocessor;
 		$child = self::createFrame(
-			$preprocessor,
 			$title,
 			$sortkey,
 			$pageLength,
 			$set
 		);
 
-		$dom = $preprocessor->preprocessToObj(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
+		$dom = self::$frame->parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
 		$templateOutput = $child->expand($dom);
 		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
 
@@ -346,6 +346,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		unset($setsFound['']);
 		$catVars = $this->parseCatPageTemplate($type, $title, $sortkey, $pageLength, $defaultSet);
+		#RHshow('$catVars', $catVars);
 
 		/* $catGroup does not need sanitizing as MW runs it through htmlspecialchars later in the process.
 		 * Unfortunately, that means you can't make links without deriving formatList(), which can then call either

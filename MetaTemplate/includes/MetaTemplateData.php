@@ -305,7 +305,10 @@ class MetaTemplateData
 
 		foreach ($set->variables as $varName => $varValue) {
 			if ($varValue !== false) {
-				MetaTemplate::setVar($frame, $varName, $varValue, $anyCase);
+				MetaTemplate::unsetVar($frame, $varName, $anyCase);
+				$dom = $parser->preprocessToDom($varValue);
+				$varValue = $frame->expand($dom, PPFrame::NO_ARGS | PPFrame::NO_IGNORE | PPFrame::NO_TAGS);
+				MetaTemplate::setVarDirect($frame, $varName, $dom, $varValue);
 			}
 		}
 	}
@@ -409,19 +412,16 @@ class MetaTemplateData
 		$saveMarkup = (bool)($magicArgs[self::NA_SAVEMARKUP] ?? false);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $srcName => $destName) {
-			$varNodes = MetaTemplate::getVar($frame, $srcName, $anyCase);
-			if ($varNodes) {
+			$dom = MetaTemplate::getVar($frame, $srcName, $anyCase);
+			if ($dom) {
 				// Reparses the value as if included, so includeonly works as expected. Also surrounds any remaining
 				// {{{vars}}} with <nowiki> tags.
-				/** @todo There's a LOT of DOM/expand back-and-forth here when you count argSubstitution. Can any of it
-				 *  be optimized? */
 				MetaTemplate::unsetVar($frame, $srcName, $anyCase);
 				$flags = $saveMarkup ? PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS : PPFrame::NO_TAGS;
-				$saveValue = $frame->expand($varNodes, $flags);
-				$saveDom = $parser->preprocessToDom($saveValue, Parser::PTD_FOR_INCLUSION);
-				$saveValue = MetaTemplate::argSubtitution($frame, $saveDom, $flags);
-				MetaTemplate::setVarDirect($frame, $srcName, $varNodes);
-				$varsToSave[$destName] = $saveValue;
+				$varValue = MetaTemplate::argSubtitution($frame, $dom, $flags);
+				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
+				MetaTemplate::setVarDirect($frame, $srcName, $dom, $varValue);
+				$varsToSave[$destName] = $varValue;
 			}
 		}
 

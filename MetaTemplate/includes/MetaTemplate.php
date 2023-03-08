@@ -1,7 +1,6 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Assert\ParameterTypeException;
 
 /**
  * An extension to add data persistence and variable manipulation to MediaWiki.
@@ -548,38 +547,24 @@ class MetaTemplate
 	 */
 	public static function setVar(PPFrame_Hash $frame, string $varName, string $varValue, $anyCase = false): void
 	{
+		#RHshow('setVar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		self::checkFrameType($frame);
-		#RHshow('Setvar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
-		/*
-            $args = Numbered/Named Args to add node value to.
-            $cache = Numbered/Named Cache to add the fully expanded value to.
-        */
-		if (ctype_digit($varName)) {
-			$varName = (int)$varName;
-			$args = &$frame->numberedArgs;
-			$cache = &$frame->numberedExpansionCache;
-		} else {
-			$args = &$frame->namedArgs;
-			$cache = &$frame->namedExpansionCache;
-		}
-
 		self::unsetVar($frame, $varName, $anyCase);
-
 		$dom = $frame->parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
 		$dom->name = 'value';
 		$checkText = $dom->getFirstChild();
 		// If value is text-only, which will be the case the vast majority of times, we can use it to set the cache
-		// without expansion. We still have to expand, however, due to the funky way we have to handle variable et al.
-		$cache[$varName] = ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling()))
+		// without expansion. We always have to fill in the cache value, however, due to the NO_ARGS requirement.
+		$varValue = ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling()))
 			? $varValue
 			: $frame->expand($dom, PPFrame::NO_ARGS);
-		$args[$varName] = $dom;
+		self::setVarDirect($frame, $varName, $dom, $varValue);
 	}
 
 	/**
-	 * Takes the provided DOM tree and adds it to the template frame as though it had been passed in. Automatically
-	 * unsets any previous values, including case-variant values if $anyCase is true. This is almost never the function
-	 * you want to call, as there are no safeties in place to check that the DOM tree is in the correct format.
+	 * Takes the provided DOM tree and string value and adds both to the template frame directly. Unlike the regular
+	 * version, this DOES NOT UNSET any previous values. This is almost never the function you want to call, as there
+	 * are no safeties in place to check that the DOM tree is in the correct format.
 	 *
 	 * @internal This also shifts any numeric-named arguments it touches from named to numeric. This should be
 	 * inconsequential, but is mentioned in case there's something I've missed.
@@ -589,33 +574,20 @@ class MetaTemplate
 	 * @param PPNode|string $value The variable value.
 	 *     PPNode: use some variation of argument expansion before sending the node here.
 	 *
-	 *
 	 * @return void
 	 */
-	public static function setVarDirect(PPFrame_Hash $frame, string $varName, PPNode_Hash_Tree $dom, $anyCase = false): void
+	public static function setVarDirect(PPFrame_Hash $frame, string $varName, PPNode_Hash_Tree $dom, string $cacheValue): void
 	{
+		#RHshow('setVarDirect', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		self::checkFrameType($frame);
-		#RHshow('Setvar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
-		/*
-            $args = Numbered/Named Args to add node value to.
-            $cache = Numbered/Named Cache to add the fully expanded value to.
-        */
 		if (ctype_digit($varName)) {
 			$varName = (int)$varName;
-			$args = &$frame->numberedArgs;
-			$cache = &$frame->numberedExpansionCache;
+			$frame->numberedArgs[$varName] = $dom;
+			$frame->numberedExpansionCache[$varName] = $cacheValue;
 		} else {
-			$args = &$frame->namedArgs;
-			$cache = &$frame->namedExpansionCache;
+			$frame->namedArgs[$varName] = $dom;
+			$frame->namedExpansionCache[$varName] = $cacheValue;
 		}
-
-		self::unsetVar($frame, $varName, $anyCase);
-
-		if (!$frame->depth) {
-			$cache[$varName] = $frame->expand($dom);
-		}
-
-		$args[$varName] = $dom;
 	}
 
 	/**
@@ -631,21 +603,21 @@ class MetaTemplate
 	public static function unsetVar(PPFrame_Hash $frame, $varName, bool $anyCase, bool $shift = false): void
 	{
 		self::checkFrameType($frame);
+		unset(
+			$frame->namedArgs[$varName],
+			$frame->namedExpansionCache[$varName]
+		);
 		if (is_int($varName) || ctype_digit($varName)) {
+			unset(
+				$frame->numberedArgs[$varName],
+				$frame->numberedExpansionCache[$varName]
+			);
 			if ($shift) {
-				self::unsetWithShift($frame, $varName);
-			} else {
-				unset(
-					$frame->namedArgs[$varName],
-					$frame->namedExpansionCache[$varName],
-					$frame->numberedArgs[$varName],
-					$frame->numberedExpansionCache[$varName]
-				);
+				self::shiftVars($frame, $varName);
 			}
 		} elseif ($anyCase) {
 			$lcname = strtolower($varName);
-			$keys = array_keys($frame->namedArgs);
-			foreach ($keys as $key) {
+			foreach ($frame->namedArgs as $key => $ignored) {
 				if (strtolower($key) === $lcname) {
 					unset(
 						$frame->namedArgs[$key],
@@ -653,11 +625,6 @@ class MetaTemplate
 					);
 				}
 			}
-		} else {
-			unset(
-				$frame->namedArgs[$varName],
-				$frame->namedExpansionCache[$varName]
-			);
 		}
 	}
 	#endregion
@@ -698,14 +665,25 @@ class MetaTemplate
 		}
 
 		$anyCase = self::checkAnyCase($magicArgs);
-		if (count($values) < 2) {
-			if ($anyCase) {
-				// This occurs with constructs like: {{#local:MiXeD|case=any}}
-				$varValue = self::getVar($frame, $varName, $anyCase);
-				if ($varValue) {
-					// Does this need expanded?
-					self::setVarDirect($frame, $varName, $varValue, $anyCase);
+		if (count($values) < 2 && $anyCase) {
+			// This occurs with constructs like: {{#local:MiXeD|case=any}}. Loop logic is a combination of get and
+			// unset so we can set directly to the desired case at the end.
+			$dom = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? null;
+			if (!ctype_digit($varName)) {
+				$lcname = strtolower($varName);
+				foreach ($frame->namedArgs as $key => $varValue) {
+					if (strtolower($key) === $lcname) {
+						if (is_null($dom)) {
+							$dom = $varValue;
+						}
+
+						unset($key);
+					}
 				}
+			}
+
+			if (!is_null($dom)) {
+				self::setVarDirect($frame, $varName, $dom, self::argSubtitution($frame, $dom, 0));
 			}
 		} elseif ($overwrite || ($frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false) === false) {
 			// Do argument substitution
@@ -725,7 +703,7 @@ class MetaTemplate
 	private static function checkFrameType(PPFrame $frame): void
 	{
 		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new ParameterTypeException('frame', get_class($frame));
+			throw new InvalidArgumentException('Argument format was not recognized: ' .  get_class($frame));
 		}
 	}
 
@@ -834,7 +812,7 @@ class MetaTemplate
 	 *
 	 * @return void
 	 */
-	private static function unsetWithShift(PPTemplateFrame_Hash $frame, string $varName): void
+	private static function shiftVars(PPTemplateFrame_Hash $frame, string $varName): void
 	{
 		$newArgs = [];
 		$newCache = [];
@@ -848,6 +826,11 @@ class MetaTemplate
 			}
 		}
 
+		$frame->numberedArgs = $newArgs;
+		$frame->numberedExpansionCache = $newCache;
+
+		$newArgs = [];
+		$newCache = [];
 		foreach ($frame->namedArgs as $key => $value) {
 			if ($varName != $key) {
 				$newKey = ctype_digit($key) && $key > $varName ? $key - 1 :  $key;
@@ -858,8 +841,8 @@ class MetaTemplate
 			}
 		}
 
-		$frame->numberedArgs = $newArgs;
-		$frame->numberedExpansionCache = $newCache;
+		$frame->namedArgs = $newArgs;
+		$frame->namedExpansionCache = $newCache;
 	}
 	#endregion
 }

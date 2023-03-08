@@ -301,11 +301,11 @@ class MetaTemplateHooks
 	private static function initTagFunctions(Parser $parser): void
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
-			$parser->setHook(MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
+			ParserHelper::setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
 		}
 
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			$parser->setHook(MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+			ParserHelper::setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		}
 	}
 }

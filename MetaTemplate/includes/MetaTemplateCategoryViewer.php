@@ -46,10 +46,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	/** @var ?PPFrame_Hash */
 	private static $frame = null;
 
-	/** @var ?string */
+	/** @var ?string[] */
 	private static $mwPageLength = null;
 
-	/** @var ?string */
+	/** @var ?string[] */
 	private static $mwSortKey = null;
 
 	/** @var ?string[] */
@@ -169,11 +169,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		$output = self::$frame->parser->getOutput();
+
 		/** @var MetaTemplateSet[] $varSets */
 		$varSets = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE_WANTED);
-		if (!$varSets) {
-			return;
-		}
 
 		/** @var MetaTemplatePage[] $pages */
 		$pages = [];
@@ -191,7 +189,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		$result->rewind();
-
 		MetaTemplateSql::getInstance()->catQuery($pages, $varNames);
 		$output = self::$frame->parser->getOutput();
 		$allPages = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE);
@@ -201,6 +198,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 			}
 		}
 
+		#RHshow('allPages', $allPages);
 		$output->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, $allPages);
 	}
 	#endregion
@@ -256,40 +254,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	}
 	#endregion
 
-	#region Private Static Functions
-	/**
-	 * Creates a new frame and sets the desired parameters.
-	 *
-	 * @param Title $title The title of the category entry.
-	 * @param MetaTemplateSet $set The current set.
-	 * @param string|null $sortkey The sort key for the entry.
-	 * @param int $pageLength The page length.
-	 *
-	 * @return PPFrame The newly created frame.
-	 *
-	 */
-	private static function createFrame(Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): PPFrame
-	{
-		$frame = self::$frame->preprocessor->newFrame();
-		/** @todo Have this set (and later check for) all synonyms of the MagicWord, not just the first one. */
-		MetaTemplate::setVar($frame, MetaTemplate::$mwFullPageName, $title->getFullText());
-		MetaTemplate::setVar($frame, MetaTemplate::$mwNamespace, $title->getNsText());
-		/** @todo Below should be changed to getText() for consistency. */
-		MetaTemplate::setVar($frame, MetaTemplate::$mwPageName, $title->getFullText());
-		MetaTemplate::setVar($frame, self::$mwPageLength, (string)$pageLength);
-		MetaTemplate::setVar($frame, self::$mwSortKey, explode("\n", $sortkey)[0]);
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplate::setVar($frame, MetaTemplateData::$mwSet, $set->name);
-		}
-
-		foreach ($set->variables as $varName => $varValue) {
-			MetaTemplate::setVar($frame, $varName, $varValue);
-		}
-
-		return $frame;
-	}
-	#endregion
-
 	#region Private Functions
 	/**
 	 * Evaluates the template in the context of the category entry and each set on that page.
@@ -304,12 +268,21 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 */
 	private function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): MetaTemplateCategoryVars
 	{
-		$child = self::createFrame(
-			$title,
-			$sortkey,
-			$pageLength,
-			$set
-		);
+		/** @todo Pagename entry should be changed to getText() for consistency. */
+		$child = self::$frame->preprocessor->newFrame();
+		MetaTemplate::setVarSynonyms($child, MetaTemplate::$mwFullPageName, $title->getFullText());
+		MetaTemplate::setVarSynonyms($child, MetaTemplate::$mwNamespace, $title->getNsText());
+		MetaTemplate::setVarSynonyms($child, MetaTemplate::$mwPageName, $title->getFullText());
+		MetaTemplate::setVarSynonyms($child, self::$mwPageLength, (string)$pageLength);
+		MetaTemplate::setVarSynonyms($child, self::$mwSortKey, explode("\n", $sortkey)[0]);
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			MetaTemplate::setVarSynonyms($child, MetaTemplateData::$mwSet, $set->name);
+		}
+
+		foreach ($set->variables as $varName => $varValue) {
+			// Note that these are uncontrolled values, not magic words, so synonyms are ignored.
+			MetaTemplate::setVar($child, $varName, $varValue);
+		}
 
 		$dom = self::$frame->parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
 		$templateOutput = $child->expand($dom);

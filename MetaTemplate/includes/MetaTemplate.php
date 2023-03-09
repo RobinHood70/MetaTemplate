@@ -46,16 +46,16 @@ class MetaTemplate
 	#endregion
 
 	#region Public Static Variables
-	/** @var ?string */
+	/** @var ?string[] */
 	public static $mwFullPageName = null;
 
-	/** @var ?string */
+	/** @var ?string[] */
 	public static $mwNamespace = null;
 
-	/** @var ?string */
+	/** @var ?string[] */
 	public static $mwPageId = null;
 
-	/** @var ?string */
+	/** @var ?string[] */
 	public static $mwPageName = null;
 	#endregion
 
@@ -507,10 +507,15 @@ class MetaTemplate
 
 	public static function init()
 	{
-		self::$mwFullPageName = MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
-		self::$mwNamespace = MagicWord::get(MetaTemplate::NA_NAMESPACE)->getSynonym(0);
-		self::$mwPageId = MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonym(0);
-		self::$mwPageName = MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonym(0);
+		if (
+			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT) ||
+			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)
+		) {
+			self::$mwFullPageName = MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonyms();
+			self::$mwNamespace = MagicWord::get(MetaTemplate::NA_NAMESPACE)->getSynonyms();
+			self::$mwPageId = MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonyms();
+			self::$mwPageName = MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonyms();
+		}
 	}
 
 	/**
@@ -570,6 +575,20 @@ class MetaTemplate
 		} else {
 			$frame->namedArgs[$varName] = $dom;
 			$frame->namedExpansionCache[$varName] = $cacheValue;
+		}
+	}
+
+	/**
+	 * Sets a variable for all synonyms of a key.
+	 *
+	 * @param PPFrame $frame The frame in use
+	 * @param iterable $synonyms
+	 * @param string $value
+	 */
+	public static function setVarSynonyms(PPFrame $frame, iterable $synonyms, string $value): void
+	{
+		foreach ($synonyms as $synonym) {
+			MetaTemplate::setVar($frame, $synonym, $value);
 		}
 	}
 
@@ -669,8 +688,6 @@ class MetaTemplate
 				self::setVarDirect($frame, $varName, $dom, $frame->expand($dom, PPFrame::NO_TEMPLATES));
 			}
 		} elseif ($overwrite || ($frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false) === false) {
-			// Do argument substitution
-			// Could do this faster by recursing tree and calling parser->argSubtitution on tplarg nodes.
 			$varValue = $frame->expand($values[1], PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS); // We need tag recovery with this, so don't use standard argSubstitution
 			$varValue = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($varValue);
 			self::setVar($frame, $varName, $varValue, $anyCase);

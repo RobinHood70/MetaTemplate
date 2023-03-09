@@ -198,7 +198,6 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 			}
 		}
 
-		#RHshow('allPages', $allPages);
 		$output->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, $allPages);
 	}
 	#endregion

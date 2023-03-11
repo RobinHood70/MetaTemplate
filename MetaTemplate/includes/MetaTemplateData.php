@@ -39,10 +39,10 @@ class MetaTemplateData
 	public const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
 	public const NA_SET = 'metatemplate-set';
 
-	public const PF_LISTSAVED = 'metatemplate-listsaved';
-	public const PF_LOAD = 'metatemplate-load';
-	public const PF_PRELOAD = 'metatemplate-preload';
-	public const PF_SAVE = 'metatemplate-save';
+	public const PF_LISTSAVED = 'listsaved';
+	public const PF_LOAD = 'load';
+	public const PF_PRELOAD = 'preload';
+	public const PF_SAVE = 'save';
 
 	public const PRELOAD_SEP = '|';
 	public const SAVE_SETNAME_WIDTH = 50;

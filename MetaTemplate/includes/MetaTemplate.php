@@ -23,15 +23,15 @@ class MetaTemplate
 	public const NA_PAGENAME = 'metatemplate-pagename';
 	public const NA_SHIFT = 'metatemplate-shift';
 
-	public const PF_DEFINE = 'metatemplate-define';
-	public const PF_FULLPAGENAMEx = 'metatemplate-fullpagenamex';
-	public const PF_INHERIT = 'metatemplate-inherit';
-	public const PF_LOCAL = 'metatemplate-local';
-	public const PF_NAMESPACEx = 'metatemplate-namespacex';
-	public const PF_PAGENAMEx = 'metatemplate-pagenamex';
-	public const PF_PREVIEW = 'metatemplate-preview';
-	public const PF_RETURN = 'metatemplate-return';
-	public const PF_UNSET = 'metatemplate-unset';
+	public const PF_DEFINE = 'define';
+	public const PF_FULLPAGENAMEx = 'fullpagenamex';
+	public const PF_INHERIT = 'inherit';
+	public const PF_LOCAL = 'local';
+	public const PF_NAMESPACEx = 'namespacex';
+	public const PF_PAGENAMEx = 'pagenamex';
+	public const PF_PREVIEW = 'preview';
+	public const PF_RETURN = 'return';
+	public const PF_UNSET = 'unset';
 
 	public const STTNG_ENABLECPT = 'EnableCatPageTemplate';
 	public const STTNG_ENABLEDATA = 'EnableData';

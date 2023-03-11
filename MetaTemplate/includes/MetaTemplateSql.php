@@ -100,7 +100,6 @@ class MetaTemplateSql
 			'page.page_latest',
 			self::SET_SET_NAME,
 		];
-
 		$conds = [];
 		$joinConds = [self::TABLE_SET => ['INNER JOIN', 'page.page_id = ' . self::SET_PAGE_ID]];
 		$setName = $setName ?? '*';
@@ -517,8 +516,7 @@ class MetaTemplateSql
 	 */
 	public function loadSetsFromPage(int $pageId, array $varNames = null, PPFrame $frame = null): array
 	{
-		[$tables, $fields, $options, $joinConds] = self::baseQuery();
-		$fields[] = self::SET_SET_NAME;
+		[$tables, $fields, $options, $joinConds] = self::baseQuery(self::SET_SET_NAME);
 		$conds = [self::SET_PAGE_ID => $pageId];
 		if ($varNames && count($varNames)) {
 			$conds[self::DATA_VAR_NAME] = $varNames;

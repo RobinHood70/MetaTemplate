@@ -40,6 +40,13 @@ class SpecialMetaVarsOnPage extends IncludableSpecialPage
 
 	public function execute($subPage): void
 	{
+		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			// I'm not sure how it's getting here—maybe transcluding a special page—but during an import, erroneous
+			// code traced back to here. For now, abort if we're not supposed to be here to avoid trying to access
+			// database tables that don't exist.
+			return;
+		}
+
 		$this->setHeaders();
 		$this->outputHeader();
 		$out = $this->getOutput();
@@ -90,7 +97,6 @@ class SpecialMetaVarsOnPage extends IncludableSpecialPage
 	public function showList(): void
 	{
 		#RHshow('ParserOutput', $wgParser->mOutput);
-		// $wgParser->preprocessToDom('Hello');
 		if (is_null($this->pageName)) {
 			if ($this->mIncluding) {
 				/** @var Title $wgTitle */

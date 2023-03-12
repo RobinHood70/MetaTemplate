@@ -11,32 +11,6 @@ use Wikimedia\Rdbms\IResultWrapper;
 class MetaTemplateHooks
 {
 	/**
-	 * Migrates the MetaTemplate 1.0 data table to the current version.
-	 *
-	 * @param DatabaseUpdater $updater
-	 * @param string $dir
-	 */
-	public static function migrateDataTable(DatabaseUpdater $updater, string $dir): void
-	{
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplateSql::getInstance()->migrateDataTable($updater, $dir);
-		}
-	}
-
-	/**
-	 * Migrates the MetaTemplate 1.0 set table to the current version.
-	 *
-	 * @param DatabaseUpdater $updater
-	 * @param string $dir
-	 */
-	public static function migrateSetTable(DatabaseUpdater $updater, string $dir): void
-	{
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplateSql::getInstance()->migrateSetTable($updater, $dir);
-		}
-	}
-
-	/**
 	 * Deletes all set-related data when a page is deleted.
 	 *
 	 * @param WikiPage $article The article that was deleted.

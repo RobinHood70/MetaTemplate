@@ -46,16 +46,16 @@ class MetaTemplate
 	#endregion
 
 	#region Public Static Variables
-	/** @var ?string[] */
+	/** @var ?string */
 	public static $mwFullPageName = null;
 
-	/** @var ?string[] */
+	/** @var ?string */
 	public static $mwNamespace = null;
 
-	/** @var ?string[] */
+	/** @var ?string */
 	public static $mwPageId = null;
 
-	/** @var ?string[] */
+	/** @var ?string */
 	public static $mwPageName = null;
 	#endregion
 
@@ -511,10 +511,10 @@ class MetaTemplate
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT) ||
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)
 		) {
-			self::$mwFullPageName = MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonyms();
-			self::$mwNamespace = MagicWord::get(MetaTemplate::NA_NAMESPACE)->getSynonyms();
-			self::$mwPageId = MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonyms();
-			self::$mwPageName = MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonyms();
+			self::$mwFullPageName = MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
+			self::$mwNamespace = MagicWord::get(MetaTemplate::NA_NAMESPACE)->getSynonym(0);
+			self::$mwPageId = MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonym(0);
+			self::$mwPageName = MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonym(0);
 		}
 	}
 

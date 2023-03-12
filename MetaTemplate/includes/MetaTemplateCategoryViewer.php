@@ -46,10 +46,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	/** @var ?PPFrame_Hash */
 	private static $frame = null;
 
-	/** @var ?string[] */
+	/** @var ?string */
 	private static $mwPageLength = null;
 
-	/** @var ?string[] */
+	/** @var ?string */
 	private static $mwSortKey = null;
 
 	/** @var ?string[] */
@@ -269,13 +269,13 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	{
 		/** @todo Pagename entry should be changed to getText() for consistency. */
 		$child = self::$frame->preprocessor->newFrame();
-		MetaTemplate::setVarSynonyms($child, MetaTemplate::$mwFullPageName, $title->getFullText());
-		MetaTemplate::setVarSynonyms($child, MetaTemplate::$mwNamespace, $title->getNsText());
-		MetaTemplate::setVarSynonyms($child, MetaTemplate::$mwPageName, $title->getFullText());
-		MetaTemplate::setVarSynonyms($child, self::$mwPageLength, (string)$pageLength);
-		MetaTemplate::setVarSynonyms($child, self::$mwSortKey, explode("\n", $sortkey)[0]);
+		MetaTemplate::setVar($child, MetaTemplate::$mwFullPageName, $title->getFullText());
+		MetaTemplate::setVar($child, MetaTemplate::$mwNamespace, $title->getNsText());
+		MetaTemplate::setVar($child, MetaTemplate::$mwPageName, $title->getFullText());
+		MetaTemplate::setVar($child, self::$mwPageLength, (string)$pageLength);
+		MetaTemplate::setVar($child, self::$mwSortKey, explode("\n", $sortkey)[0]);
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplate::setVarSynonyms($child, MetaTemplateData::$mwSet, $set->name);
+			MetaTemplate::setVar($child, MetaTemplateData::$mwSet, $set->name);
 		}
 
 		foreach ($set->variables as $varName => $varValue) {

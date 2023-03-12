@@ -418,11 +418,11 @@ class MetaTemplateSql
 				// newFromRow() is overkill here, since we're just parsing ns and title.
 				$title = Title::makeTitle($row['page_namespace'], $row['page_title']);
 				$data = [];
-				self::addData($data, MetaTemplate::$mwFullPageName, $title->getPrefixedText());
-				self::addData($data, MetaTemplate::$mwNamespace, $title->getNsText());
-				self::addData($data, MetaTemplate::$mwPageId, $row[self::FIELD_PAGE_ID]);
-				self::addData($data, MetaTemplate::$mwPageName, $title->getText());
-				self::addData($data, MetaTemplateData::$mwSet, $rowSetName);
+				$data[MetaTemplate::$mwFullPageName] = $title->getPrefixedText();
+				$data[MetaTemplate::$mwNamespace] = $title->getNsText();
+				$data[MetaTemplate::$mwPageId] = $row[self::FIELD_PAGE_ID];
+				$data[MetaTemplate::$mwPageName] = $title->getText();
+				$data[MetaTemplateData::$mwSet] = $rowSetName;
 			}
 
 			$varValue = $row[self::FIELD_VAR_VALUE];
@@ -654,20 +654,6 @@ class MetaTemplateSql
 	#endregion
 
 	#region Private Static Functions
-	/**
-	 * Adds the specified value to an array for each synonym in the list of synonyms.
-	 *
-	 * @param array $data The array to add to.
-	 * @param iterable $synonyms The synonyms to add to.
-	 * @param mixed $value The value to add.
-	 */
-	private static function addData(array &$data, iterable $synonyms, $value): void
-	{
-		foreach ($synonyms as $synonym) {
-			$data[$synonym] = $value;
-		}
-	}
-
 	/**
 	 * Returns the basic query arrays for most MetaTemplate queries.
 	 *

@@ -72,7 +72,7 @@ class MetaTemplateData
 	#endregion
 
 	#region Public Static Properties
-	/** @var ?string[] */
+	/** @var ?string */
 	public static $mwSet = null;
 	#endregion
 
@@ -583,25 +583,6 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Creates the key=value text for a parameter with synonyms.
-	 *
-	 * @param iterable $synonyms The list of synonyms to create as parameter names.
-	 * @param string $value The value of the parameter.
-	 *
-	 * @return string The text of the parameters.
-	 *
-	 */
-	private static function createSynonymParameter(iterable $synonyms, string $value): string
-	{
-		$retval = '';
-		foreach ($synonyms as $synonym) {
-			$retval .= "|$synonym=$value";
-		}
-
-		return $retval;
-	}
-
-	/**
 	 * Converts the results of loadListSavedData() to the text of the templates to execute.
 	 *
 	 * @param Language $language The language to use for namespace text.
@@ -621,10 +602,10 @@ class MetaTemplateData
 			$title = Title::newFromText($mtPage->namespace . ':' . strtr($mtPage->pagename, '_', ' '));
 			foreach (array_keys($mtPage->sets) as $setname) {
 				$retval .= "$separator$open$templateName";
-				$retval .= self::createSynonymParameter(MetaTemplate::$mwFullPageName, $title->getPrefixedText());
-				$retval .= self::createSynonymParameter(MetaTemplate::$mwNamespace, $title->getNsText());
-				$retval .= self::createSynonymParameter(MetaTemplate::$mwPageName, $title->getText());
-				$retval .= self::createSynonymParameter(self::$mwSet, $setname);
+				$retval .= '|' . MetaTemplate::$mwFullPageName . '=' . $title->getPrefixedText();
+				$retval .= '|' . MetaTemplate::$mwNamespace . '=' . $title->getNsText();
+				$retval .= '|' . MetaTemplate::$mwPageName . '=' . $title->getText();
+				$retval .= '|' . self::$mwSet . '=' . $setname;
 				$retval .= $close;
 			}
 		}
@@ -695,12 +676,13 @@ class MetaTemplateData
 
 			// Unset the parent data/sortable fields, leaving only the set data.
 			$setName = $row[self::$mwSet];
-			$variables = [MetaTemplate::$mwFullPageName, MetaTemplate::$mwNamespace, MetaTemplate::$mwPageId, MetaTemplate::$mwPageName, self::$mwSet];
-			foreach ($variables as $synonyms) {
-				foreach ($synonyms as $synonym) {
-					unset($row[$synonym]);
-				}
-			}
+			unset(
+				$row[MetaTemplate::$mwFullPageName],
+				$row[MetaTemplate::$mwNamespace],
+				$row[MetaTemplate::$mwPageId],
+				$row[MetaTemplate::$mwPageName],
+				$row[self::$mwSet]
+			);
 
 			$page->sets += [$setName => $row];
 		}

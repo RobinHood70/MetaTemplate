@@ -564,6 +564,8 @@ class MetaTemplateSql
 			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_SET . '.sql');
 			$updater->addExtensionUpdate([$this, 'migrateSet']);
 		}
+
+		return true;
 	}
 
 	/**

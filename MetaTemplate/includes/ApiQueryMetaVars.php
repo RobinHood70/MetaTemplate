@@ -57,12 +57,11 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 	{
 		$params = $this->extractRequestParams();
 		$isGenerator = $resultPageSet !== null;
-
 		if ($isGenerator) {
-			/* Current max variables on a page is 52, so an arbitrary limit of 60 should be a
-              safe assumption. An accurate limit could be achieved by joining to a query with
-              an exact LIMIT, but this seems needlessly complex for something that's likely to
-              see limited use. */
+			/* Current max variables on a page is 52, so an arbitrary limit of 60 should be a safe assumption. An
+			 * accurate limit could be achieved by joining to a query with an exact LIMIT, but this seems needlessly
+			 * complex for something that's likely to see limited use.
+			 */
 			$this->addOption('LIMIT', 60 * $params[self::KEY_LIMIT]);
 		} else {
 			$pages = $this->getPageSet()->getGoodTitles();
@@ -230,11 +229,5 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 	public function getHelpUrls()
 	{
 		return 'http://www.uesp.net/wiki/Project:MetaTemplate#API';
-	}
-
-	// Can be removed post 1.21
-	public function getVersion()
-	{
-		return __CLASS__ . ': $Id$';
 	}
 }

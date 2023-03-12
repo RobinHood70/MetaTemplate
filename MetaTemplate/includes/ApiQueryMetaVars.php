@@ -32,17 +32,22 @@
  */
 class ApiQueryMetaVars extends ApiQueryGeneratorBase
 {
+	#region Private Constants
 	private const KEY_CONTINUE = 'continue';
 	private const KEY_LIMIT = 'limit';
 	private const KEY_SET = 'set';
 	private const KEY_VAR = 'var';
 	private const KEY_VARS = self::KEY_VAR . 's';
+	#endregion
 
+	#region Constructor
 	public function __construct($query, $moduleName)
 	{
 		parent::__construct($query, $moduleName, 'mv');
 	}
+	#endregion
 
+	#region Public Override Functions
 	public function execute()
 	{
 		$this->run();
@@ -53,6 +58,64 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 		$this->run($resultPageSet);
 	}
 
+	public function getAllowedParams()
+	{
+		return [
+			self::KEY_CONTINUE => null,
+			self::KEY_LIMIT => [
+				ApiBase::PARAM_DFLT => 10,
+				ApiBase::PARAM_TYPE => self::KEY_LIMIT,
+				ApiBase::PARAM_MIN => 1,
+				ApiBase::PARAM_MAX => ApiBase::LIMIT_BIG1,
+				ApiBase::PARAM_MAX2 => ApiBase::LIMIT_BIG2
+			],
+			self::KEY_SET => [
+				ApiBase::PARAM_ISMULTI => true,
+			],
+			self::KEY_VAR => [
+				ApiBase::PARAM_ISMULTI => true,
+			],
+		];
+	}
+
+	public function getCacheMode($params)
+	{
+		return 'public';
+	}
+
+	public function getDescription()
+	{
+		return 'Get various values saved on the page by MetaTemplate';
+	}
+
+	public function getExamples()
+	{
+		return [
+			'api.php?action=query&prop=metavars&titles=Skyrim:Riften|Skyrim:Armor|Main%20Page',
+			"api.php?action=query&prop=metavars&titles=Skyrim:Riften|Skyrim:Armor|Main%20Page&{$this->getModulePrefix()}" . self::KEY_SET . '=|',
+			"api.php?action=query&prop=metavars&titles=Skyrim:Armor&{$this->getModulePrefix()}" . self::KEY_VAR . '=weight|value',
+			"api.php?action=query&prop=metavars&titles=Skyrim:Armor&{$this->getModulePrefix()}" . self::KEY_SET . "=Fur%20Armor|Iron%20Armor&{$this->getModulePrefix()}" . self::KEY_VAR . '=weight|value',
+			"api.php?action=query&generator=metavars&g{$this->getModulePrefix()}&prop=metavars" . self::KEY_VAR . '=weight|value&mv' . self::KEY_VAR . '=weight|value',
+		];
+	}
+
+	public function getHelpUrls()
+	{
+		return 'http://www.uesp.net/wiki/Project:MetaTemplate#API';
+	}
+
+	public function getParamDescription()
+	{
+		return [
+			self::KEY_CONTINUE => 'When more results are available, use this to continue.',
+			self::KEY_LIMIT => 'The maximum number of pages to return (generator only).',
+			self::KEY_SET => "Only list values from these subsets. To get only the main set, use \"{$this->getModulePrefix()}subset=|\".",
+			self::KEY_VAR => 'Only list values with these names. Useful for checking whether a certain page uses a certain variable.',
+		];
+	}
+	#endregion
+
+	#region Private Functions
 	private function run($resultPageSet = null)
 	{
 		$params = $this->extractRequestParams();
@@ -174,60 +237,5 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 
 		return $this->addPageSubItems($page, $items);
 	}
-
-	public function getCacheMode($params)
-	{
-		return 'public';
-	}
-
-	public function getAllowedParams()
-	{
-		return [
-			self::KEY_CONTINUE => null,
-			self::KEY_LIMIT => [
-				ApiBase::PARAM_DFLT => 10,
-				ApiBase::PARAM_TYPE => self::KEY_LIMIT,
-				ApiBase::PARAM_MIN => 1,
-				ApiBase::PARAM_MAX => ApiBase::LIMIT_BIG1,
-				ApiBase::PARAM_MAX2 => ApiBase::LIMIT_BIG2
-			],
-			self::KEY_SET => [
-				ApiBase::PARAM_ISMULTI => true,
-			],
-			self::KEY_VAR => [
-				ApiBase::PARAM_ISMULTI => true,
-			],
-		];
-	}
-
-	public function getParamDescription()
-	{
-		return [
-			self::KEY_CONTINUE => 'When more results are available, use this to continue.',
-			self::KEY_LIMIT => 'The maximum number of pages to return (generator only).',
-			self::KEY_SET => "Only list values from these subsets. To get only the main set, use \"{$this->getModulePrefix()}subset=|\".",
-			self::KEY_VAR => 'Only list values with these names. Useful for checking whether a certain page uses a certain variable.',
-		];
-	}
-
-	public function getDescription()
-	{
-		return 'Get various values saved on the page by MetaTemplate';
-	}
-
-	public function getExamples()
-	{
-		return [
-			'api.php?action=query&prop=metavars&titles=Skyrim:Riften|Skyrim:Armor|Main%20Page',
-			"api.php?action=query&prop=metavars&titles=Skyrim:Riften|Skyrim:Armor|Main%20Page&{$this->getModulePrefix()}" . self::KEY_SET . '=|',
-			"api.php?action=query&prop=metavars&titles=Skyrim:Armor&{$this->getModulePrefix()}" . self::KEY_VAR . '=weight|value',
-			"api.php?action=query&prop=metavars&titles=Skyrim:Armor&{$this->getModulePrefix()}" . self::KEY_SET . "=Fur%20Armor|Iron%20Armor&{$this->getModulePrefix()}" . self::KEY_VAR . '=weight|value',
-			"api.php?action=query&generator=metavars&g{$this->getModulePrefix()}&prop=metavars" . self::KEY_VAR . '=weight|value&mv' . self::KEY_VAR . '=weight|value',
-		];
-	}
-
-	public function getHelpUrls()
-	{
-		return 'http://www.uesp.net/wiki/Project:MetaTemplate#API';
-	}
+	#endregion
 }

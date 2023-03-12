@@ -2,6 +2,10 @@
 	"@metadata": {
 		"authors": []
 	},
+	"apihelp-query+metavars-param-continue": "When more results are available, use this to continue.",
+	"apihelp-query+metavars-param-limit": "The maximum number of pages to return (generator only).",
+	"apihelp-query+metavars-param-set": "Only list values from these subsets. To get only the main set, use \"mvsubset=|\".",
+	"apihelp-query+metavars-param-var": "Only list values with these names. Useful for checking whether a certain page uses a certain variable.",
 	"metatemplate-listsaved-conditions-missing": "#listsaved error: no conditions provided",
 	"metatemplate-listsaved-template-empty": "#listsaved error: no template provided",
 	"metatemplate-listsaved-template-missing": "#listsaved error: the provided template, $1, doesn't exist",

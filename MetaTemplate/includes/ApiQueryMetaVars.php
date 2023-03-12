@@ -103,16 +103,6 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 	{
 		return 'https://www.uesp.net/wiki/Project:MetaTemplate#API';
 	}
-
-	public function getParamDescription()
-	{
-		return [
-			self::KEY_CONTINUE => 'When more results are available, use this to continue.',
-			self::KEY_LIMIT => 'The maximum number of pages to return (generator only).',
-			self::KEY_SET => "Only list values from these subsets. To get only the main set, use \"{$this->getModulePrefix()}subset=|\".",
-			self::KEY_VAR => 'Only list values with these names. Useful for checking whether a certain page uses a certain variable.',
-		];
-	}
 	#endregion
 
 	#region Private Functions

@@ -101,7 +101,7 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 
 	public function getHelpUrls()
 	{
-		return 'http://www.uesp.net/wiki/Project:MetaTemplate#API';
+		return 'https://www.uesp.net/wiki/Project:MetaTemplate#API';
 	}
 
 	public function getParamDescription()

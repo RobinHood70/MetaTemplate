@@ -19,19 +19,20 @@ class MetaTemplateUpserts
 	 *
 	 * @param ?MetaTemplateSetCollection $oldData
 	 * @param ?MetaTemplateSetCollection $newData
-	 *
 	 */
 	public function __construct(?MetaTemplateSetCollection $oldData, ?MetaTemplateSetCollection $newData)
 	{
-		$oldSets = $oldData ? $oldData->sets : null;
-		$newSets = $newData ? $newData->sets : null;
+		$oldSets = $oldData->sets ?? null;
+		$newSets = $newData->sets ?? null;
 
 		// Do not change to identity operator - object identity is a reference compare, which will fail.
 		if ($oldSets == $newSets) {
+			#RHshow(__METHOD__, 'Both sets equal; no upserts needed.');
 			return;
 		}
 
 		if ($oldData) {
+			#RHshow('Old Data', $oldData);
 			$this->pageId = $oldData->title->getArticleID();
 			$this->oldRevId = $oldData->revId;
 			foreach ($oldSets as $setName => $oldSet) {
@@ -44,13 +45,14 @@ class MetaTemplateUpserts
 			}
 
 			/*
-            if (count($this->deletes)) {
-                RHshow('Upsert Deletes', $this->deletes);
-            }
-            */
+			if (count($this->deletes)) {
+				RHshow('Upsert Deletes', $this->deletes);
+			}
+			*/
 		}
 
 		if ($newData) {
+			#RHshow('New Data', $newData);
 			$this->pageId = $newData->title->getArticleID(); // Possibly redundant, but if both collections are present, both page IDs will be the same.
 			$this->newRevId = $newData->revId;
 			if ($newSets) {
@@ -66,16 +68,17 @@ class MetaTemplateUpserts
 						$this->inserts[] = $newSet;
 					}
 				}
+
+				/*
+				if (count($this->inserts)) {
+					#RHshow('Upsert Inserts', $this->inserts);
+				}
+
+				if (count($this->updates)) {
+					#RHshow('Upsert Updates', $this->updates);
+				}
+				*/
 			}
-
-			/*
-            if (count($this->inserts)) {
-                #RHshow('Upsert Inserts', $this->inserts);
-            }
-
-            if (count($this->updates)) {
-                #RHshow('Upsert Updates', $this->updates);
-            } */
 		}
 	}
 
@@ -83,7 +86,6 @@ class MetaTemplateUpserts
 	 * Gets the total number of operations for this upsert.
 	 *
 	 * @return int The total number of operations for this upsert.
-	 *
 	 */
 	public function getTotal()
 	{

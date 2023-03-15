@@ -305,9 +305,10 @@ class MetaTemplateData
 
 		foreach ($set->variables as $varName => $varValue) {
 			if ($varValue !== false) {
-				MetaTemplate::unsetVar($frame, $varName, $anyCase);
+				// Should be no need to unset, as it was checked at the beginning to see if it existed.
+				// MetaTemplate::unsetVar($frame, $varName, $anyCase);
 				$dom = $parser->preprocessToDom($varValue);
-				$varValue = $frame->expand($dom, PPFrame::NO_ARGS | PPFrame::NO_IGNORE | PPFrame::NO_TAGS);
+				$varValue = $frame->expand($dom, PPFrame::RECOVER_ORIG & ~PPFrame::NO_TEMPLATES);
 				MetaTemplate::setVarDirect($frame, $varName, $dom, $varValue);
 			}
 		}
@@ -414,14 +415,11 @@ class MetaTemplateData
 		foreach ($translations as $srcName => $destName) {
 			$dom = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($dom) {
-				// Reparses the value as if included, so includeonly works as expected. Also surrounds any remaining
-				// {{{vars}}} with <nowiki> tags.
-				MetaTemplate::unsetVar($frame, $srcName, $anyCase);
+				// Reparses the value as if included, so includeonly works as expected.
 				$flags = $saveMarkup ? PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS : PPFrame::NO_TAGS;
 				$varValue = $frame->expand($dom, $flags);
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
-				MetaTemplate::setVarDirect($frame, $srcName, $dom, $varValue);
-				$varsToSave[$destName] = $varValue;
+				$varsToSave[$destName] = $frame->expand($dom, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
 			}
 		}
 

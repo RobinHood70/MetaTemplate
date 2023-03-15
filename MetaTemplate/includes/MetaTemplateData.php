@@ -244,7 +244,7 @@ class MetaTemplateData
 			return;
 		}
 
-		$loadTitle = $frame->expand($values[0]);
+		$loadTitle = trim($frame->expand($values[0]));
 		$loadTitle = Title::newFromText($loadTitle);
 		if (
 			!$loadTitle ||
@@ -350,7 +350,7 @@ class MetaTemplateData
 		}
 
 		foreach ($values as $value) {
-			$varName = $frame->expand(ParserHelper::getKeyValue($frame, $value)[1]);
+			$varName = trim($frame->expand(ParserHelper::getKeyValue($frame, $value)[1]));
 			$set->variables[$varName] = false;
 		}
 
@@ -417,7 +417,7 @@ class MetaTemplateData
 			if ($dom) {
 				// Reparses the value as if included, so includeonly works as expected.
 				$flags = $saveMarkup ? PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS : PPFrame::NO_TAGS;
-				$varValue = $frame->expand($dom, $flags);
+				$varValue = trim($frame->expand($dom, $flags));
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
 				$varsToSave[$destName] = $frame->expand($dom, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
 			}

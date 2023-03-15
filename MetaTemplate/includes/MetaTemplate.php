@@ -403,7 +403,7 @@ class MetaTemplate
 		$anyCase = self::checkAnyCase($magicArgs);
 		$shift = (bool)($magicArgs[self::NA_SHIFT] ?? false);
 		foreach ($values as $value) {
-			$varName = $frame->expand($value);
+			$varName = trim($frame->expand($value));
 			self::unsetVar($frame, $varName, $anyCase, $shift);
 		}
 	}
@@ -508,7 +508,7 @@ class MetaTemplate
 		$retval = [];
 		foreach ($variables as $srcName) {
 			if ($frame) {
-				$srcName = $frame->expand($srcName);
+				$srcName = trim($frame->expand($srcName));
 			}
 
 			$varSplit = explode('->', $srcName, 2);
@@ -735,9 +735,8 @@ class MetaTemplate
 				throw new Exception('Variable not defined in ' . __METHOD__ . '. This should not be possible.');
 			}
 
-			$expand = $frame->expand($dom, self::EXPAND_ARGUMENTS);
-			$expand = trim($expand);
-			$dom = $frame->parser->preprocessToDom(trim($expand));
+			$expand = trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
+			$dom = $frame->parser->preprocessToDom($expand);
 			self::setVarDirect($frame, $varName, $dom);
 		}
 	}

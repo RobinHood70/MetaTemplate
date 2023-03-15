@@ -43,7 +43,6 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 		$this->titleCache = [$this->title ? $this->title->getPrefixedDBkey() : false];
 		$this->loopCheckHash = [];
 		$this->depth = 0;
-		$this->childExpansionCache = [];
 
 		$this->parent = null;
 		$this->numberedArgs = [];

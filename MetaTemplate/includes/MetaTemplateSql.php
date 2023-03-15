@@ -315,33 +315,6 @@ class MetaTemplateSql
 	}
 
 	/**
-	 * Handles data to be inserted.
-	 *
-	 * @param mixed $setId The set ID to insert.
-	 * @param MetaTemplateSet $newSet The set to insert.
-	 *
-	 * @return bool False if the database is in read-only mode; otherwise, true.
-	 */
-	public function insertData($setId, MetaTemplateSet $newSet): bool
-	{
-		if (wfReadOnly()) {
-			return false;
-		}
-
-		$data = [];
-		foreach ($newSet->variables as $varName => $varValue) {
-			$data[] = [
-				self::FIELD_SET_ID => $setId,
-				self::FIELD_VAR_NAME => $varName,
-				self::FIELD_VAR_VALUE => $varValue,
-			];
-		}
-
-		$this->dbWrite->insert(self::TABLE_DATA, $data);
-		return true;
-	}
-
-	/**
 	 * Preloads any variables specified by the template.
 	 *
 	 * @param ?int $namespace The integer namespace to restrict results to.
@@ -635,6 +608,20 @@ class MetaTemplateSql
 
 	#region Private Static Functions
 	/**
+	 * Adds the specified value to an array for each synonym in the list of synonyms.
+	 *
+	 * @param array $data The array to add to.
+	 * @param iterable $synonyms The synonyms to add to.
+	 * @param mixed $value The value to add.
+	 */
+	private static function addData(array &$data, iterable $synonyms, $value): void
+	{
+		foreach ($synonyms as $synonym) {
+			$data[$synonym] = $value;
+		}
+	}
+
+	/**
 	 * Returns the basic query arrays for most MetaTemplate queries.
 	 *
 	 * @param string[] ...$addFields
@@ -671,6 +658,26 @@ class MetaTemplateSql
 
 	#region Private Functions
 	/**
+	 * Handles data to be inserted.
+	 *
+	 * @param mixed $setId The set ID to insert.
+	 * @param MetaTemplateSet $newSet The set to insert.
+	 */
+	private function insertSetData($setId, MetaTemplateSet $newSet): void
+	{
+		$data = [];
+		foreach ($newSet->variables as $varName => $varValue) {
+			$data[] = [
+				self::FIELD_SET_ID => $setId,
+				self::FIELD_VAR_NAME => $varName,
+				self::FIELD_VAR_VALUE => $varValue,
+			];
+		}
+
+		$this->dbWrite->insert(self::TABLE_DATA, $data);
+	}
+
+	/**
 	 * Loads variables for a specific page.
 	 *
 	 * @param Title $title The title to load.
@@ -700,7 +707,7 @@ class MetaTemplateSql
 		while ($row) {
 			$set =  $retval->addToSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
 			$varName = $row[self::FIELD_VAR_NAME];
-			$varValue = $row[self::FIELD_VAR_VALUE]; // Don't need to parse this, as we're only looking at the raw data here.
+			$varValue = $row[self::FIELD_VAR_VALUE];
 			$set->variables[$varName] = $varValue;
 			$row = $this->dbRead->fetchRow($result);
 		}
@@ -718,12 +725,8 @@ class MetaTemplateSql
 	 *
 	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	private function saveUpserts(MetaTemplateUpserts $upserts): bool
+	private function saveUpserts(MetaTemplateUpserts $upserts)
 	{
-		if (wfReadOnly()) {
-			return false;
-		}
-
 		$deletes = $upserts->deletes;
 		// writeFile('  Deletes: ', count($deletes));
 		if (count($deletes)) {
@@ -744,7 +747,7 @@ class MetaTemplateSql
 			$this->dbWrite->insert(self::TABLE_SET, $record);
 
 			$setId = $this->dbWrite->insertId();
-			$this->insertData($setId, $newSet);
+			$this->insertSetData($setId, $newSet);
 		}
 
 		// writeFile('  Updates: ', count($updates));
@@ -754,7 +757,7 @@ class MetaTemplateSql
 				 * @var MetaTemplateSet $oldSet
 				 * @var MetaTemplateSet $newSet
 				 */
-				list($oldSet, $newSet) = $setData;
+				[$oldSet, $newSet] = $setData;
 				$this->updateSetData($setId, $oldSet, $newSet);
 			}
 
@@ -766,8 +769,6 @@ class MetaTemplateSql
 				);
 			}
 		}
-
-		return true;
 	}
 
 	/**
@@ -776,17 +777,10 @@ class MetaTemplateSql
 	 * @param mixed $setId The set ID # from the mtSaveSet table.
 	 * @param MetaTemplateSet $oldSet The previous revision's set data.
 	 * @param MetaTemplateSet $newSet The current revision's set data.
-	 *
-	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet): bool
+	private function updateSetData($setId, MetaTemplateSet $oldSet, MetaTemplateSet $newSet): void
 	{
-		if (wfReadOnly()) {
-			return false;
-		}
-
-		#RHecho('Update Set Data');
-		$oldVars = &$oldSet->variables;
+		$oldVars = $oldSet->variables;
 		$newVars = $newSet->variables;
 		$deletes = [];
 		foreach ($oldVars as $varName => $oldValue) {
@@ -816,7 +810,7 @@ class MetaTemplateSql
 		}
 
 		if (count($newVars)) {
-			$this->insertData($setId, new MetaTemplateSet($newSet->name, $newVars));
+			$this->insertSetData($setId, new MetaTemplateSet($newSet->name, $newVars));
 		}
 
 		if (count($deletes)) {
@@ -825,8 +819,6 @@ class MetaTemplateSql
 				self::FIELD_VAR_NAME => $deletes
 			]);
 		}
-
-		return true;
 	}
 	#endregion
 }

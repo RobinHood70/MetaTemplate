@@ -419,7 +419,8 @@ class MetaTemplateData
 				$flags = $saveMarkup ? PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS : PPFrame::NO_TAGS;
 				$varValue = trim($frame->expand($dom, $flags));
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
-				$varsToSave[$destName] = $frame->expand($dom, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
+				$varValue = trim($frame->expand($dom, $saveMarkup ? PPFrame::NO_TEMPLATES : 0));
+				$varsToSave[$destName] = $varValue;
 			}
 		}
 

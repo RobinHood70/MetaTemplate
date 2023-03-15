@@ -831,7 +831,7 @@ class MetaTemplate
 		}
 
 		if (!is_null($dom)) {
-			$varValue = $frame->expand($dom, self::EXPAND_ARGUMENTS);
+			$varValue = trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
 	}

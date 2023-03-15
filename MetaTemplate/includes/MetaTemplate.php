@@ -163,7 +163,7 @@ class MetaTemplate
 			return;
 		}
 
-		self::checkFrameType($frame);
+		// self::checkFrameType($frame);
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_DEBUG,
@@ -184,8 +184,8 @@ class MetaTemplate
 		$inherited = [];
 		foreach ($translations as $srcName => $destName) {
 			$varValue =
-				$frame->numberedArgs[$srcName] ??
-				$frame->namedArgs[$srcName] ??
+				$frame->numberedArgs[$destName] ??
+				$frame->namedArgs[$destName] ??
 				self::inheritVar($frame, $srcName, $destName, self::checkAnyCase($magicArgs));
 			if ($varValue && $debug) {
 				$inherited[] = "$destName=$varValue";
@@ -352,8 +352,15 @@ class MetaTemplate
 		foreach ($translations as $srcName => $destName) {
 			$dom = self::getVar($frame, $srcName, $anyCase);
 			if ($dom) {
-				$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
-				self::setVar($parent, $destName, $varValue, $anyCase);
+				if (is_int($srcName) && self::isNumericVariable($destName)) {
+					$destName = (int)$destName;
+				}
+
+				$expand = $frame->expand($dom, PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS);
+				$expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
+				$expand = trim($expand);
+				$dom = $frame->parser->preprocessToDom($expand, 0);
+				self::setVarDirect($parent, $destName, $dom);
 			}
 		}
 	}
@@ -444,27 +451,42 @@ class MetaTemplate
 	 * this unless you need to parse the raw argument yourself or need case-insensitive retrieval.
 	 *
 	 * @param PPTemplateFrame_Hash $frame The frame to start at.
-	 * @param string $varName The variable name.
+	 * @param int|string $varName The variable name. On return, this will be a string if the variable was found in the
+	 *     named arguments; an int if it was found in the numeric arguments, or unchanged if the variable was not
+	 *     found at all.
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 *
-	 * @return ?PPNode_Hash_Tree Returns the value in raw format and the frame it came from.
+	 * @return ?PPNode_Hash_Tree Returns the value in raw format.
 	 */
-	public static function getVar(PPFrame_Hash $frame, string $varName, bool $anyCase)
+	public static function getVar(PPFrame_Hash $frame, &$varName, bool $anyCase)
 	{
-		self::checkFrameType($frame);
 		#RHshow('GetVar', $varName);
+		// self::checkFrameType($frame);
 		// Try for an exact match without triggering expansion.
-		$varValue = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? null;
-		if (!$varValue && $anyCase && !ctype_digit($varName)) {
-			$lcname = $lcname ?? strtolower($varName);
+
+		$varValue = $frame->namedArgs[$varName] ?? null;
+		if (!is_null($varValue)) {
+			$varName = (string)$varName;
+			return $varValue;
+		}
+
+		$varValue = $frame->numberedArgs[$varName] ?? null;
+		if (!is_null($varValue)) {
+			$varName = (int)$varName;
+			return $varValue;
+		}
+
+		if ($anyCase && !self::isNumericVariable($varName)) {
+			$lcName = $lcName ?? strtolower($varName);
 			foreach ($frame->namedArgs as $key => $varValue) {
-				if (strtolower($key) === $lcname) {
+				if (strtolower($key) === $lcName) {
+					$varName = (string)$varName;
 					return $varValue;
 				}
 			}
 		}
 
-		return $varValue;
+		return null;
 	}
 
 	/**
@@ -536,13 +558,15 @@ class MetaTemplate
 	public static function setVar(PPFrame_Hash $frame, string $varName, string $varValue, $anyCase = false): void
 	{
 		#RHshow('setVar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
-		self::checkFrameType($frame);
+		// self::checkFrameType($frame);
 		self::unsetVar($frame, $varName, $anyCase);
 		$dom = $frame->parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
 		$dom->name = 'value';
+		/*
+		* If value is text-only, which will be the case the vast majority of times, we can use it to set the cache
+		* without expansion. We always have to fill in the cache value, however, due to the NO_ARGS requirement.
+		*/
 		$checkText = $dom->getFirstChild();
-		// If value is text-only, which will be the case the vast majority of times, we can use it to set the cache
-		// without expansion. We always have to fill in the cache value, however, due to the NO_ARGS requirement.
 		$varValue = ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling()))
 			? $varValue
 			: $frame->expand($dom, PPFrame::NO_ARGS);
@@ -558,23 +582,33 @@ class MetaTemplate
 	 * inconsequential, but is mentioned in case there's something I've missed.
 	 *
 	 * @param PPTemplateFrame_Hash $frame The frame in use.
-	 * @param string $varName The variable name. This should be pre-trimmed, if necessary.
-	 * @param PPNode|string $value The variable value.
-	 *     PPNode: use some variation of argument expansion before sending the node here.
+	 * @param int|string $varName The variable name. This should be pre-trimmed, if necessary. If an int is specified,
+	 *     this will always treat the value as anonymous; otherwise, it will be inferred based on whether the name is
+	 *     all digits.
+	 * @param PPNode_Hash_Tree $dom The variable value as a tree.
+	 * @param string $cacheValue The expanded value, if needed. Otherwise, the cache will be left uninitialized,
+	 *     expanding only when needed.
 	 *
 	 * @return void
 	 */
-	public static function setVarDirect(PPFrame_Hash $frame, string $varName, PPNode_Hash_Tree $dom, string $cacheValue): void
+	public static function setVarDirect(PPFrame_Hash $frame, $varName, PPNode_Hash_Tree $dom, ?string $cacheValue = null): void
 	{
 		#RHshow('setVarDirect', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
-		self::checkFrameType($frame);
-		if (ctype_digit($varName)) {
+		// self::checkFrameType($frame);
+		if (is_int($varName) || self::isNumericVariable($varName)) {
+			$args = &$frame->numberedArgs;
+			$cache = &$frame->numberedExpansionCache;
 			$varName = (int)$varName;
-			$frame->numberedArgs[$varName] = $dom;
-			$frame->numberedExpansionCache[$varName] = $cacheValue;
 		} else {
-			$frame->namedArgs[$varName] = $dom;
-			$frame->namedExpansionCache[$varName] = $cacheValue;
+			$args = &$frame->namedArgs;
+			$cache = &$frame->namedExpansionCache;
+		}
+
+		$args[$varName] = $dom;
+		if (is_null($cacheValue)) {
+			unset($cache[$varName]);
+		} else {
+			$cache[$varName] = $cacheValue;
 		}
 	}
 
@@ -604,12 +638,12 @@ class MetaTemplate
 	 */
 	public static function unsetVar(PPFrame_Hash $frame, $varName, bool $anyCase, bool $shift = false): void
 	{
-		self::checkFrameType($frame);
+		// self::checkFrameType($frame);
 		unset(
 			$frame->namedArgs[$varName],
 			$frame->namedExpansionCache[$varName]
 		);
-		if (is_int($varName) || ctype_digit($varName)) {
+		if (is_int($varName) || self::isNumericVariable($varName)) {
 			unset(
 				$frame->numberedArgs[$varName],
 				$frame->numberedExpansionCache[$varName]
@@ -645,7 +679,6 @@ class MetaTemplate
 	 */
 	private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
 	{
-		self::checkFrameType($frame);
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_IF,
@@ -666,31 +699,44 @@ class MetaTemplate
 			return;
 		}
 
-		$anyCase = self::checkAnyCase($magicArgs);
-		if (count($values) < 2 && $anyCase) {
-			// This occurs with constructs like: {{#local:MiXeD|case=any}}. Loop logic is a combination of get and
-			// unset so we can set directly to the desired case at the end.
-			$dom = $frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? null;
-			if (!ctype_digit($varName)) {
-				$lcname = strtolower($varName);
-				foreach ($frame->namedArgs as $key => $varValue) {
-					if (strtolower($key) === $lcname) {
-						if (is_null($dom)) {
-							$dom = $varValue;
-						}
+		$anyCase = self::checkAnyCase($magicArgs) && !self::isNumericVariable($varName);
+		$dom = null;
+		if (count($values) < 2) {
+			if (!$anyCase) {
+				return;
+			}
 
-						unset($key);
-					}
+			// We don't use unsetVar() here because we need the value of $dom if found.
+			$lcname = strtolower($varName);
+			foreach ($frame->namedArgs as $key => $varValue) {
+				if (strtolower($key) === $lcname) {
+					$dom = $varValue;
+					unset($key);
 				}
 			}
 
-			if (!is_null($dom)) {
-				self::setVarDirect($frame, $varName, $dom, $frame->expand($dom, PPFrame::NO_TEMPLATES));
+			// If we didn't find an existing value, there's nothing to set below, so exit.
+			if (is_null($dom) && !$overwrite) {
+				return;
 			}
-		} elseif ($overwrite || ($frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? false) === false) {
-			$varValue = $frame->expand($values[1], PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS); // We need tag recovery with this, so don't use standard argSubstitution
-			$varValue = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($varValue);
-			self::setVar($frame, $varName, $varValue, $anyCase);
+		}
+
+		// Set the variable if:
+		//     * this is a #local;
+		//     * this is a case=any definition and we need to assign the existing value to the correct case;
+		//     * there is no existing definition for the variable.
+		if ($overwrite || $dom || is_null(self::getVar($frame, $varName, false))) {
+			$dom = $dom ?? $values[1] ?? null;
+			if (is_null($dom)) {
+				throw new Exception('Variable not defined in ' . __METHOD__ . '. This should not be possible.');
+			}
+
+			$expand = $frame->expand($dom, PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS);
+			// $expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
+			$expand = trim($expand);
+			$dom = $frame->parser->preprocessToDom(trim($expand));
+			self::setVarDirect($frame, $varName, $dom);
+			unset($varName, $dom);
 		}
 	}
 
@@ -767,41 +813,37 @@ class MetaTemplate
 	 * @param string $varName The variable name.
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
-	 *
-	 * @return tuple<PPNode_Hash_Tree, PPFrame> Returns the value in raw format and the frame it came from.
 	 */
-	private static function inheritVar(PPTemplateFrame_Hash $frame, string $srcName, $destName, bool $anyCase)
+	private static function inheritVar(PPTemplateFrame_Hash $frame, string $srcName, string $destName, bool $anyCase): void
 	{
-		#RHshow('inhertVar', "$srcName->$destName ", (int)(bool)($frame->numberedArgs[$srcName] ?? $frame->namedArgs[$srcName]));
-		$varValue = null;
-		$curFrame = $frame->parent;
-		while ($curFrame) {
-			$varValue = $curFrame->numberedArgs[$srcName] ?? $curFrame->namedArgs[$srcName] ?? null;
-			if (isset($varValue)) {
-				break;
-			}
-
-			if (!$varValue && $anyCase && !ctype_digit($srcName)) {
-				$lcname = $lcname ?? strtolower($srcName);
-				foreach ($curFrame->namedArgs as $key => $value) {
-					if (strtolower($key) === $lcname) {
-						$varValue = $value;
-						break 2;
-					}
-				}
-			}
-
+		#RHshow('inhertVar', "$srcName->$destName ", (int)(bool)($frame->numberedArgs[$srcName] ?? $frame->namedArgs[$srcName] ?? false));
+		/** @var PPFrame|false $curFrame */
+		$curFrame = $frame->parent; // Current frame is checked before we get here.
+		$anyCase &= !self::isNumericVariable($srcName);
+		/** @var PPNode_Hash_Tree $dom */
+		$dom = null;
+		while ($curFrame && is_null($dom)) {
+			$dom = self::getVar($curFrame, $srcName, $anyCase);
 			$curFrame = $curFrame->parent;
 		}
 
-		/** @var PPNode_Hash_Tree|string $varValue */
-		/** @var PPFrame|false $curFrame */
-		if ($varValue && $curFrame) {
-			$varValue = $frame->expand($varValue, PPFrame::NO_TEMPLATES);
+		if (!is_null($dom)) {
+			$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
+	}
 
-		return $varValue;
+	/**
+	 * As the nane suggests, this determines if a variable name is numeric.
+	 *
+	 * @param mixed $varName The name to check.
+	 *
+	 * @return bool True if the name is numeric.
+	 *
+	 */
+	private static function isNumericVariable($varName): bool
+	{
+		return ctype_digit($varName) && $varName !== '0';
 	}
 
 	/**
@@ -833,7 +875,7 @@ class MetaTemplate
 		$newCache = [];
 		foreach ($frame->namedArgs as $key => $value) {
 			if ($varName != $key) {
-				$newKey = ctype_digit($key) && $key > $varName ? $key - 1 :  $key;
+				$newKey = self::isNumericVariable($key) && $key > $varName ? $key - 1 :  $key;
 				$newArgs[$newKey] = $value;
 				if (isset($frame->namedExpansionCache[$key])) {
 					$newCache[$newKey] = $frame->namedExpansionCache[$key];

@@ -45,6 +45,10 @@ class MetaTemplate
 	public const VR_PAGENAME0 = 'metatemplate-pagename0';
 	#endregion
 
+	#region Private Constants
+	private const EXPAND_ARGUMENTS = PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS;
+	#endregion
+
 	#region Public Static Variables
 	/** @var ?string */
 	public static $mwFullPageName = null;
@@ -356,7 +360,7 @@ class MetaTemplate
 					$destName = (int)$destName;
 				}
 
-				$expand = $frame->expand($dom, PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS);
+				$expand = $frame->expand($dom, self::EXPAND_ARGUMENTS);
 				$expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
 				$expand = trim($expand);
 				$dom = $frame->parser->preprocessToDom($expand, 0);
@@ -731,12 +735,10 @@ class MetaTemplate
 				throw new Exception('Variable not defined in ' . __METHOD__ . '. This should not be possible.');
 			}
 
-			$expand = $frame->expand($dom, PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS);
-			// $expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
+			$expand = $frame->expand($dom, self::EXPAND_ARGUMENTS);
 			$expand = trim($expand);
 			$dom = $frame->parser->preprocessToDom(trim($expand));
 			self::setVarDirect($frame, $varName, $dom);
-			unset($varName, $dom);
 		}
 	}
 
@@ -813,6 +815,8 @@ class MetaTemplate
 	 * @param string $varName The variable name.
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
+	 * @internal This function is separated out from the main parser function so that it can potentially be used for
+	 *     internal inheritance, such as possibly inheriting debug variables in the future.
 	 */
 	private static function inheritVar(PPTemplateFrame_Hash $frame, string $srcName, string $destName, bool $anyCase): void
 	{
@@ -828,7 +832,7 @@ class MetaTemplate
 		}
 
 		if (!is_null($dom)) {
-			$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
+			$varValue = $frame->expand($dom, self::EXPAND_ARGUMENTS);
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
 	}

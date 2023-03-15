@@ -138,23 +138,49 @@ class MetaTemplateSql
 	 *
 	 * @return void
 	 */
-	public static function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
+	public function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
 	{
+		if (wfReadOnly()) {
+			return;
+		}
+
 		/** @var string $dir  */
 		$dir = dirname(__DIR__);
-		$db = $updater->getDB();
-		if (!$db->tableExists(self::TABLE_SET)) {
+		$dbw = $this->dbWrite;
+		if (!$dbw->tableExists(self::TABLE_SET)) {
 			$updater->addExtensionTable(self::TABLE_SET, "$dir/sql/create-" . self::TABLE_SET . '.sql');
 		}
 
-		$instance = self::getInstance();
-		$updater->addExtensionUpdate([[$instance, 'migrateSetTable'], $dir]);
-
-		if (!$db->tableExists(self::TABLE_DATA)) {
+		if (!$dbw->tableExists(self::TABLE_DATA)) {
 			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_DATA . '.sql');
 		}
 
-		$updater->addExtensionUpdate([[$instance, 'migrateDataTable'], $dir]);
+		$updater->addExtensionUpdate([[$this, 'migrateTables']]);
+	}
+
+	/**
+	 * Migrates the MetaTemplate 1.0 data table to the current version.
+	 *
+	 * @param DatabaseUpdater $updater
+	 * @param string $dir
+	 */
+	public function migrateTables(): void
+	{
+		$db = $this->dbWrite;
+		$varMap = [
+			self::FIELD_PAGE_ID => 'mt_set_page_id',
+			self::FIELD_SET_NAME => 'mt_set_subset',
+			self::FIELD_REV_ID => 'mt_set_rev_id',
+			self::FIELD_SET_ID => 'mt_set_id'
+		];
+		$db->insertSelect(self::TABLE_SET, self::OLDTABLE_SET, $varMap, 'mt_set_page_id IN (SELECT page_id FROM page)', __METHOD__);
+
+		$varMap = [
+			self::FIELD_SET_ID => 'mt_save_id',
+			self::FIELD_VAR_NAME => 'mt_save_varname',
+			self::FIELD_VAR_VALUE => 'mt_save_value'
+		];
+		$db->insertSelect(self::TABLE_DATA, self::OLDTABLE_DATA, $varMap, 'mt_save_id IN (SELECT ' . MetaTemplateSql::FIELD_SET_ID . ' FROM ' . MetaTemplateSql::TABLE_SET . ')', __METHOD__);
 	}
 
 	public static function pageIdLimiter(int $id): array
@@ -543,52 +569,6 @@ class MetaTemplateSql
 		}
 
 		return $sets;
-	}
-
-	/**
-	 * Migrates the MetaTemplate 1.0 data table to the current version.
-	 *
-	 * @param DatabaseUpdater $updater
-	 * @param string $dir
-	 *
-	 * @return bool False if the database is in read-only mode; otherwise, true.
-	 */
-	public function migrateDataTable(DatabaseUpdater $updater, string $dir): bool
-	{
-		if (wfReadOnly()) {
-			return false;
-		}
-
-		$db = $updater->getDB();
-		if (!$db->tableExists(self::OLDTABLE_DATA)) {
-			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_SET . '.sql');
-			$updater->addExtensionUpdate([$this, 'migrateSet']);
-		}
-
-		return true;
-	}
-
-	/**
-	 * Migrates the MetaTemplate 1.0 set table to the current version.
-	 *
-	 * @param DatabaseUpdater $updater
-	 * @param string $dir
-	 *
-	 * @return bool False if the database is in read-only mode; otherwise, true.
-	 */
-	public function migrateSetTable(DatabaseUpdater $updater, string $dir): bool
-	{
-		if (wfReadOnly()) {
-			return false;
-		}
-
-		$db = $this->dbWrite;
-		if (!$db->tableExists(self::OLDTABLE_SET)) {
-			$updater->addExtensionTable(self::TABLE_SET, "$dir/sql/create-" . self::TABLE_SET . '.sql');
-			$updater->addExtensionUpdate([[$this, 'migrateSet']]);
-		}
-
-		return true;
 	}
 
 	public function pagerQuery(int $pageId): array

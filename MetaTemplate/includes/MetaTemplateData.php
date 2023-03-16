@@ -100,6 +100,8 @@ class MetaTemplateData
 	 */
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
 	{
+		global $wgContLang;
+
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
@@ -187,6 +189,7 @@ class MetaTemplateData
 
 		// Set up database queries to include all condition and preload data.
 		$namespace = isset($magicArgs[MetaTemplate::NA_NAMESPACE]) ? $frame->expand($magicArgs[MetaTemplate::NA_NAMESPACE]) : null;
+		$namespace = $wgContLang->getNsIndex($namespace);
 		$setName = isset($magicArgs[self::NA_SET]) ? $frame->expand($magicArgs[self::NA_SET]) : null;
 		$sortOrder = isset($magicArgs[self::NA_ORDER]) ? $frame->expand($magicArgs[self::NA_ORDER]) : null;
 		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $sortOrder, $conditions, $varSets, $frame);
@@ -687,42 +690,6 @@ class MetaTemplateData
 		}
 
 		return $retval;
-	}
-
-	/**
-	 * Recursively searches a tree node to determine if it has a template.
-	 *
-	 * @param PPNode_Hash_Tree $node
-	 *
-	 * @return bool
-	 */
-	private static function treeHasTemplate($nodes): bool
-	{
-		if ($nodes instanceof PPNode_Hash_Tree) {
-			if ($nodes->name === 'template') {
-				return true;
-			}
-
-			for ($node = $nodes->getFirstChild(); $node; $node = $node->getNextSibling()) {
-				if ($node instanceof PPNode_Hash_Tree || is_iterable($nodes)) {
-					$result = self::treeHasTemplate($node);
-					if ($result) {
-						return $result;
-					}
-				}
-			}
-		} elseif (is_iterable($nodes)) {
-			foreach ($nodes as $node) {
-				if ($node instanceof PPNode_Hash_Tree || is_iterable($nodes)) {
-					$result = self::treeHasTemplate($node);
-					if ($result) {
-						return $result;
-					}
-				}
-			}
-		}
-
-		return false;
 	}
 	#endregion
 }

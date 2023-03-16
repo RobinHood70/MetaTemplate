@@ -163,6 +163,7 @@ class MetaTemplate
 	 */
 	public static function doInherit(Parser $parser, PPFrame $frame, array $args)
 	{
+		#RHshow('Inherit args', $frame->getArguments());
 		if (!$frame->depth) {
 			return;
 		}
@@ -239,8 +240,12 @@ class MetaTemplate
 	public static function doNamespaceX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
 		$title = self::getTitleAtDepth($parser, $frame, $args);
-		$nsName = $parser->getFunctionLang()->getNsText($title->getNamespace());
-		return is_null($title) ? '' : str_replace('_', ' ', $nsName);
+		if ($title) {
+			$nsName = $parser->getFunctionLang()->getNsText($title->getNamespace());
+			return str_replace('_', ' ', $nsName);
+		}
+
+		return '';
 	}
 
 	/**
@@ -683,6 +688,7 @@ class MetaTemplate
 	 */
 	private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
 	{
+		#RHshow('Define args', $frame->getArguments());
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_IF,
@@ -731,13 +737,11 @@ class MetaTemplate
 		//     * there is no existing definition for the variable.
 		if ($overwrite || $dom || is_null(self::getVar($frame, $varName, false))) {
 			$dom = $dom ?? $values[1] ?? null;
-			if (is_null($dom)) {
-				throw new Exception('Variable not defined in ' . __METHOD__ . '. This should not be possible.');
+			if (!is_null($dom)) {
+				$expand = trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
+				$dom = $frame->parser->preprocessToDom($expand);
+				self::setVarDirect($frame, $varName, $dom);
 			}
-
-			$expand = trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
-			$dom = $frame->parser->preprocessToDom($expand);
-			self::setVarDirect($frame, $varName, $dom);
 		}
 	}
 

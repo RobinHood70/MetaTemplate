@@ -118,7 +118,9 @@ class MetaTemplateHooks
 	 */
 	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput): void
 	{
-		MetaTemplateCategoryViewer::init($parserOutput);
+		if ($out->getTitle()->getNamespace() == NS_CATEGORY) {
+			MetaTemplateCategoryViewer::init($parserOutput);
+		}
 	}
 
 	/**

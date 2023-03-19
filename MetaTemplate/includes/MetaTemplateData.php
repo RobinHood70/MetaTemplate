@@ -118,7 +118,7 @@ class MetaTemplateData
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
 		if (!ParserHelper::checkIfs($frame, $magicArgs)) {
-			return '';
+			return [''];
 		}
 
 		$template = trim($frame->expand($values[0] ?? ''));
@@ -164,9 +164,10 @@ class MetaTemplateData
 		}
 
 		foreach ($conditions as &$value) {
-			$value = $frame->expand($value);
+			$value = trim($frame->expand($value));
 		}
 
+		unset($value);
 		#RHshow('Conditions', $conditions);
 
 		if (!empty($extras)) {
@@ -187,11 +188,18 @@ class MetaTemplateData
 			$varSets[$varSet->name] = new MetaTemplateSet($varSet->name, $vars);
 		}
 
+		#RHshow('varSets',$varSets);
 		// Set up database queries to include all condition and preload data.
-		$namespace = isset($magicArgs[MetaTemplate::NA_NAMESPACE]) ? $frame->expand($magicArgs[MetaTemplate::NA_NAMESPACE]) : null;
-		$namespace = $wgContLang->getNsIndex($namespace);
-		$setName = isset($magicArgs[self::NA_SET]) ? $frame->expand($magicArgs[self::NA_SET]) : null;
-		$sortOrder = isset($magicArgs[self::NA_ORDER]) ? $frame->expand($magicArgs[self::NA_ORDER]) : null;
+		if (isset($magicArgs[MetaTemplate::NA_NAMESPACE])) {
+			$namespace = trim($frame->expand($magicArgs[MetaTemplate::NA_NAMESPACE]));
+			$namespace = $wgContLang->getNsIndex($namespace);
+		} else {
+			$namespace = null;
+		}
+
+		#RHshow('namespaceId', $namespace ?? '<null>');
+		$setName = isset($magicArgs[self::NA_SET]) ? trim($frame->expand($magicArgs[self::NA_SET])) : null;
+		$sortOrder = isset($magicArgs[self::NA_ORDER]) ? trim($frame->expand($magicArgs[self::NA_ORDER])) : null;
 		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $sortOrder, $conditions, $varSets, $frame);
 		$pages = self::pagifyRows($rows);
 		self::cachePages($output, $pages, empty($varSets));

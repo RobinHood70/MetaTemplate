@@ -825,13 +825,14 @@ class MetaTemplate
 	{
 		#RHshow('inhertVar', "$srcName->$destName ", (int)(bool)($frame->numberedArgs[$srcName] ?? $frame->namedArgs[$srcName] ?? false));
 		/** @var PPFrame|false $curFrame */
-		$curFrame = $frame->parent; // Current frame is checked before we get here.
+		$nextFrame = $frame->parent;
 		$anyCase &= !self::isNumericVariable($srcName);
 		/** @var PPNode_Hash_Tree $dom */
 		$dom = null;
-		while ($curFrame && is_null($dom)) {
+		while ($nextFrame && is_null($dom)) {
+			$curFrame = $nextFrame;
 			$dom = self::getVar($curFrame, $srcName, $anyCase);
-			$curFrame = $curFrame->parent;
+			$nextFrame = $nextFrame->parent;
 		}
 
 		if (!is_null($dom)) {

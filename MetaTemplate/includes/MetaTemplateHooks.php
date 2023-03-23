@@ -251,6 +251,7 @@ class MetaTemplateHooks
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_PRELOAD, 'MetaTemplateData::doPreload', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS);
+			$parser->setFunctionHook(MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkup', SFH_OBJECT_ARGS);
 		}
 
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE)) {
@@ -278,10 +279,6 @@ class MetaTemplateHooks
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			ParserHelper::setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
-		}
-
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			ParserHelper::setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		}
 	}
 }

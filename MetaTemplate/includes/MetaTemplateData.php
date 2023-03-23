@@ -427,10 +427,9 @@ class MetaTemplateData
 			$dom = MetaTemplate::getVar($frame, $srcName, $anyCase);
 			if ($dom) {
 				// Reparses the value as if included, so includeonly works as expected.
-				$flags = $saveMarkup ? PPFrame::NO_TEMPLATES | PPFrame::NO_TAGS : PPFrame::NO_TAGS;
-				$varValue = trim($frame->expand($dom, $flags));
+				$varValue = trim($frame->expand($dom, PPFrame::RECOVER_ORIG));
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
-				$varValue = trim($frame->expand($dom, $saveMarkup ? PPFrame::NO_TEMPLATES : 0));
+				$varValue = $frame->expand($dom, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
 				$varsToSave[$destName] = $varValue;
 			}
 		}
@@ -466,25 +465,26 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Handles the <savemarkup> tag.
+	 * Forces saved data to include any template markup.
 	 *
-	 * @param mixed $value The value inside the tags (the markup text).
-	 * @param array $attributes Ignored - there are no attributes for this tag.
 	 * @param Parser $parser The parser in use.
-	 * @param PPFrame $frame The template frame in use.
+	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param array $args Function arguments:
+	 *     2: The value to save.
 	 *
 	 * @return array The half-parsed text and marker type.
+	 *
+	 * @internal This was originally a parser tag, but the frame tree doesn't work out the same as it does for a parser
+	 *     function, so it was trying to parse variables from the wrong frame. This uses the second parameter instead
+	 *     of the first because the first is pre-parsed as a string, so didn't include template information, which is
+	 *     the entire point of the function. Thus, the first parameter is a dummy parameter and the second is where the
+	 *     value is expected.
 	 */
-	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame_Hash $frame): array
+	public static function doSaveMarkup(Parser $parser, PPFrame $frame, array $args)
 	{
-		if (!self::$isSaving) {
-			return [$parser->recursiveTagParse($content, $frame), 'markerType' => 'general'];
-		}
-
-		$value = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
-		$parent = $frame->parent ?? $frame;
-		$value = $parent->expand($value, PPFrame::NO_TEMPLATES);
-		return [$value, 'markerType' => 'none'];
+		return isset($args[1])
+			? [$frame->expand($args[1], PPFrame::NO_TEMPLATES), 'noparse' => self::$isSaving]
+			: [ParserHelper::unescapedError('metatemplate-savemarkup-nosecondarg', 'savemarkup'), 'noparse' => false];
 	}
 
 	public static function init()

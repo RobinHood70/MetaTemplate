@@ -574,7 +574,7 @@ class MetaTemplate
 		$checkText = $dom->getFirstChild();
 		$varValue = ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling()))
 			? $varValue
-			: $frame->expand($dom, PPFrame::NO_ARGS);
+			: $frame->expand($dom, self::EXPAND_ARGUMENTS); // Was PPFrame::NO_ARGS, but why? Should be opposite, if anything.
 		self::setVarDirect($frame, $varName, $dom, $varValue);
 	}
 

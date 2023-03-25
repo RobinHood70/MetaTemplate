@@ -280,5 +280,9 @@ class MetaTemplateHooks
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			ParserHelper::setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
 		}
+
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			ParserHelper::setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
+		}
 	}
 }

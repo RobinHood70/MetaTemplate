@@ -14,6 +14,8 @@ class MetaTemplate
 	#region Public Constants
 	public const AV_ANY = 'metatemplate-any';
 
+	public const EXPAND_ARGUMENTS = PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS;
+
 	public const KEY_METATEMPLATE = '@metatemplate';
 
 	public const NA_CASE = 'metatemplate-case';
@@ -43,10 +45,6 @@ class MetaTemplate
 	public const VR_NESTLEVEL = 'metatemplate-nestlevel';
 	public const VR_NESTLEVEL_VAR = 'metatemplate-nestlevel-var';
 	public const VR_PAGENAME0 = 'metatemplate-pagename0';
-	#endregion
-
-	#region Private Constants
-	private const EXPAND_ARGUMENTS = PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS;
 	#endregion
 
 	#region Public Static Variables
@@ -738,9 +736,12 @@ class MetaTemplate
 		if ($overwrite || $dom || is_null(self::getVar($frame, $varName, false))) {
 			$dom = $dom ?? $values[1] ?? null;
 			if (!is_null($dom)) {
-				$expand = trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
-				$dom = $frame->parser->preprocessToDom($expand);
+				$prevMode = MetaTemplateData::$saveMode;
+				MetaTemplateData::$saveMode = 3;
+				$varValue = trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
+				$dom = $frame->parser->preprocessToDom($varValue);
 				self::setVarDirect($frame, $varName, $dom);
+				MetaTemplateData::$saveMode = $prevMode;
 			}
 		}
 	}

@@ -7,6 +7,7 @@
 	"apihelp-query+metavars-param-set": "Only list values from these subsets. To get only the main set, use \"mvsubset=|\".",
 	"apihelp-query+metavars-param-var": "Only list values with these names. Useful for checking whether a certain page uses a certain variable.",
 	"metatemplate-listsaved-conditions-missing": "#listsaved error: no conditions provided",
+	"metatemplate-listsaved-savemarkup-overlap": "&#35;savemarkup was used in a parameter that's already flagged to always save markup. While this should be harmless, it's safer to remove the redundant #savemarkup.",
 	"metatemplate-listsaved-template-empty": "#listsaved error: no template provided",
 	"metatemplate-listsaved-template-missing": "#listsaved error: the provided template, [[$1|{{PAGENAME:$1}}]], doesn't exist",
 	"metatemplate-listsaved-template-saveignored": "Warning: #save in template [[$1|{{PAGENAME:$1}}]] was called inside a #listsaved call and was ignored.\n\n",
@@ -37,6 +38,8 @@
 	"metatemplate-savemarkup-nosecondarg": "Second argument not provided - change:<br><code><nowiki>{{</nowiki>#$1:''value''<nowiki>}}</nowiki></code> to<br><code><nowiki>{{</nowiki>#$1:&#124;''value''<nowiki>}}</nowiki></code>.",
 	"metatemplate-tracking-listsaved-extraparams": "MetaTemplate-Listsaved has extra parameters",
 	"metatemplate-tracking-listsaved-extraparams-desc": "The call to #listsaved contains extra parameters that are not part of the conditions. This format is no longer supported. Use #preload or #inherit within the template itself, depending on intent.",
+	"metatemplate-tracking-savemarkup-overlap": "MetaTemplate-SaveMarkup overlap",
+	"metatemplate-tracking-savemarkup-overlap-desc": "The <nowiki>{{#savemarkup}} function is being used for a variable that's already being saved with savemarkup=1.",
 	"metavarsonpage": "MetaTemplate variables on a page",
 	"pageswithmetavar": "Pages with a MetaTemplate variable"
 }

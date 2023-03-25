@@ -56,12 +56,14 @@ class MetaTemplateData
 
 	#region Private Constants
 	/**
-	 * Key for the value indicating if we're in save mode.
+	 * Key for the value indicating which save mode is in use.
+	 *     0 = not saving
+	 *     1 = saving normally
+	 *     2 = saving markup via parameter
 	 *
-	 * @var string (?bool) True if in save mode.
+	 * @var int $saveMode
 	 */
-	private const KEY_SAVE_MODE = MetaTemplate::KEY_METATEMPLATE . '#saving';
-	private static $isSaving = false;
+	public static $saveMode = 0;
 
 	/**
 	 * Key for the value indicating that a #save operation was attempted during a #listsaved operation and ignored.
@@ -412,16 +414,10 @@ class MetaTemplateData
 			return [''];
 		}
 
-		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
-		if (!$debug && ($title->getNamespace() === NS_TEMPLATE || $parser->getOptions()->getIsPreview())) {
-			return [''];
-		}
-
 		/** @var MetaTemplateVariable[] $varsToSave */
 		$varsToSave = [];
-		self::$isSaving = true;
 		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
-		$saveMarkup = (bool)($magicArgs[self::NA_SAVEMARKUP] ?? false);
+		self::$saveMode = ($magicArgs[self::NA_SAVEMARKUP] ?? false) ? 2 : 1;
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $srcName => $destName) {
 			$dom = MetaTemplate::getVar($frame, $srcName, $anyCase);
@@ -429,27 +425,38 @@ class MetaTemplateData
 				// Reparses the value as if included, so includeonly works as expected.
 				$varValue = trim($frame->expand($dom, PPFrame::RECOVER_ORIG));
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
-				$varValue = $frame->expand($dom, $saveMarkup ? PPFrame::NO_TEMPLATES : 0);
+
+				// Now, re-expand to save candidate.
+				$varValue = $frame->expand($dom); // For save mode 2, this only serves as an error check.
+				if (self::$saveMode === 2) {
+					$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
+				}
+
+				// At last, if it's not empty, we can add the value to the save list.
 				$varsToSave[$destName] = $varValue;
 			}
 		}
 
-		self::$isSaving = false;
-		//$output->setExtensionData(self::KEY_SAVE_MODE, null);
+		self::$saveMode = 0;
 		#RHshow('Vars to Save', $varsToSave);
 
 		// Normally, the "ignored" value will be null when #save is run. If it's false, then we know we got here via
-		// #listsaved. If that's the case, then we've hit an abnormal condition that should probably never happen, so
-		// we flip the flag value to true to let the caller know that that's what happened. This will only occur if all
-		// checks were passed and this is unambiguously active code. The check for false instead of !is_null() makes
-		// sure we only set it to true if we haven't already done so.
+		// #listsaved. We should *never* save anything during a #listsaved operation! If something is trying, we flip
+		// the flag value to true to let the caller know that that's what happened. The check for false instead of not
+		// null makes sure we only set it to true if we haven't already done so.
 		$output = $parser->getOutput();
 		if ($output->getExtensionData(self::KEY_SAVE_IGNORED) === false) {
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, true);
 		}
 
-		$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
-		self::addToSet($title, $setName, $varsToSave);
+		if ($title->getNamespace() !== NS_TEMPLATE && !$parser->getOptions()->getIsPreview()) {
+			$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
+			// This is effectively what saves the variables, though the actual save comes at the end in
+			// onParserAfterTidy().
+			self::addToSet($title, $setName, $varsToSave);
+		}
+
+		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
 		if ($debug && count($varsToSave)) {
 			$out = [];
 			foreach ($varsToSave as $key => $value) {
@@ -482,9 +489,69 @@ class MetaTemplateData
 	 */
 	public static function doSaveMarkup(Parser $parser, PPFrame $frame, array $args)
 	{
-		return isset($args[1])
-			? [$frame->expand($args[1], PPFrame::NO_TEMPLATES), 'noparse' => self::$isSaving]
-			: [ParserHelper::unescapedError('metatemplate-savemarkup-nosecondarg', 'savemarkup'), 'noparse' => false];
+		if (self::$saveMode === 2) {
+			$msg = wfMessage('metatemplate-listsaved-savemarkup-overlap')->text();
+			$parser->getOutput()->addWarning($msg);
+			$parser->addTrackingCategory('metatemplate-tracking-savemarkup-overlap');
+		} elseif (isset($args[1])) {
+			// We don't waste time doing this for case 2, since the only time the code gets here with save mode 2 is
+			// during the warning check, which ignores the results.
+			$varValue = $frame->expand($args[1], MetaTemplate::EXPAND_ARGUMENTS);
+			#RHshow('#saveMarkup 1', $varValue);
+			$dom = $parser->preprocessToDom($varValue, self::$saveMode === 0 ? 0 : Parser::PTD_FOR_INCLUSION);
+			// RHshow('Frame', ' ', $frame->depth, ' ', $frame->title->getFullText(), ' ', $frame->getArguments());
+			// RHshow('Parent', ' ', $parent->depth, ' ', $parent->title->getFullText(), ' ', $parent->getArguments());
+			$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
+			#RHshow('Frame title', $frame->getTitle()->getPrefixedText());
+			// RHshow('#savemarkup value', $varValue);
+			return [$varValue, 'noparse' => self::$saveMode];
+		}
+
+		return [ParserHelper::unescapedError('metatemplate-savemarkup-nosecondarg', 'savemarkup'), 'noparse' => false];
+	}
+
+	/**
+	 * Handles the <savemarkup> tag.
+	 *
+	 * @param mixed $value The value inside the tags (the markup text).
+	 * @param array $attributes Ignored - there are no attributes for this tag.
+	 * @param Parser $parser The parser in use.
+	 * @param PPFrame $frame The template frame in use.
+	 *
+	 * @return array The half-parsed text and marker type.
+	 */
+	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame_Hash $frame): array
+	{
+		$parent = $frame->parent ?? $frame;
+		#RHshow('Frame', ' ', $frame->depth, ' ', $frame->title->getFullText(), ' ', $frame->getArguments());
+		#RHshow('Parent', ' ', $parent->depth, ' ', $parent->title->getFullText(), ' ', $parent->getArguments());
+		if (self::$saveMode === 3) {
+			$dom = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
+			$varValue = $frame->expand($dom, MetaTemplate::EXPAND_ARGUMENTS);
+			return ["<savemarkup>$varValue</saveMarkup>", 'markerType' => 'none'];
+		}
+
+		if (self::$saveMode === 2) {
+			RHecho('Save mode: double');
+			$msg = wfMessage('metatemplate-listsaved-savemarkup-overlap')->text();
+			$parser->getOutput()->addWarning($msg);
+			$parser->addTrackingCategory('metatemplate-tracking-savemarkup-overlap');
+			return [''];
+		}
+
+		if (self::$saveMode === 1) {
+			RHecho('Save mode: normal');
+			RHshow('Content', $content);
+			$dom = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
+			$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
+			RHshow('tag value', $varValue);
+			return [$varValue, 'markerType' => 'none'];
+		}
+
+		RHshow('content', $content);
+		$dom = $parser->preprocessToDom($content);
+		$varValue = $frame->expand($dom);
+		return [$varValue, 'markerType' => 'none'];
 	}
 
 	public static function init()

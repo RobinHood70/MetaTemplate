@@ -280,7 +280,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		foreach ($set->variables as $varName => $varValue) {
 			// Note that these are uncontrolled values, not magic words, so synonyms are ignored.
-			MetaTemplate::setVar($child, $varName, $varValue);
+			$dom = self::$frame->parser->preprocessToDom($varValue);
+			// Skip over any attempt to validate variables.
+			MetaTemplate::setVarDirect($child, $varName, $dom, $varValue);
 		}
 
 		$dom = self::$frame->parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);

@@ -355,7 +355,7 @@ class MetaTemplate
 		$anyCase = self::checkAnyCase($magicArgs);
 		$translations = self::getVariableTranslations($frame, $values);
 		foreach ($translations as $srcName => $destName) {
-			$dom = self::getVar($frame, $srcName, $anyCase);
+			$dom = self::getVarDirect($frame, $srcName, $anyCase);
 			if ($dom) {
 				if (is_int($srcName) && self::isNumericVariable($destName)) {
 					$destName = (int)$destName;
@@ -465,7 +465,7 @@ class MetaTemplate
 	 *
 	 * @return ?PPNode_Hash_Tree Returns the value in raw format.
 	 */
-	public static function getVar(PPFrame_Hash $frame, &$varName, bool $anyCase = false)
+	public static function getVarDirect(PPFrame_Hash $frame, &$varName, bool $anyCase = false)
 	{
 		#RHshow('GetVar', $varName);
 		// self::checkFrameType($frame);
@@ -730,7 +730,7 @@ class MetaTemplate
 		//     * this is a #local;
 		//     * a variable was found above via case=any, so we need to assign the existing value to the correct case;
 		//     * there is no existing definition for the variable.
-		if ($overwrite || !is_null($dom) || is_null(self::getVar($frame, $varName))) {
+		if ($overwrite || !is_null($dom) || is_null(self::getVarDirect($frame, $varName))) {
 			$dom = $dom ?? $values[1] ?? null;
 			if (!is_null($dom)) {
 				$prevMode = MetaTemplateData::$saveMode;
@@ -739,7 +739,7 @@ class MetaTemplate
 				$dom = $frame->parser->preprocessToDom($varValue);
 				self::setVarDirect($frame, $varName, $dom);
 				MetaTemplateData::$saveMode = $prevMode;
-				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVar($frame, $varName, false), PPFrame::RECOVER_ORIG));
+				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false), PPFrame::RECOVER_ORIG));
 			}
 		}
 	}
@@ -830,7 +830,7 @@ class MetaTemplate
 		$dom = null;
 		while ($nextFrame && is_null($dom)) {
 			$curFrame = $nextFrame;
-			$dom = self::getVar($curFrame, $srcName, $anyCase);
+			$dom = self::getVarDirect($curFrame, $srcName, $anyCase);
 			$nextFrame = $nextFrame->parent;
 		}
 

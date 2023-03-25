@@ -285,7 +285,7 @@ class MetaTemplateData
 		$set = new MetaTemplateSet($setName, []);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $key => $value) {
-			if (!MetaTemplate::getVar($frame, $value, $anyCase)) {
+			if (!MetaTemplate::getVarDirect($frame, $value, $anyCase)) {
 				$set->variables[$key] = false;
 			}
 		}
@@ -423,7 +423,7 @@ class MetaTemplateData
 		self::$saveMode = ($magicArgs[self::NA_SAVEMARKUP] ?? false) ? 2 : 1;
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $srcName => $destName) {
-			$dom = MetaTemplate::getVar($frame, $srcName, $anyCase);
+			$dom = MetaTemplate::getVarDirect($frame, $srcName, $anyCase);
 			if ($dom) {
 				// Reparses the value as if included, so includeonly works as expected.
 				$varValue = trim($frame->expand($dom, PPFrame::RECOVER_ORIG));

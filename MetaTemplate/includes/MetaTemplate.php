@@ -14,7 +14,7 @@ class MetaTemplate
 	#region Public Constants
 	public const AV_ANY = 'metatemplate-any';
 
-	public const EXPAND_ARGUMENTS = PPFrame::RECOVER_ORIG & ~PPFrame::NO_ARGS;
+	public const EXPAND_ARGUMENTS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
 
 	public const KEY_METATEMPLATE = '@metatemplate';
 
@@ -452,8 +452,10 @@ class MetaTemplate
 	}
 
 	/**
-	 * Gets a raw variable from the frame or, optionally, the entire stack. Use $frame->getXargument() in favour of
-	 * this unless you need to parse the raw argument yourself or need case-insensitive retrieval.
+	 * Gets a variable from the frame in raw (DOM) format. This should only be used when you need to reparse the
+	 * original DOM tree in some way, such as when saving markup. It should also be used when checking the existence of
+	 * a variable, since it won't cause frame expansion when doing so. Use $frame->getargument() and its variants if all
+	 * you need is the straight-up value.
 	 *
 	 * @param PPTemplateFrame_Hash $frame The frame to start at.
 	 * @param int|string $varName The variable name. On return, this will be a string if the variable was found in the
@@ -463,7 +465,7 @@ class MetaTemplate
 	 *
 	 * @return ?PPNode_Hash_Tree Returns the value in raw format.
 	 */
-	public static function getVar(PPFrame_Hash $frame, &$varName, bool $anyCase)
+	public static function getVar(PPFrame_Hash $frame, &$varName, bool $anyCase = false)
 	{
 		#RHshow('GetVar', $varName);
 		// self::checkFrameType($frame);
@@ -567,21 +569,18 @@ class MetaTemplate
 		self::unsetVar($frame, $varName, $anyCase);
 		$dom = $frame->parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
 		$dom->name = 'value';
-		/*
-		* If value is text-only, which will be the case the vast majority of times, we can use it to set the cache
-		* without expansion. We always have to fill in the cache value, however, due to the NO_ARGS requirement.
-		*/
-		$checkText = $dom->getFirstChild();
-		$varValue = ($checkText === false || ($checkText instanceof PPNode_Hash_Text && !$checkText->getNextSibling()))
+		// If the value is blank or text-only, which will be the case the vast majority of times, we can use it to set
+		// the cache immediately and avoid future expansion.
+		$child = $dom->getFirstChild();
+		$varValue = ($child === false || ($child instanceof PPNode_Hash_Text && !$child->getNextSibling()))
 			? $varValue
-			: $frame->expand($dom, self::EXPAND_ARGUMENTS); // Was PPFrame::NO_ARGS, but why? Should be opposite, if anything.
+			: null;
 		self::setVarDirect($frame, $varName, $dom, $varValue);
 	}
 
 	/**
-	 * Takes the provided DOM tree and string value and adds both to the template frame directly. Unlike the regular
-	 * version, this DOES NOT UNSET any previous values. This is almost never the function you want to call, as there
-	 * are no safeties in place to check that the DOM tree is in the correct format.
+	 * Takes the provided DOM tree and optional text representation and adds both to the template frame directly.
+	 * Unlike the regular version, this DOES NOT UNSET any previous values. Do not use this to simply set a text value.
 	 *
 	 * @internal This also shifts any numeric-named arguments it touches from named to numeric. This should be
 	 * inconsequential, but is mentioned in case there's something I've missed.
@@ -729,17 +728,18 @@ class MetaTemplate
 
 		// Set the variable if:
 		//     * this is a #local;
-		//     * this is a case=any definition and we need to assign the existing value to the correct case;
+		//     * a variable was found above via case=any, so we need to assign the existing value to the correct case;
 		//     * there is no existing definition for the variable.
-		if ($overwrite || $dom || is_null(self::getVar($frame, $varName, false))) {
+		if ($overwrite || !is_null($dom) || is_null(self::getVar($frame, $varName))) {
 			$dom = $dom ?? $values[1] ?? null;
 			if (!is_null($dom)) {
 				$prevMode = MetaTemplateData::$saveMode;
 				MetaTemplateData::$saveMode = 3;
-				$varValue = trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
+				$varValue =  trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
 				$dom = $frame->parser->preprocessToDom($varValue);
 				self::setVarDirect($frame, $varName, $dom);
 				MetaTemplateData::$saveMode = $prevMode;
+				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVar($frame, $varName, false), PPFrame::RECOVER_ORIG));
 			}
 		}
 	}

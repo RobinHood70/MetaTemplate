@@ -324,7 +324,7 @@ class MetaTemplateData
 				// MetaTemplate::unsetVar($frame, $varName, $anyCase);
 				$dom = $parser->preprocessToDom($varValue);
 				// We use NO_ARGS below in case any unresolved variables got saved.
-				$varValue = $frame->expand($dom, PPFrame::NO_ARGS);
+				$varValue = $frame->expand($dom);
 				MetaTemplate::setVarDirect($frame, $varName, $dom, $varValue);
 			}
 		}
@@ -430,9 +430,11 @@ class MetaTemplateData
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
 
 				// Now, re-expand to save candidate.
-				$varValue = $frame->expand($dom); // For save mode 2, this only serves as an error check.
+				$parent = $frame->parent ?? $frame;
+				$varValue = $parent->expand($dom, self::$saveMode === 2 ? PPFrame::NO_TEMPLATES : 0); // Variable expansion after inclusion
 				if (self::$saveMode === 2) {
-					$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
+					// Full expansion allows check for <savemarkup> vs. |savemarkup=1.
+					$frame->expand($dom);
 				}
 
 				// At last, if it's not empty, we can add the value to the save list.
@@ -503,7 +505,7 @@ class MetaTemplateData
 			$dom = $parser->preprocessToDom($varValue, self::$saveMode === 0 ? 0 : Parser::PTD_FOR_INCLUSION);
 			$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
 			#RHshow('Frame title', $frame->getTitle()->getPrefixedText());
-			RHshow('#savemarkup value', $varValue);
+			#RHshow('#savemarkup value', $varValue);
 			return [$varValue, 'noparse' => self::$saveMode];
 		}
 
@@ -526,24 +528,26 @@ class MetaTemplateData
 		switch (self::$saveMode) {
 			case 1: // Normal save, but may have <savemarkup>
 				$dom = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
-				$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
-				return [$varValue, 'markerType' => 'none'];
+				$content = $frame->expand($dom, PPFrame::NO_TEMPLATES);
+				break;
 			case 2: // Overlapping <savemarkup> and {{#save:...|savemarkup=1}}
 				$msg = wfMessage('metatemplate-listsaved-savemarkup-overlap')->text();
 				$parser->getOutput()->addWarning($msg);
 				$parser->addTrackingCategory('metatemplate-tracking-savemarkup-overlap');
-				return [$content, 'markerType' => 'none'];
-			case 3: // Not saving, setting with #local or variants
-				// This variant expands values, but then stuffs them back into <savemarkup> tags so that #save knows
-				// how to treat it.
-				$dom = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
-				$varValue = $frame->expand($dom, MetaTemplate::EXPAND_ARGUMENTS);
-				return ["<savemarkup>$varValue</saveMarkup>", 'markerType' => 'none'];
+				break;
+			case 3: // Setting with #local or variants
+				// This variant expands values only.
+				$dom = $parser->preprocessToDom($content);
+				$content = '<savemarkup>' . $frame->expand($dom, MetaTemplate::EXPAND_ARGUMENTS) . '</savemarkup>';
+				break;
 			default: // Displaying, not saving
 				$dom = $parser->preprocessToDom($content);
-				$varValue = $frame->expand($dom);
-				return [$varValue, 'markerType' => 'none'];
+				$content = $frame->expand($dom);
+				break;
 		}
+
+		#RHshow(self::$saveMode . ' Content', $content);
+		return [$content, 'markerType' => 'none'];
 	}
 
 	public static function init()

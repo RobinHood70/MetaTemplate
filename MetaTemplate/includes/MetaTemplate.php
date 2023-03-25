@@ -199,8 +199,6 @@ class MetaTemplate
 			$varList = implode("\n", $inherited);
 			return ParserHelper::formatPFForDebug($varList, true, false, 'Inherited Variables');
 		}
-
-		return '';
 	}
 
 	/**
@@ -837,7 +835,7 @@ class MetaTemplate
 		}
 
 		if (!is_null($dom)) {
-			$varValue = trim($curFrame->expand($dom, self::EXPAND_ARGUMENTS));
+			$varValue = $curFrame->expand($dom, self::EXPAND_ARGUMENTS);
 			self::setVar($frame, $destName, $varValue, $anyCase);
 		}
 	}

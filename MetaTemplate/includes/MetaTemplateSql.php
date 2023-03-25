@@ -86,6 +86,15 @@ class MetaTemplateSql
 		return self::$instance;
 	}
 
+	/**
+	 * Gets the query information for PagesWithMetaVars but does not actually run the query.
+	 *
+	 * @param string|null The namespace number to query.
+	 * @param string|null The set to look for (main set if null or an empty string).
+	 * @param string|null The variable to search for.
+	 *
+	 * @return array A standard query array.
+	 */
 	public static function getPageswWithMetaVarsQueryInfo(?string $nsNum, ?string $setName, ?string $varName): array
 	{
 		$tables = [
@@ -129,7 +138,6 @@ class MetaTemplateSql
 		];
 	}
 
-	// Initial table setup/modifications from v1.
 	/**
 	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
 	 * have been altered and the datestamp removed.
@@ -140,6 +148,7 @@ class MetaTemplateSql
 	 */
 	public function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
 	{
+		// Initial table setup/modifications from v1.
 		if (wfReadOnly()) {
 			return;
 		}
@@ -156,31 +165,6 @@ class MetaTemplateSql
 		}
 
 		$updater->addExtensionUpdate([[$this, 'migrateTables']]);
-	}
-
-	/**
-	 * Migrates the MetaTemplate 1.0 data table to the current version.
-	 *
-	 * @param DatabaseUpdater $updater
-	 * @param string $dir
-	 */
-	public function migrateTables(): void
-	{
-		$db = $this->dbWrite;
-		$varMap = [
-			self::FIELD_PAGE_ID => 'mt_set_page_id',
-			self::FIELD_SET_NAME => 'mt_set_subset',
-			self::FIELD_REV_ID => 'mt_set_rev_id',
-			self::FIELD_SET_ID => 'mt_set_id'
-		];
-		$db->insertSelect(self::TABLE_SET, self::OLDTABLE_SET, $varMap, 'mt_set_page_id IN (SELECT page_id FROM page)', __METHOD__);
-
-		$varMap = [
-			self::FIELD_SET_ID => 'mt_save_id',
-			self::FIELD_VAR_NAME => 'mt_save_varname',
-			self::FIELD_VAR_VALUE => 'mt_save_value'
-		];
-		$db->insertSelect(self::TABLE_DATA, self::OLDTABLE_DATA, $varMap, 'mt_save_id IN (SELECT ' . MetaTemplateSql::FIELD_SET_ID . ' FROM ' . MetaTemplateSql::TABLE_SET . ')', __METHOD__);
 	}
 
 	public static function pageIdLimiter(int $id): array
@@ -542,6 +526,31 @@ class MetaTemplateSql
 		}
 
 		return $sets;
+	}
+
+	/**
+	 * Migrates the MetaTemplate 1.0 data table to the current version.
+	 *
+	 * @param DatabaseUpdater $updater
+	 * @param string $dir
+	 */
+	public function migrateTables(): void
+	{
+		$db = $this->dbWrite;
+		$varMap = [
+			self::FIELD_PAGE_ID => 'mt_set_page_id',
+			self::FIELD_SET_NAME => 'mt_set_subset',
+			self::FIELD_REV_ID => 'mt_set_rev_id',
+			self::FIELD_SET_ID => 'mt_set_id'
+		];
+		$db->insertSelect(self::TABLE_SET, self::OLDTABLE_SET, $varMap, 'mt_set_page_id IN (SELECT page_id FROM page)', __METHOD__);
+
+		$varMap = [
+			self::FIELD_SET_ID => 'mt_save_id',
+			self::FIELD_VAR_NAME => 'mt_save_varname',
+			self::FIELD_VAR_VALUE => 'mt_save_value'
+		];
+		$db->insertSelect(self::TABLE_DATA, self::OLDTABLE_DATA, $varMap, 'mt_save_id IN (SELECT ' . MetaTemplateSql::FIELD_SET_ID . ' FROM ' . MetaTemplateSql::TABLE_SET . ')', __METHOD__);
 	}
 
 	public function pagerQuery(int $pageId): array

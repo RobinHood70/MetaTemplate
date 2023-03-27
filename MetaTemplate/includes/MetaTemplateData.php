@@ -316,7 +316,7 @@ class MetaTemplateData
 			}
 
 			if (!MetaTemplate::getVarDirect($frame, $destName, $anyCase)) {
-				$set->variables[$srcName] = $destName;
+				$set->variables[$srcName] = false;
 			}
 		}
 

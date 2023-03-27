@@ -12,7 +12,7 @@
 	"metatemplate-listsaved-template-missing": "#listsaved error: the provided template, [[$1|{{PAGENAME:$1}}]], doesn't exist",
 	"metatemplate-listsaved-template-saveignored": "Warning: #save in template [[$1|{{PAGENAME:$1}}]] was called inside a #listsaved call and was ignored.\n\n",
 	"metatemplate-listsaved-template-toolong": "#listsaved error: the provided template, [[$1|{{PAGENAME:$1}}]], is longer than $2 {{PLURAL:$2:bytes|byte}}",
-	"metatemplate-listsaved-warn-extraparams": "'''#listsaved call has extra parameters.''' This style is no longer supported—all data to be preloaded should be added to a <nowiki>{{#preload:}}</nowiki> call in the template itself.",
+	"metatemplate-listsaved-warn-extraparams": "'''#listsaved call has extra parameters.''' This style is no longer supported—all data is cached automatically, so parameters that aren't part of the conditions themselves can be removed.",
 	"metatemplate-metavarsonpage-legend": "List all MetaTemplate variables on a page",
 	"metatemplate-metavarsonpage-no-page": "The page name provided is invalid or does not exist.",
 	"metatemplate-metavarsonpage-no-results": "There are no variables saved on this page.",

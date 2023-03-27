@@ -192,8 +192,14 @@ class MetaTemplateData
 			self::$preloadVarSets[$varSet->name] = new MetaTemplateSet($varSet->name, $vars);
 		}
 
-		$sortOrder = isset($magicArgs[self::NA_ORDER]) ? trim($frame->expand($magicArgs[self::NA_ORDER])) : null;
-		$sortOrder = is_null($sortOrder) ? [] : explode(',', $sortOrder);
+		$sortOrder = [];
+		if (isset($magicArgs[self::NA_ORDER])) {
+			$orderArg = trim($frame->expand($magicArgs[self::NA_ORDER]));
+			if (strlen($orderArg) > 0) {
+				$sortOrder = explode(',', $orderArg);
+			}
+		}
+
 		$setLimit = is_null($setName) ? [] : [$setName];
 		$fieldLimit = [];
 		if (!empty(self::$preloadVarSets)) {
@@ -210,7 +216,7 @@ class MetaTemplateData
 		}
 
 		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $conditions, $setLimit, $fieldLimit);
-		$rows = self::sortRows($rows, $frame);
+		$rows = self::sortRows($rows, $frame, $sortOrder);
 		// Add conditions to cache if not already loaded, since we know what those values must be.
 		if (!empty($fieldLimit)) {
 			foreach ($conditions as $key => $value) {
@@ -799,14 +805,13 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Sorts the listsaved rows, expanding the text before sorting so that output from templates is taken into account.
+	 * Sorts the listsaved rows in place, expanding the text before sorting so that output from templates is taken into
+	 * account.
 	 *
 	 * @param array $rows The rows to sort.
 	 * @param PPFrame $frame The frame in use.
-	 *
-	 * @return array The sorted rows.
 	 */
-	private static function sortRows(array $rows, PPFrame $frame): array
+	private static function sortRows(array &$rows, PPFrame $frame, array $sortOrder)
 	{
 		foreach ($rows as $row) {
 			foreach ($row as $field => &$value) {
@@ -833,10 +838,8 @@ class MetaTemplateData
 			}
 		}
 
-		$args[] = $rows;
+		$args[] = &$rows;
 		call_user_func_array('array_multisort', $args);
-
-		return $rows;
 	}
 
 	private static function expandAllTrimmed(&$value, $key, PPFrame $frame)

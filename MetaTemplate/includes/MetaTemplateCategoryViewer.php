@@ -168,19 +168,8 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 			return;
 		}
 
-		$output = self::$frame->parser->getOutput();
-
-		/** @var MetaTemplateSet[] $varSets */
-		$varSets = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE_WANTED);
-
 		/** @var MetaTemplatePage[] $pages */
 		$pages = [];
-		$varNames = [];
-		if (isset($varSets[''])) {
-			$varNames = $varSets['']->variables;
-			$varNames = array_keys($varNames['*'] ?? []);
-		}
-
 		for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
 			$pageId = $row['page_id'];
 			$ns = $row['page_namespace'];
@@ -189,16 +178,12 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		$result->rewind();
-		MetaTemplateSql::getInstance()->catQuery($pages, $varNames);
-		$output = self::$frame->parser->getOutput();
-		$allPages = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE);
-		foreach ($pages as $pageId => $page) {
-			if (!isset($allPages[$pageId])) {
-				$allPages[$pageId] = $page;
-			}
+		$variables = MetaTemplateData::$preloadVarSets['']->variables ?? [];
+		if (!empty($pages)) {
+			MetaTemplateSql::getInstance()->catQuery($pages, array_keys($variables));
 		}
 
-		$output->setExtensionData(MetaTemplateData::KEY_VAR_CACHE, $allPages);
+		MetaTemplateData::$preloadCache = $pages;
 	}
 	#endregion
 
@@ -279,9 +264,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		foreach ($set->variables as $varName => $varValue) {
-			// Note that these are uncontrolled values, not magic words, so synonyms are ignored.
 			$dom = self::$frame->parser->preprocessToDom($varValue);
-			// Skip over any attempt to validate variables.
 			MetaTemplate::setVarDirect($child, $varName, $dom, $varValue);
 		}
 
@@ -306,12 +289,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 */
 	private function processTemplate(string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
 	{
-		$output = self::$frame->parser->getOutput();
-		/** @var MetaTemplatePage[] $allPages */
-		$allPages = $output->getExtensionData(MetaTemplateData::KEY_VAR_CACHE) ?? [];
 		$articleId = $title->getArticleID();
-		if (isset($allPages[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			$setsFound = $allPages[$articleId]->sets;
+		if (isset(MetaTemplateData::$preloadCache[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			$setsFound = MetaTemplateData::$preloadCache[$articleId]->sets;
 			$defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
 		} else {
 			$defaultSet = new MetaTemplateSet('');

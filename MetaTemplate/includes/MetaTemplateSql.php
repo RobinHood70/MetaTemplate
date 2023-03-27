@@ -137,82 +137,47 @@ class MetaTemplateSql
 			'join_conds' => $joinConds
 		];
 	}
-
-	/**
-	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
-	 * have been altered and the datestamp removed.
-	 *
-	 * @param DatabaseUpdater $updater
-	 *
-	 * @return void
-	 */
-	public function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
-	{
-		// Initial table setup/modifications from v1.
-		if (wfReadOnly()) {
-			return;
-		}
-
-		/** @var string $dir  */
-		$dir = dirname(__DIR__);
-		$dbw = $this->dbWrite;
-		if (!$dbw->tableExists(self::TABLE_SET)) {
-			$updater->addExtensionTable(self::TABLE_SET, "$dir/sql/create-" . self::TABLE_SET . '.sql');
-		}
-
-		if (!$dbw->tableExists(self::TABLE_DATA)) {
-			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_DATA . '.sql');
-		}
-
-		$updater->addExtensionUpdate([[$this, 'migrateTables']]);
-	}
-
-	public static function pageIdLimiter(int $id): array
-	{
-		return [self::SET_PAGE_ID => $id];
-	}
 	#endregion
 
 	#region Public Functions
 	/**
 	 * [Description for catQuery]
 	 *
-	 * @param MetaTemplatePage[] $pageIds
+	 * @param MetaTemplatePage[] $pages
 	 * @param string[] $varNames
 	 *
 	 * @return void
 	 */
-	public function catQuery(array &$pageIds, array $varNames): void
+	public function catQuery(array $pages, array $variables): void
 	{
-		[$tables, $fields, $options, $joinConds] = self::baseQuery(self::SET_PAGE_ID, self::SET_SET_NAME);
-		$conds = empty($pageIds)
-			? []
-			: [self::SET_PAGE_ID => array_keys($pageIds)];
-
-		if (!empty($varNames)) {
-			$conds[self::DATA_VAR_NAME] = $varNames;
+		[$tables, $fields, $options] = self::baseQuery(self::SET_PAGE_ID, self::SET_SET_NAME);
+		$conds = [self::SET_PAGE_ID => array_keys($pages)];
+		$subConds = [self::SET_SET_ID . '=' . self::DATA_SET_ID];
+		if (!empty($variables)) {
+			// Doing this as part of the join allows the LEFT JOIN functionality to produce empty rows.
+			$subConds[self::DATA_VAR_NAME] = $variables;
 		}
+
+		$joinConds = [self::TABLE_DATA => ['LEFT JOIN', $subConds]];
 
 		#RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 		for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
 			$pageId = $row[self::FIELD_PAGE_ID];
 			$setName = $row[self::FIELD_SET_NAME];
-			if (isset($pageIds[$pageId])) {
-				$page = $pageIds[$pageId];
-			}
+			$page = $pages[$pageId];
 
 			if (isset($page->sets[$setName])) {
-				$set = $page->sets[$setName];
+				$set = &$page->sets[$setName];
 			} else {
 				$set = new MetaTemplateSet($setName);
 				$page->sets[$setName] = $set;
 			}
 
-			#RHshow('CatQuery Set', $set);
 			$varName = $row[self::FIELD_VAR_NAME];
-			$varValue = $row[self::FIELD_VAR_VALUE];
-			$set->variables[$varName] = $varValue;
+			if (!is_null($varName)) {
+				$set->variables[$varName] = $row[self::FIELD_VAR_VALUE];
+			}
 		}
 	}
 
@@ -308,27 +273,8 @@ class MetaTemplateSql
 	 *
 	 * @return array An array of page row data indexed by Page ID.
 	 */
-	public function loadListSavedData(?int $namespace, ?string $setName, ?string $sortOrder, array $conditions, array $preloadSets): array
+	public function loadListSavedData(?int $namespace, ?string $setName, array $conditions, array $setLimit, array $fieldLimit): array
 	{
-		$sortOrder = explode(',', $sortOrder);
-		$extraFields = array_merge($sortOrder, array_keys($conditions));
-		$preloadSets = $preloadSets ?? [];
-		if (is_null($setName) && empty($preloadSets)) {
-			$setLimit = [];
-		} else {
-			$setLimit = is_null($setName) ? [] : [$setName];
-			foreach ($preloadSets as $preloadSet) {
-				foreach ($preloadSet->variables as $key => $value) {
-					$extraFields[] = $key;
-				}
-
-				$setLimit[] = $preloadSet->name;
-			}
-		}
-
-		$extraFields = array_unique($extraFields);
-		$setLimit = array_unique($setLimit);
-
 		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
 		$tables = [
 			'page',
@@ -360,6 +306,10 @@ class MetaTemplateSql
 
 		if (!empty($setLimit)) {
 			$conds[self::SET_SET_NAME] = $setLimit;
+		}
+
+		if (!empty($fieldLimit)) {
+			$conds[self::DATA_VAR_NAME] = $fieldLimit;
 		}
 
 		$joinConds = [
@@ -415,26 +365,6 @@ class MetaTemplateSql
 		if (isset($data)) {
 			$retval[] = $data;
 		}
-
-		$sortOrder[] = MetaTemplate::$mwPageName;
-		$sortOrder[] = MetaTemplateData::$mwSet;
-		$used = [];
-		$args = [];
-		foreach ($sortOrder as $field) {
-			if (!isset($used[$field])) {
-				// We can't use array_column here since rows are not guaranteed to have $field.
-				$arg = [];
-				foreach ($retval as $key => $data) {
-					$arg[$key] = $data[$field] ?? false;
-				}
-
-				$args[] = $arg;
-				$used[$field] = true;
-			}
-		}
-
-		$args[] = $retval;
-		call_user_func_array('array_multisort', $args);
 
 		return $retval;
 	}
@@ -517,7 +447,7 @@ class MetaTemplateSql
 					$set = $sets[$setName];
 				} else {
 					$set = new MetaTemplateSet($setName);
-					$sets[] = $set;
+					$sets[$setName] = $set;
 				}
 
 				$varValue = $row[self::FIELD_VAR_VALUE];
@@ -551,6 +481,35 @@ class MetaTemplateSql
 			self::FIELD_VAR_VALUE => 'mt_save_value'
 		];
 		$db->insertSelect(self::TABLE_DATA, self::OLDTABLE_DATA, $varMap, 'mt_save_id IN (SELECT ' . MetaTemplateSql::FIELD_SET_ID . ' FROM ' . MetaTemplateSql::TABLE_SET . ')', __METHOD__);
+	}
+
+	/**
+	 * Migrates the old MetaTemplate tables to new ones. The basic functionality is the same, but names and indeces
+	 * have been altered and the datestamp removed.
+	 *
+	 * @param DatabaseUpdater $updater
+	 *
+	 * @return void
+	 */
+	public function onLoadExtensionSchemaUpdates(DatabaseUpdater $updater): void
+	{
+		// Initial table setup/modifications from v1.
+		if (wfReadOnly()) {
+			return;
+		}
+
+		/** @var string $dir  */
+		$dir = dirname(__DIR__);
+		$dbw = $this->dbWrite;
+		if (!$dbw->tableExists(self::TABLE_SET)) {
+			$updater->addExtensionTable(self::TABLE_SET, "$dir/sql/create-" . self::TABLE_SET . '.sql');
+		}
+
+		if (!$dbw->tableExists(self::TABLE_DATA)) {
+			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_DATA . '.sql');
+		}
+
+		$updater->addExtensionUpdate([[$this, 'migrateTables']]);
 	}
 
 	public function pagerQuery(int $pageId): array

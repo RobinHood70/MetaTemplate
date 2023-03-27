@@ -357,10 +357,6 @@ class MetaTemplate
 		foreach ($translations as $srcName => $destName) {
 			$dom = self::getVarDirect($frame, $srcName, $anyCase);
 			if ($dom) {
-				if (is_int($srcName) && self::isNumericVariable($destName)) {
-					$destName = (int)$destName;
-				}
-
 				$expand = $frame->expand($dom, self::EXPAND_ARGUMENTS);
 				$expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
 				$expand = trim($expand);
@@ -458,28 +454,19 @@ class MetaTemplate
 	 * you need is the straight-up value.
 	 *
 	 * @param PPTemplateFrame_Hash $frame The frame to start at.
-	 * @param int|string $varName The variable name. On return, this will be a string if the variable was found in the
-	 *     named arguments; an int if it was found in the numeric arguments, or unchanged if the variable was not
-	 *     found at all.
+	 * @param int|string $varName The variable name.
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 *
 	 * @return ?PPNode_Hash_Tree Returns the value in raw format.
 	 */
-	public static function getVarDirect(PPFrame_Hash $frame, &$varName, bool $anyCase = false)
+	public static function getVarDirect(PPFrame_Hash $frame, $varName, bool $anyCase = false)
 	{
 		#RHshow('GetVar', $varName);
 		// self::checkFrameType($frame);
 		// Try for an exact match without triggering expansion.
 
-		$varValue = $frame->namedArgs[$varName] ?? null;
+		$varValue = $frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? null;
 		if (!is_null($varValue)) {
-			$varName = (string)$varName;
-			return $varValue;
-		}
-
-		$varValue = $frame->numberedArgs[$varName] ?? null;
-		if (!is_null($varValue)) {
-			$varName = (int)$varName;
 			return $varValue;
 		}
 
@@ -506,14 +493,11 @@ class MetaTemplate
 	 *
 	 * @return array
 	 */
-	public static function getVariableTranslations(?PPFrame $frame, array $variables, ?int $trimLength = null): array
+	public static function getVariableTranslations(PPFrame $frame, array $variables, ?int $trimLength = null): array
 	{
 		$retval = [];
-		foreach ($variables as $srcName) {
-			if ($frame) {
-				$srcName = trim($frame->expand($srcName));
-			}
-
+		foreach ($variables as $varName) {
+			$srcName = trim($frame->expand($varName));
 			$varSplit = explode('->', $srcName, 2);
 			$srcName = trim($varSplit[0]);
 			// In PHP 8, this can be reduced to just substr(trim...)).
@@ -525,9 +509,7 @@ class MetaTemplate
 				$destName = $srcName;
 			}
 
-			if (strlen($srcName) && strlen($destName)) {
-				$retval[$srcName] = $destName;
-			}
+			$retval[(string)$srcName] = $destName;
 		}
 
 		#RHshow('Translations', $retval);

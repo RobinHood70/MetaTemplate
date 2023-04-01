@@ -216,7 +216,7 @@ class MetaTemplateData
 		}
 
 		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $conditions, $setLimit, $fieldLimit);
-		$rows = self::sortRows($rows, $frame, $sortOrder);
+		self::sortRows($rows, $frame, $sortOrder);
 		// Add conditions to cache if not already loaded, since we know what those values must be.
 		if (!empty($fieldLimit)) {
 			foreach ($conditions as $key => $value) {
@@ -811,7 +811,7 @@ class MetaTemplateData
 	 * @param array $rows The rows to sort.
 	 * @param PPFrame $frame The frame in use.
 	 */
-	private static function sortRows(array &$rows, PPFrame $frame, array $sortOrder)
+	private static function sortRows(array &$rows, PPFrame $frame, array $sortOrder): void
 	{
 		foreach ($rows as $row) {
 			foreach ($row as $field => &$value) {
@@ -842,7 +842,15 @@ class MetaTemplateData
 		call_user_func_array('array_multisort', $args);
 	}
 
-	private static function expandAllTrimmed(&$value, $key, PPFrame $frame)
+	/**
+	 * Callback for array_walk that expands and trims the value sent to it. Because this is called by name, it will
+	 * show as unused until PHP 8 allows us to use first-class declarations.
+	 *
+	 * @param mixed $value The value to expand.
+	 * @param mixed $key The key associated with the value.
+	 * @param PPFrame $frame The expansion frame in use.
+	 */
+	private static function expandAllTrimmed(&$value, $key, PPFrame $frame): void
 	{
 		$value = trim($frame->expand($value));
 	}

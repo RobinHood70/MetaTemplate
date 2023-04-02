@@ -96,11 +96,12 @@ class SpecialMetaVarsOnPage extends IncludableSpecialPage
 
 	public function showList(): void
 	{
+		global $wgParser;
+
 		#RHshow('ParserOutput', $wgParser->mOutput);
 		if (is_null($this->pageName)) {
 			if ($this->mIncluding) {
 				/** @var Title $wgTitle */
-				global $wgParser;
 				$title = $wgParser->getTitle();
 			} else {
 				return;

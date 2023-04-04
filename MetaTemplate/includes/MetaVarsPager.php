@@ -76,7 +76,7 @@ class MetaVarsPager extends TablePager
 
 	public function getDefaultSort(): string
 	{
-		return MetaTemplateSql::SET_SET_NAME;
+		return MetaTemplateSql::FIELD_SET_NAME;
 	}
 
 	public function getExtraSortFields(): array

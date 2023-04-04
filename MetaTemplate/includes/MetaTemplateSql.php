@@ -514,7 +514,13 @@ class MetaTemplateSql
 
 	public function pagerQuery(int $pageId): array
 	{
-		[$tables, $fields, $options, $joinConds] = self::baseQuery(self::SET_SET_NAME);
+		[$tables,, $options, $joinConds] = self::baseQuery();
+		$fields = [
+			'CAST(' . self::SET_SET_NAME . ' AS CHAR) ' . self::FIELD_SET_NAME,
+			'CAST(' . self::DATA_VAR_NAME . ' AS CHAR) ' . self::FIELD_VAR_NAME,
+			self::DATA_VAR_VALUE
+		];
+
 		$conds = [self::SET_PAGE_ID => $pageId];
 
 		// Transactions should make sure this never happens, but in the event that we got more than one rev_id back,

@@ -186,8 +186,9 @@ class MetaTemplate
 		foreach ($translations as $srcName => $destName) {
 			if (!isset($frame->numberedArgs[$destName]) && !isset($frame->namedArgs[$destName])) {
 				$anyCase = self::checkAnyCase($magicArgs);
-				$varValue = self::inheritVar($frame, $srcName, $destName, $anyCase);
-				if ($varValue !== false) {
+				$varValue = self::inheritVar($frame, $srcName, $anyCase);
+				if (!is_null($varValue)) {
+					$varValue = trim($varValue);
 					self::setVar($frame, $destName, $varValue, $anyCase);
 					if ($debug) {
 						$inherited[] = "$destName=$varValue";
@@ -460,7 +461,7 @@ class MetaTemplate
 	 *
 	 * @return ?PPNode_Hash_Tree Returns the value in raw format.
 	 */
-	public static function getVarDirect(PPFrame_Hash $frame, $varName, bool $anyCase = false)
+	public static function getVarDirect(PPFrame_Hash $frame, $varName, bool $anyCase = false): ?PPNode
 	{
 		#RHshow('GetVar', $varName);
 		// self::checkFrameType($frame);
@@ -805,9 +806,9 @@ class MetaTemplate
 	 *
 	 * @return string The fully expanded value of the variable.
 	 */
-	private static function inheritVar(PPTemplateFrame_Hash $frame, string $varName, string $destName, bool $anyCase): string
+	private static function inheritVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase): ?string
 	{
-		#RHshow('inhertVar', "$srcName->$destName ", (int)(bool)($frame->numberedArgs[$srcName] ?? $frame->namedArgs[$srcName] ?? false));
+		#RHshow('inhertVar', "$varName ", (int)(bool)($frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? false));
 		/** @var PPFrame|false $curFrame */
 		$nextFrame = $frame->parent;
 		$anyCase &= !self::isNumericVariable($varName);
@@ -821,7 +822,7 @@ class MetaTemplate
 
 		// We have to expand the value fully or else variables will be mis-evaluated and functions like {{PAGENAMEx:#}}
 		// will return incorrect results.
-		return $dom ? trim($curFrame->expand($dom)) : false;
+		return is_null($dom) ? null : trim($curFrame->expand($dom));
 	}
 
 	/**

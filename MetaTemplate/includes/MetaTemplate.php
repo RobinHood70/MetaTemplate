@@ -14,8 +14,6 @@ class MetaTemplate
 	#region Public Constants
 	public const AV_ANY = 'metatemplate-any';
 
-	public const EXPAND_ARGUMENTS = PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE;
-
 	public const KEY_METATEMPLATE = '@metatemplate';
 
 	public const NA_CASE = 'metatemplate-case';
@@ -186,12 +184,15 @@ class MetaTemplate
 		$translations = self::getVariableTranslations($frame, $values);
 		$inherited = [];
 		foreach ($translations as $srcName => $destName) {
-			$varValue =
-				$frame->numberedArgs[$destName] ??
-				$frame->namedArgs[$destName] ??
-				self::inheritVar($frame, $srcName, $destName, self::checkAnyCase($magicArgs));
-			if ($varValue && $debug) {
-				$inherited[] = "$destName=$varValue";
+			if (!isset($frame->numberedArgs[$destName]) && !isset($frame->namedArgs[$destName])) {
+				$anyCase = self::checkAnyCase($magicArgs);
+				$varValue = self::inheritVar($frame, $srcName, $destName, $anyCase);
+				if ($varValue !== false) {
+					self::setVar($frame, $destName, $varValue, $anyCase);
+					if ($debug) {
+						$inherited[] = "$destName=$varValue";
+					}
+				}
 			}
 		}
 
@@ -289,7 +290,7 @@ class MetaTemplate
 	public static function doPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
 		$title = self::getTitleAtDepth($parser, $frame, $args);
-		return is_null($title) ? '' : $title->getPrefixedText();
+		return is_null($title) ? '' : $title->getText();
 	}
 
 	/**
@@ -357,7 +358,7 @@ class MetaTemplate
 		foreach ($translations as $srcName => $destName) {
 			$dom = self::getVarDirect($frame, $srcName, $anyCase);
 			if ($dom) {
-				$expand = $frame->expand($dom, self::EXPAND_ARGUMENTS);
+				$expand = $frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES);
 				$expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
 				$expand = trim($expand);
 				$dom = $frame->parser->preprocessToDom($expand, 0);
@@ -549,7 +550,7 @@ class MetaTemplate
 		#RHshow('setVar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		// self::checkFrameType($frame);
 		self::unsetVar($frame, $varName, $anyCase);
-		$dom = $frame->parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
+		$dom = $frame->parser->preprocessToDom($varValue); // was: (..., $frame->depth ? Parser::PTD_FOR_INCLUSION : 0)
 		$dom->name = 'value';
 		// If the value is blank or text-only, which will be the case the vast majority of times, we can use it to set
 		// the cache immediately and avoid future expansion.
@@ -717,10 +718,11 @@ class MetaTemplate
 			if (!is_null($dom)) {
 				$prevMode = MetaTemplateData::$saveMode;
 				MetaTemplateData::$saveMode = 3;
-				$varValue =  trim($frame->expand($dom, self::EXPAND_ARGUMENTS));
+				$varValue =  trim($frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
 				$dom = $frame->parser->preprocessToDom($varValue);
-				self::setVarDirect($frame, $varName, $dom);
-				MetaTemplateData::$saveMode = $prevMode;
+				MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.
+				$varValue = $frame->expand($dom);
+				self::setVarDirect($frame, $varName, $dom, $varValue);
 				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false), PPFrame::RECOVER_ORIG));
 			}
 		}
@@ -792,8 +794,7 @@ class MetaTemplate
 	}
 
 	/**
-	 * Gets a raw variable from the frame or, optionally, the entire stack. Use $frame->getXargument() in favour of
-	 * this unless you need to parse the raw argument yourself or need case-insensitive retrieval.
+	 * Gets a raw variable by searching through the entire stack.
 	 *
 	 * @param PPTemplateFrame_Hash $frame The frame to start at.
 	 * @param string $varName The variable name.
@@ -801,25 +802,26 @@ class MetaTemplate
 	 * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
 	 * @internal This function is separated out from the main parser function so that it can potentially be used for
 	 *     internal inheritance, such as possibly inheriting debug variables in the future.
+	 *
+	 * @return string The fully expanded value of the variable.
 	 */
-	private static function inheritVar(PPTemplateFrame_Hash $frame, string $srcName, string $destName, bool $anyCase): void
+	private static function inheritVar(PPTemplateFrame_Hash $frame, string $varName, string $destName, bool $anyCase): string
 	{
 		#RHshow('inhertVar', "$srcName->$destName ", (int)(bool)($frame->numberedArgs[$srcName] ?? $frame->namedArgs[$srcName] ?? false));
 		/** @var PPFrame|false $curFrame */
 		$nextFrame = $frame->parent;
-		$anyCase &= !self::isNumericVariable($srcName);
+		$anyCase &= !self::isNumericVariable($varName);
 		/** @var PPNode_Hash_Tree $dom */
 		$dom = null;
 		while ($nextFrame && is_null($dom)) {
 			$curFrame = $nextFrame;
-			$dom = self::getVarDirect($curFrame, $srcName, $anyCase);
+			$dom = self::getVarDirect($curFrame, $varName, $anyCase);
 			$nextFrame = $nextFrame->parent;
 		}
 
-		if (!is_null($dom)) {
-			$varValue = $curFrame->expand($dom, self::EXPAND_ARGUMENTS);
-			self::setVar($frame, $destName, $varValue, $anyCase);
-		}
+		// We have to expand the value fully or else variables will be mis-evaluated and functions like {{PAGENAMEx:#}}
+		// will return incorrect results.
+		return $dom ? trim($curFrame->expand($dom)) : false;
 	}
 
 	/**

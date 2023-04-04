@@ -251,7 +251,6 @@ class MetaTemplateHooks
 			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_PRELOAD, 'MetaTemplateData::doPreload', SFH_OBJECT_ARGS);
 			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS);
-			$parser->setFunctionHook(MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkup', SFH_OBJECT_ARGS);
 		}
 
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE)) {

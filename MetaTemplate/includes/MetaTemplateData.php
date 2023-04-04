@@ -548,42 +548,6 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Forces saved data to include any template markup.
-	 *
-	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
-	 * @param array $args Function arguments:
-	 *     2: The value to save.
-	 *
-	 * @return array The half-parsed text and marker type.
-	 *
-	 * @internal This was originally a parser tag, but the frame tree doesn't work out the same as it does for a parser
-	 *     function, so it was trying to parse variables from the wrong frame. This uses the second parameter instead
-	 *     of the first because the first is pre-parsed as a string, so didn't include template information, which is
-	 *     the entire point of the function. Thus, the first parameter is a dummy parameter and the second is where the
-	 *     value is expected.
-	 */
-	public static function doSaveMarkup(Parser $parser, PPFrame $frame, array $args)
-	{
-		if (self::$saveMode === 2) {
-			$msg = wfMessage('metatemplate-listsaved-savemarkup-overlap')->text();
-			$parser->getOutput()->addWarning($msg);
-			$parser->addTrackingCategory('metatemplate-tracking-savemarkup-overlap');
-		} elseif (isset($args[1])) {
-			// We don't waste time doing this for case 2, since the only time the code gets here with save mode 2 is
-			// during the warning check, which ignores the results.
-			$varValue = $frame->expand($args[1], MetaTemplate::EXPAND_ARGUMENTS);
-			$dom = $parser->preprocessToDom($varValue, self::$saveMode === 0 ? 0 : Parser::PTD_FOR_INCLUSION);
-			$varValue = $frame->expand($dom, PPFrame::NO_TEMPLATES);
-			#RHshow('Frame title', $frame->getTitle()->getPrefixedText());
-			#RHshow('#savemarkup value', $varValue);
-			return [$varValue, 'noparse' => self::$saveMode];
-		}
-
-		return [ParserHelper::unescapedError('metatemplate-savemarkup-nosecondarg', 'savemarkup'), 'noparse' => false];
-	}
-
-	/**
 	 * Handles the <savemarkup> tag.
 	 *
 	 * @param mixed $value The value inside the tags (the markup text).

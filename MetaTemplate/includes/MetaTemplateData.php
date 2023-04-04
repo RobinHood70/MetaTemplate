@@ -373,6 +373,8 @@ class MetaTemplateData
 				if ($varValue !== false) {
 					$destName = $translations[$srcName];
 					$dom = $parser->preprocessToDom($varValue);
+					// If any {{{args}}} appear in the result, it's because they were unresolved at save time; we
+					// exclude them here so that we don't pick up local values.
 					$varValue = $frame->expand($dom, PPFrame::NO_ARGS);
 					MetaTemplate::setVarDirect($frame, $destName, $dom, $varValue);
 				}
@@ -501,8 +503,7 @@ class MetaTemplateData
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
 
 				// Now, re-expand to save candidate.
-				$parent = $frame->parent ?? $frame;
-				$varValue = $parent->expand($dom, self::$saveMode === 2 ? PPFrame::NO_TEMPLATES : 0); // Variable expansion after inclusion
+				$varValue = $frame->expand($dom, self::$saveMode === 2 ? PPFrame::NO_TEMPLATES : 0); // Variable expansion after inclusion
 				if (self::$saveMode === 2) {
 					// Full expansion allows check for <savemarkup> vs. |savemarkup=1.
 					$frame->expand($dom);
@@ -561,7 +562,7 @@ class MetaTemplateData
 	{
 		#RHshow('Frame', ' ', $frame->depth, ' ', $frame->title->getFullText(), ' ', $frame->getArguments());
 		switch (self::$saveMode) {
-			case 1: // Normal save, but may have <savemarkup>
+			case 1: // Normal save but may have <savemarkup>
 				$dom = $parser->preprocessToDom($content, Parser::PTD_FOR_INCLUSION);
 				$content = $frame->expand($dom, PPFrame::NO_TEMPLATES);
 				break;
@@ -571,9 +572,9 @@ class MetaTemplateData
 				$parser->addTrackingCategory('metatemplate-tracking-savemarkup-overlap');
 				break;
 			case 3: // Setting with #local or variants
-				// This variant expands values only.
+				// This variant retains both templates and inclusion info.
 				$dom = $parser->preprocessToDom($content);
-				$content = '<savemarkup>' . $frame->expand($dom, MetaTemplate::EXPAND_ARGUMENTS) . '</savemarkup>';
+				$content = '<savemarkup>' . $frame->expand($dom, PPFrame::NO_TEMPLATES | PPFrame::NO_IGNORE) . '</savemarkup>';
 				break;
 			default: // Displaying, not saving
 				$dom = $parser->preprocessToDom($content);

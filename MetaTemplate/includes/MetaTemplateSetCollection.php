@@ -2,8 +2,8 @@
 
 class MetaTemplateSetCollection
 {
-	/** @var Title */
-	public $title;
+	/** @var int */
+	public $articleId;
 
 	/** @var int $revId */
 	public $revId;
@@ -31,9 +31,9 @@ class MetaTemplateSetCollection
 	 * @internal These parameters are strictly here so that they travel with the set data; they're not used internally.
 	 *
 	 */
-	public function __construct(Title $title, int $revId)
+	public function __construct(int $articleId, int $revId)
 	{
-		$this->title = $title;
+		$this->articleId = $articleId;
 		$this->revId = $revId;
 	}
 

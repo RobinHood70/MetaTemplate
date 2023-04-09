@@ -41,11 +41,11 @@ class MetaTemplateSql
 	private static $instance;
 
 	/**
-	 * A list of all the pages purged during this session to avoid looping.
+	 * A list of all the pages saved during this session to avoid looping.
 	 *
 	 * @var array
 	 */
-	private static $pagesPurged = [];
+	private static $pagesSaved = [];
 	#endregion
 
 	#region Private Variables
@@ -554,14 +554,16 @@ class MetaTemplateSql
 
 		#RHecho('Vars', $vars);
 		// Whether or not the data changed, the page has been evaluated, so add it to the list.
-		$title = $vars->title;
-		self::$pagesPurged[$title->getArticleID()] = true;
-		$oldData = $this->loadPageVariables($title);
-		$upserts = new MetaTemplateUpserts($oldData, $vars);
-		if ($upserts->getTotal() > 0) {
-			#RHwriteFile('Normal Save: ', $title->getFullText());
-			$this->saveUpserts($upserts);
-			return true;
+		$articleId = $vars->articleId;
+		if (!self::$pagesSaved[$articleId]) {
+			self::$pagesSaved[$articleId] = true;
+			$oldData = $this->loadPageVariables($articleId);
+			$upserts = new MetaTemplateUpserts($oldData, $vars);
+			if ($upserts->getTotal() > 0) {
+				#RHwriteFile('Normal Save: ', $title->getFullText());
+				$this->saveUpserts($upserts);
+				return true;
+			}
 		}
 
 		return false;
@@ -658,26 +660,25 @@ class MetaTemplateSql
 	 *
 	 * @return MetaTemplateSetCollection
 	 */
-	private function loadPageVariables(Title $title): ?MetaTemplateSetCollection
+	private function loadPageVariables(int $articleId): ?MetaTemplateSetCollection
 	{
 		// Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
 		// data is tracked with $deleteIds.
 
-		// logFunctionText("($pageId)");
-		$pageId = $title->getArticleID();
+		// logFunctionText("($articleId)");
 		[$tables, $fields, $options, $joinConds] = self::baseQuery(
 			self::SET_SET_ID,
 			self::SET_SET_NAME,
 			self::SET_REV_ID
 		);
-		$conds = [self::SET_PAGE_ID => $pageId];
-		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
+		$conds = [self::SET_PAGE_ID => $articleId];
+		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . " ($articleId)", $options, $joinConds);
 		$row = $this->dbRead->fetchRow($result);
 		if (!$row) {
 			return null;
 		}
 
-		$retval = new MetaTemplateSetCollection($title, $row[self::FIELD_REV_ID]);
+		$retval = new MetaTemplateSetCollection($articleId, $row[self::FIELD_REV_ID]);
 		while ($row) {
 			$set =  $retval->addToSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
 			$varName = $row[self::FIELD_VAR_NAME];

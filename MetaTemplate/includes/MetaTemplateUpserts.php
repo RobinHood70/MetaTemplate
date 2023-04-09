@@ -33,7 +33,7 @@ class MetaTemplateUpserts
 
 		if ($oldData) {
 			#RHshow('Old Data', $oldData);
-			$this->pageId = $oldData->title->getArticleID();
+			$this->pageId = $oldData->articleId;
 			$this->oldRevId = $oldData->revId;
 			foreach ($oldSets as $setName => $oldSet) {
 				if (!isset($newSets[$setName])) {
@@ -53,7 +53,7 @@ class MetaTemplateUpserts
 
 		if ($newData) {
 			#RHshow('New Data', $newData);
-			$this->pageId = $newData->title->getArticleID(); // Possibly redundant, but if both collections are present, both page IDs will be the same.
+			$this->pageId = $newData->articleId; // Possibly redundant, but if both collections are present, both page IDs will be the same.
 			$this->newRevId = $newData->revId;
 			if ($newSets) {
 				foreach ($newSets as $setName => $newSet) {

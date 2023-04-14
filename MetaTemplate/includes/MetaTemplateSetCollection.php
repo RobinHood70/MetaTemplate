@@ -56,8 +56,7 @@ class MetaTemplateSetCollection
 
 		if (isset($this->sets[$setName])) {
 			$retval = $this->sets[$setName];
-			// Must use += below and not array_merge or numeric variables will be renumbered.
-			$retval->variables += $variables;
+			$retval->variables = array_replace($retval->variables, $variables);
 		} else {
 			$retval = new MetaTemplateSet($setName, $variables);
 			$this->sets[$setName] = $retval;

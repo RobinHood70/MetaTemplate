@@ -555,7 +555,7 @@ class MetaTemplateSql
 		#RHecho('Vars', $vars);
 		// Whether or not the data changed, the page has been evaluated, so add it to the list.
 		$articleId = $vars->articleId;
-		if (!self::$pagesSaved[$articleId]) {
+		if (!isset(self::$pagesSaved[$articleId])) {
 			self::$pagesSaved[$articleId] = true;
 			$oldData = $this->loadPageVariables($articleId);
 			$upserts = new MetaTemplateUpserts($oldData, $vars);

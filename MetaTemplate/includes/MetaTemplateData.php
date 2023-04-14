@@ -501,9 +501,9 @@ class MetaTemplateData
 				// Reparses the value as if included, so includeonly works as expected.
 				$varValue = trim($frame->expand($dom, PPFrame::RECOVER_ORIG));
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
-
 				// Now, re-expand to save candidate.
-				$varValue = $frame->expand($dom, self::$saveMode === 2 ? PPFrame::NO_TEMPLATES : 0); // Variable expansion after inclusion
+				$varValue = $frame->expand($dom, self::$saveMode === 2 ? PPFrame::NO_TEMPLATES : 0);
+				$varValue = self::stripAll($parser, $varValue);
 				if (self::$saveMode === 2) {
 					// Full expansion allows check for <savemarkup> vs. |savemarkup=1.
 					$frame->expand($dom);
@@ -805,6 +805,18 @@ class MetaTemplateData
 
 		$args[] = &$rows;
 		call_user_func_array('array_multisort', $args);
+	}
+
+	private static function stripAll(Parser $parser, ?string $text)
+	{
+		static $stripSearch = '/(<!--(IW)?LINK (.*?)-->|' . Parser::MARKER_PREFIX . '-.*?-[0-9A-Fa-f]+' . Parser::MARKER_SUFFIX . ')/';
+		$versionHelper = VersionHelper::getInstance();
+		while (preg_match($stripSearch, $text)) {
+			$text = $versionHelper->getStripState($parser)->unstripBoth($text);
+			$parser->replaceLinkHolders($text);
+		}
+
+		return $text;
 	}
 
 	/**

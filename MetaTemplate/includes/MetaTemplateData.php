@@ -655,7 +655,7 @@ class MetaTemplateData
 		/** @var MetaTemplateSetCollection $pageVars */
 		$pageVars = self::$saveData;
 		if (!$pageVars) {
-			$pageVars = new MetaTemplateSetCollection($title, $title->getLatestRevID());
+			$pageVars = new MetaTemplateSetCollection($title->getArticleID(), $title->getLatestRevID());
 			self::$saveData = $pageVars;
 		}
 

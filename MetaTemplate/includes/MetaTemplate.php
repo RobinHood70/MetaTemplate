@@ -238,12 +238,7 @@ class MetaTemplate
 	public static function doNamespaceX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
 		$title = self::getTitleAtDepth($parser, $frame, $args);
-		if ($title) {
-			$nsName = $parser->getFunctionLang()->getNsText($title->getNamespace());
-			return str_replace('_', ' ', $nsName);
-		}
-
-		return '';
+		return $title ? $title->getNsText() : '';
 	}
 
 	/**

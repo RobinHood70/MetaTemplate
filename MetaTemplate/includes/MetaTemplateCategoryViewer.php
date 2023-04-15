@@ -253,10 +253,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	private function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): MetaTemplateCategoryVars
 	{
 		/** @todo Pagename entry should be changed to getText() for consistency. */
-		$child = self::$frame->preprocessor->newFrame();
-		MetaTemplate::setVar($child, MetaTemplate::$mwFullPageName, $title->getFullText());
+		$child = self::$frame->newChild(false, $title, 0);
+		MetaTemplate::setVar($child, MetaTemplate::$mwFullPageName, $title->getPrefixedText());
 		MetaTemplate::setVar($child, MetaTemplate::$mwNamespace, $title->getNsText());
-		MetaTemplate::setVar($child, MetaTemplate::$mwPageName, $title->getFullText());
+		MetaTemplate::setVar($child, MetaTemplate::$mwPageName, $title->getText());
 		MetaTemplate::setVar($child, self::$mwPageLength, (string)$pageLength);
 		MetaTemplate::setVar($child, self::$mwSortKey, explode("\n", $sortkey)[0]);
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {

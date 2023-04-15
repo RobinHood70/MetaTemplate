@@ -36,6 +36,8 @@ class MetaTemplateData
 
 	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 
+	private const STRIP_MARKERS = '/(<!--(IW)?LINK (.*?)-->|' . Parser::MARKER_PREFIX . '-.*?-[0-9A-Fa-f]+' . Parser::MARKER_SUFFIX . ')/';
+
 	/** @var ?MetaTemplateSetCollection $saveData */
 	private static $saveData;
 	#endregion
@@ -372,6 +374,8 @@ class MetaTemplateData
 			foreach ($set->variables as $srcName => $varValue) {
 				if ($varValue !== false) {
 					$destName = $translations[$srcName];
+					// Faulty markers make preprocessToDom crash, so remove them.
+					$varValue = self::removeMarkers($varValue);
 					$dom = $parser->preprocessToDom($varValue);
 					// If any {{{args}}} appear in the result, it's because they were unresolved at save time; we
 					// exclude them here so that we don't pick up local values.
@@ -807,11 +811,17 @@ class MetaTemplateData
 		call_user_func_array('array_multisort', $args);
 	}
 
+	private static function removeMarkers(string $text)
+	{
+		return preg_replace(self::STRIP_MARKERS, '', $text);
+	}
+
 	private static function stripAll(Parser $parser, ?string $text)
 	{
-		static $stripSearch = '/(<!--(IW)?LINK (.*?)-->|' . Parser::MARKER_PREFIX . '-.*?-[0-9A-Fa-f]+' . Parser::MARKER_SUFFIX . ')/';
 		$versionHelper = VersionHelper::getInstance();
-		while (preg_match($stripSearch, $text)) {
+		$oldValue = null;
+		while (preg_match(self::STRIP_MARKERS, $text) && $oldValue !== $text) {
+			$oldValue = $text;
 			$text = $versionHelper->getStripState($parser)->unstripBoth($text);
 			$parser->replaceLinkHolders($text);
 		}

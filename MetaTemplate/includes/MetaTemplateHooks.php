@@ -165,7 +165,11 @@ class MetaTemplateHooks
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
 		global $wgCommandLineMode;
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) && ($parser->getRevisionId() || $wgCommandLineMode)) {
+		if (
+			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) &&
+			($parser->getRevisionId() || $wgCommandLineMode) &&
+			!$parser->getOptions()->getIsPreview()
+		) {
 			$title = $parser->getTitle();
 			if (MetaTemplateData::save($title)) {
 				WikiPage::onArticleEdit($title, $parser->getRevisionObject());

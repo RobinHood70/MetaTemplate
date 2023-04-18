@@ -367,7 +367,7 @@ class MetaTemplateData
 				$debugInfo += ['From DB' => array_keys($set->variables)];
 			}
 
-			if (!self::loadFromSaveData($set)) {
+			if ($pageId !== $parser->getTitle()->getArticleID() || !self::loadFromSaveData($set)) {
 				MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
 			}
 

@@ -155,9 +155,19 @@ class MetaTemplateData
 			return [ParserHelper::error('metatemplate-listsaved-template-toolong', $template, $maxLen)];
 		}
 
+		// Pre-expand everything so we correctly parse wikitext parameters.
+		foreach ($values as $key => &$value) {
+			$value = trim($frame->expand($value));
+			if (strlen($value) === 0) {
+				unset($values[$key]);
+			}
+		}
+
+		unset($value);
+
 		/**
 		 * @var array $conditions
-		 * @var array $extrasnamed
+		 * @var array $extras
 		 */
 		[$conditions, $extras] = ParserHelper::splitNamedArgs($frame, $values);
 		if (!count($conditions)) {
@@ -181,7 +191,6 @@ class MetaTemplateData
 
 		#RHshow('namespaceId', $namespace ?? '<null>');
 		$setName = isset($magicArgs[self::NA_SET]) ? trim($frame->expand($magicArgs[self::NA_SET])) : null;
-		array_walk($conditions, 'MetaTemplateData::expandAllTrimmed', $frame);
 		self::$preloadVarSets = [];
 		$preloads = MetaTemplateSql::getInstance()->loadSetsFromPage($templateTitle->getArticleID(), [self::KEY_PRELOAD_DATA]);
 		foreach ($preloads as $varSet) {
@@ -828,18 +837,4 @@ class MetaTemplateData
 
 		return $text;
 	}
-
-	/**
-	 * Callback for array_walk that expands and trims the value sent to it. Because this is called by name, it will
-	 * show as unused until PHP 8 allows us to use first-class declarations.
-	 *
-	 * @param mixed $value The value to expand.
-	 * @param mixed $key The key associated with the value.
-	 * @param PPFrame $frame The expansion frame in use.
-	 */
-	private static function expandAllTrimmed(&$value, $key, PPFrame $frame): void
-	{
-		$value = trim($frame->expand($value));
-	}
-	#endregion
 }

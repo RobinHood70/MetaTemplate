@@ -147,7 +147,7 @@ class MetaTemplate
 	 * Inherit variables from the calling template(s).
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *        1+: The variable(s) to unset.
 	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
@@ -221,7 +221,6 @@ class MetaTemplate
 	 */
 	public static function doLocal(Parser $parser, PPFrame $frame, array $args): void
 	{
-		/** @var PPTemplateFrame_Hash $frame */
 		self::checkAndSetVar($frame, $args, true);
 	}
 
@@ -317,7 +316,7 @@ class MetaTemplate
 	 * has no effect on program flow.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *        1+: The variable(s) to return, optionally including an "into" specifier.
 	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
@@ -450,13 +449,13 @@ class MetaTemplate
 	 * a variable, since it won't cause frame expansion when doing so. Use $frame->getargument() and its variants if all
 	 * you need is the straight-up value.
 	 *
-	 * @param PPTemplateFrame_Hash $frame The frame to start at.
+	 * @param PPFrame $frame The frame to start at.
 	 * @param int|string $varName The variable name.
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 *
-	 * @return ?PPNode_Hash_Tree Returns the value in raw format.
+	 * @return ?PPNode Returns the value in raw format.
 	 */
-	public static function getVarDirect(PPFrame_Hash $frame, $varName, bool $anyCase = false): ?PPNode
+	public static function getVarDirect(PPFrame $frame, $varName, bool $anyCase = false): ?PPNode
 	{
 		#RHshow('GetVar', $varName);
 		// self::checkFrameType($frame);
@@ -533,7 +532,7 @@ class MetaTemplate
 	 * @internal This also shifts any numeric-named arguments it touches from named to numeric. This should be
 	 * inconsequential, but is mentioned in case there's something I've missed.
 	 *
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param string $varName The variable name. This should be pre-trimmed, if necessary.
 	 * @param PPNode|string $value The variable value.
 	 *     PPNode: use some variation of argument expansion before sending the node here.
@@ -541,7 +540,7 @@ class MetaTemplate
 	 *
 	 * @return void
 	 */
-	public static function setVar(PPFrame_Hash $frame, string $varName, string $varValue, $anyCase = false): void
+	public static function setVar(PPFrame $frame, string $varName, string $varValue, $anyCase = false): void
 	{
 		#RHshow('setVar', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		// self::checkFrameType($frame);
@@ -564,17 +563,17 @@ class MetaTemplate
 	 * @internal This also shifts any numeric-named arguments it touches from named to numeric. This should be
 	 * inconsequential, but is mentioned in case there's something I've missed.
 	 *
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param int|string $varName The variable name. This should be pre-trimmed, if necessary. If an int is specified,
 	 *     this will always treat the value as anonymous; otherwise, it will be inferred based on whether the name is
 	 *     all digits.
-	 * @param PPNode_Hash_Tree $dom The variable value as a tree.
+	 * @param PPNode $dom The variable value as a tree.
 	 * @param string $cacheValue The expanded value, if needed. Otherwise, the cache will be left uninitialized,
 	 *     expanding only when needed.
 	 *
 	 * @return void
 	 */
-	public static function setVarDirect(PPFrame_Hash $frame, $varName, PPNode_Hash_Tree $dom, ?string $cacheValue = null): void
+	public static function setVarDirect(PPFrame $frame, $varName, PPNode $dom, ?string $cacheValue = null): void
 	{
 		#RHshow('setVarDirect', $varName, ' = ', is_object($varValue) ? ''  : '(' . gettype($varValue) . ')', $varValue);
 		// self::checkFrameType($frame);
@@ -612,14 +611,14 @@ class MetaTemplate
 	/**
 	 * Unsets a template variable.
 	 *
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param string $varName The variable to unset.
 	 * @param bool $anyCase Whether the variable match should be case insensitive.
 	 * @param bool $shift For numeric unsets, whether to shift everything above it down by one.
 	 *
 	 * @return void
 	 */
-	public static function unsetVar(PPFrame_Hash $frame, $varName, bool $anyCase, bool $shift = false): void
+	public static function unsetVar(PPFrame $frame, $varName, bool $anyCase, bool $shift = false): void
 	{
 		// self::checkFrameType($frame);
 		unset(
@@ -650,7 +649,7 @@ class MetaTemplate
 
 	#region Private Static Functions
 	/**
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
 	 *            'any', along with any translations or synonyms of it.
@@ -660,7 +659,7 @@ class MetaTemplate
 	 *
 	 * @return void
 	 */
-	private static function checkAndSetVar(PPTemplateFrame_Hash $frame, array $args, bool $overwrite): void
+	private static function checkAndSetVar(PPFrame $frame, array $args, bool $overwrite): void
 	{
 		#RHshow('Define args', $frame->getArguments());
 		static $magicWords;
@@ -725,19 +724,6 @@ class MetaTemplate
 	}
 
 	/**
-	 * Checks to see that the frame type is coming from either version of MetaTemplate.
-	 *
-	 * @param PPFrame $frame
-	 * @throws Exception Thrown if the frame type is not recognized.
-	 */
-	private static function checkFrameType(PPFrame $frame): void
-	{
-		if (!$frame instanceof PPTemplateFrame_Hash && !$frame instanceof PPFrame_Uesp) {
-			throw new InvalidArgumentException('Argument format was not recognized: ' .  get_class($frame));
-		}
-	}
-
-	/**
 	 * Gets a list of variables that can bypass the normal variable definition lockouts on a template page. This means
 	 * that variables which would normally display as {{{ns_id}}}, for example, will instead take on the specified/
 	 * default values.
@@ -792,7 +778,7 @@ class MetaTemplate
 	/**
 	 * Gets a raw variable by searching through the entire stack.
 	 *
-	 * @param PPTemplateFrame_Hash $frame The frame to start at.
+	 * @param PPFrame $frame The frame to start at.
 	 * @param string $varName The variable name.
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 * @param bool $checkAll Whether to look for the variable in this template only or climb through the entire stack.
@@ -801,13 +787,12 @@ class MetaTemplate
 	 *
 	 * @return string The fully expanded value of the variable.
 	 */
-	private static function inheritVar(PPTemplateFrame_Hash $frame, string $varName, bool $anyCase): ?string
+	private static function inheritVar(PPFrame $frame, string $varName, bool $anyCase): ?string
 	{
 		#RHshow('inhertVar', "$varName ", (int)(bool)($frame->numberedArgs[$varName] ?? $frame->namedArgs[$varName] ?? false));
 		/** @var PPFrame|false $curFrame */
 		$nextFrame = $frame->parent;
 		$anyCase &= !self::isNumericVariable($varName);
-		/** @var PPNode_Hash_Tree $dom */
 		$dom = null;
 		while ($nextFrame && is_null($dom)) {
 			$curFrame = $nextFrame;
@@ -836,12 +821,12 @@ class MetaTemplate
 	/**
 	 * Unsets a numeric variable and shifts everything above it down by one.
 	 *
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param string $varName The numeric variable to unset.
 	 *
 	 * @return void
 	 */
-	private static function shiftVars(PPTemplateFrame_Hash $frame, string $varName): void
+	private static function shiftVars(PPFrame $frame, string $varName): void
 	{
 		$newArgs = [];
 		$newCache = [];

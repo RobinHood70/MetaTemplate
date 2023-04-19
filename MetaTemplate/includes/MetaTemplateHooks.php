@@ -189,8 +189,8 @@ class MetaTemplateHooks
 		// class, we can't set the private mPreprocessor property.
 
 		// This deliberately overrides mPreprocessor even if not using a custom preprocessor, as the default can still
-		// end up being Preprocessor_DOM at this point, which isn't supported. In later versions, Preprocessor_Hash is
-		// the only built-in option anyway.
+		// end up being Preprocessor_DOM at this point, which isn't fully supported. In later versions,
+		// Preprocessor_Hash is the only built-in option anyway.
 		$useMtParser =
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) ||
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE);
@@ -199,6 +199,10 @@ class MetaTemplateHooks
 			: (class_exists('Preprocessor_Uesp')
 				? Preprocessor_Uesp::class
 				: Preprocessor_Hash::class);
+		// We have to set the class as well because it's a dynamic property and will be checked again if the class is
+		// cloned, which happens during Editnotice initialization.
+		$propName = 'mPreprocessorClass'; // Call by name to avoid error from property not being defined in Parser.
+		$parser->$propName = $preprocessorClass;
 		$parser->mPreprocessor = new $preprocessorClass($parser);
 
 		self::initParserFunctions($parser);

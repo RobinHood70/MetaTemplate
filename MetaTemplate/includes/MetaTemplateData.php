@@ -86,7 +86,7 @@ class MetaTemplateData
 	 * results.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *      case: Whether the name matching should be case-sensitive or not. Currently, the only allowable value is
 	 *            'any', along with any translations or synonyms of it.
@@ -258,7 +258,7 @@ class MetaTemplateData
 	 * Loads variable values from another page.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *         1: The page name to load from.
 	 *        2+: The variable names to load.
@@ -412,7 +412,7 @@ class MetaTemplateData
 	 * Saves the specified variable names as metadata to be used by #listsaved.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments: The data to preload. Names must be as they're stored in the database.
 	 *
 	 * @return void
@@ -456,7 +456,7 @@ class MetaTemplateData
 	 * Saves the specified values to the database.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param PPTemplateFrame_Hash $frame The frame in use.
+	 * @param PPFrame $frame The frame in use.
 	 * @param array $args Function arguments:
 	 *         1+: The variable names to save.
 	 *        set: The data set to save to.
@@ -562,7 +562,7 @@ class MetaTemplateData
 	 *
 	 * @return array The half-parsed text and marker type.
 	 */
-	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame_Hash $frame): array
+	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame $frame): array
 	{
 		#RHshow('Frame', ' ', $frame->depth, ' ', $frame->title->getFullText(), ' ', $frame->getArguments());
 		switch (self::$saveMode) {

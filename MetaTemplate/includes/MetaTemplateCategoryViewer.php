@@ -43,7 +43,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	/** @var Language */
 	private static $contLang = null;
 
-	/** @var ?PPFrame_Hash */
+	/** @var ?PPFrame */
 	private static $frame = null;
 
 	/** @var ?string */

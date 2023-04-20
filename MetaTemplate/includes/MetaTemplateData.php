@@ -170,6 +170,12 @@ class MetaTemplateData
 		 * @var array $extras
 		 */
 		[$conditions, $extras] = ParserHelper::splitNamedArgs($frame, $values);
+		foreach ($conditions as $key => $value) {
+			if (strlen(trim($value)) === 0) {
+				unset($conditions[$key]);
+			}
+		}
+
 		if (!count($conditions)) {
 			// Is this actually an error? Could there be a condition of wanting all rows (perhaps in namespace)?
 			return [ParserHelper::error('metatemplate-listsaved-conditions-missing')];

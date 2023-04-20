@@ -251,7 +251,7 @@ class MetaTemplateData
 
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
 		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
-		$retval = self::createTemplates($templateName, self::$preloadCache, ParserHelper::getSeparator($magicArgs));
+		$retval = self::createTemplates($templateName, $rows, ParserHelper::getSeparator($magicArgs));
 		if (!$debug) {
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, false);
 			// This is the first time we dom/expand since loading. Any raw arguments signify an unkown value at save
@@ -692,21 +692,18 @@ class MetaTemplateData
 	 *
 	 * @return string The text of the template calls.
 	 */
-	private static function createTemplates(string $templateName, array $pages, string $separator): string
+	private static function createTemplates(string $templateName, array $rows, string $separator): string
 	{
 		$retval = '';
 		$open = '{{';
 		$close = '}}';
-		foreach ($pages as $mtPage) {
-			$title = Title::newFromText($mtPage->namespace . ':' . strtr($mtPage->pagename, '_', ' '));
-			foreach (array_keys($mtPage->sets) as $setname) {
-				$retval .= "$separator$open$templateName";
-				$retval .= '|' . MetaTemplate::$mwFullPageName . '=' . $title->getPrefixedText();
-				$retval .= '|' . MetaTemplate::$mwNamespace . '=' . $title->getNsText();
-				$retval .= '|' . MetaTemplate::$mwPageName . '=' . $title->getText();
-				$retval .= '|' . self::$mwSet . '=' . $setname;
-				$retval .= $close;
-			}
+		foreach ($rows as $row) {
+			$retval .= "$separator$open$templateName";
+			$retval .= '|' . MetaTemplate::$mwFullPageName . '=' . $row[MetaTemplate::$mwFullPageName];
+			$retval .= '|' . MetaTemplate::$mwNamespace . '=' . $row[MetaTemplate::$mwNamespace];
+			$retval .= '|' . MetaTemplate::$mwPageName . '=' . $row[MetaTemplate::$mwPageName];
+			$retval .= '|' . self::$mwSet . '=' . $row[self::$mwSet];
+			$retval .= $close;
 		}
 
 		return strlen($retval)
@@ -766,10 +763,16 @@ class MetaTemplateData
 		foreach ($rows as $row) {
 			if ($row[MetaTemplate::$mwPageId] !== $pageId) {
 				$pageId = $row[MetaTemplate::$mwPageId];
-				$page = new MetaTemplatePage($row[MetaTemplate::$mwNamespace], $row[MetaTemplate::$mwPageName]);
-				// $retval[$pageId] does not maintain order; array_merge does, with RHS overriding LHS in the event of
-				// duplicates.
-				$retval += [$pageId => $page];
+				if (isset($retval[$pageId])) {
+					$page = $retval[$pageId];
+				} else {
+					$page = new MetaTemplatePage($row[MetaTemplate::$mwNamespace], $row[MetaTemplate::$mwPageName]);
+					// $retval[$pageId] does not maintain order; array_merge does, with RHS overriding LHS in the event of
+					// duplicates.
+					$retval += [$pageId => $page];
+				}
+			} else {
+				$page = $retval[$pageId];
 			}
 
 			// Unset the parent data/sortable fields, leaving only the set data.

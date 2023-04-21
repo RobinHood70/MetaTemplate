@@ -641,12 +641,10 @@ class MetaTemplateData
 			// The above check below will only be satisfied on Template-space pages that use #save.
 			if ($vars->revId !== -1 && $sql->saveVars($vars)) {
 				$retval =  true;
-				WikiPage::onArticleEdit($title);
 			}
 		} elseif ($sql->hasPageVariables($title) && $sql->deleteVariables($title)) {
 			// Check whether the page used to have variables; if not, delete will cause cascading refreshes.
 			$retval = true;
-			WikiPage::onArticleEdit($title);
 		}
 
 		self::$saveData = null;

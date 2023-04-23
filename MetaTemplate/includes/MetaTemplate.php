@@ -159,12 +159,18 @@ class MetaTemplate
 	 */
 	public static function doInherit(Parser $parser, PPFrame $frame, array $args)
 	{
-		#RHshow('Inherit args', $frame->getArguments());
 		if (!$frame->depth) {
 			return;
 		}
 
-		// self::checkFrameType($frame);
+		/* Debug code to show entire stack.
+		$curFrame = $frame;
+		do {
+			RHshow("$curFrame->depth: Inherit args for {$curFrame->getTitle()->getPrefixedText()}", $curFrame->getArguments());
+			$curFrame = $curFrame->parent;
+		} while ($curFrame);
+		*/
+
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_DEBUG,
@@ -188,6 +194,7 @@ class MetaTemplate
 				$anyCase = self::checkAnyCase($magicArgs);
 				$varValue = self::inheritVar($frame, $srcName, $anyCase);
 				if (!is_null($varValue)) {
+					#RHshow($destName, $varValue);
 					$varValue = trim($varValue);
 					self::setVar($frame, $destName, $varValue, $anyCase);
 					if ($debug) {
@@ -800,9 +807,20 @@ class MetaTemplate
 			$nextFrame = $nextFrame->parent;
 		}
 
+		if (is_null($dom)) {
+			$varValue = null;
+		} else {
+			$varValue = trim(
+				$curFrame->parent
+					? $curFrame->parent->expand($dom)
+					: $curFrame->expand($dom, PPFrame::NO_ARGS)
+			);
+			#RHshow($varName, $varValue);
+		}
+
 		// We have to expand the value fully or else variables will be mis-evaluated and functions like {{PAGENAMEx:#}}
 		// will return incorrect results.
-		return is_null($dom) ? null : trim($curFrame->expand($dom));
+		return $varValue;
 	}
 
 	/**

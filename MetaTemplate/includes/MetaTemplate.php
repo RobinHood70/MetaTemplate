@@ -163,7 +163,8 @@ class MetaTemplate
 			return;
 		}
 
-		/* Debug code to show entire stack.
+		/*
+		// Debug code to show entire stack.
 		$curFrame = $frame;
 		do {
 			RHshow("$curFrame->depth: Inherit args for {$curFrame->getTitle()->getPrefixedText()}", $curFrame->getArguments());
@@ -358,8 +359,9 @@ class MetaTemplate
 		$anyCase = self::checkAnyCase($magicArgs);
 		$translations = self::getVariableTranslations($frame, $values);
 		foreach ($translations as $srcName => $destName) {
-			$dom = self::getVarDirect($frame, $srcName, $anyCase);
-			if ($dom) {
+			$result = self::getVarDirect($frame, $srcName, $anyCase);
+			if ($result) {
+				$dom = $result[1];
 				$expand = $frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES);
 				$expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
 				$expand = trim($expand);
@@ -460,25 +462,24 @@ class MetaTemplate
 	 * @param int|string $varName The variable name.
 	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
 	 *
-	 * @return ?PPNode Returns the value in raw format.
+	 * @return array<string, ?PPNode> Returns the name of the value found (so calls using anyCase=true know where to
+	 * look if they need to) and the value in raw format.
 	 */
-	public static function getVarDirect(PPFrame $frame, $varName, bool $anyCase = false): ?PPNode
+	public static function getVarDirect(PPFrame $frame, $varName, bool $anyCase = false): ?array
 	{
 		#RHshow('GetVar', $varName);
-		// self::checkFrameType($frame);
 		// Try for an exact match without triggering expansion.
 
 		$varValue = $frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? null;
 		if (!is_null($varValue)) {
-			return $varValue;
+			return [$varName, $varValue];
 		}
 
 		if ($anyCase && !self::isNumericVariable($varName)) {
 			$lcName = $lcName ?? strtolower($varName);
 			foreach ($frame->namedArgs as $key => $varValue) {
 				if (strtolower($key) === $lcName) {
-					$varName = (string)$varName;
-					return $varValue;
+					return [$key, $varValue];
 				}
 			}
 		}
@@ -668,7 +669,7 @@ class MetaTemplate
 	 */
 	private static function checkAndSetVar(PPFrame $frame, array $args, bool $overwrite): void
 	{
-		#RHshow('Define args', $frame->getArguments());
+		#RHshow('Args', $frame->getArguments());
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			ParserHelper::NA_IF,
@@ -715,7 +716,7 @@ class MetaTemplate
 		//     * this is a #local;
 		//     * a variable was found above via case=any, so we need to assign the existing value to the correct case;
 		//     * there is no existing definition for the variable.
-		if ($overwrite || !is_null($dom) || is_null(self::getVarDirect($frame, $varName))) {
+		if ($overwrite || !is_null($dom) || is_null(self::getVarDirect($frame, $varName, $anyCase))) {
 			$dom = $dom ?? $values[1] ?? null;
 			if (!is_null($dom)) {
 				$prevMode = MetaTemplateData::$saveMode;
@@ -725,7 +726,7 @@ class MetaTemplate
 				MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.
 				$varValue = $frame->expand($dom);
 				self::setVarDirect($frame, $varName, $dom, $varValue);
-				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false), PPFrame::RECOVER_ORIG));
+				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false)[1], PPFrame::RECOVER_ORIG));
 			}
 		}
 	}
@@ -803,23 +804,18 @@ class MetaTemplate
 		$dom = null;
 		while ($nextFrame && is_null($dom)) {
 			$curFrame = $nextFrame;
-			$dom = self::getVarDirect($curFrame, $varName, $anyCase);
-			$nextFrame = $nextFrame->parent;
-		}
+			$result = self::getVarDirect($curFrame, $varName, $anyCase);
+			if ($result) {
+				$varName = $result[0];
+				$dom = $result[1];
+			}
 
-		if (is_null($dom)) {
-			$varValue = null;
-		} else {
-			$varValue = trim(
-				$curFrame->parent
-					? $curFrame->parent->expand($dom)
-					: $curFrame->expand($dom, PPFrame::NO_ARGS)
-			);
-			#RHshow($varName, $varValue);
+			$nextFrame = $nextFrame->parent;
 		}
 
 		// We have to expand the value fully or else variables will be mis-evaluated and functions like {{PAGENAMEx:#}}
 		// will return incorrect results.
+		$varValue = is_null($dom) ? null : $curFrame->getArgument($varName);
 		return $varValue;
 	}
 

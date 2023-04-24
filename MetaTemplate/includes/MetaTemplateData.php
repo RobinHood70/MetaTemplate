@@ -338,7 +338,7 @@ class MetaTemplateData
 					: "$srcName->$destName";
 			}
 
-			if (!MetaTemplate::getVarDirect($frame, $destName, $anyCase)) {
+			if (is_null(MetaTemplate::getVarDirect($frame, $destName, $anyCase))) {
 				$set->variables[$srcName] = false;
 			}
 		}
@@ -515,8 +515,9 @@ class MetaTemplateData
 		self::$saveMode = ($magicArgs[self::NA_SAVEMARKUP] ?? false) ? 2 : 1;
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		foreach ($translations as $srcName => $destName) {
-			$dom = MetaTemplate::getVarDirect($frame, $srcName, $anyCase);
-			if ($dom) {
+			$result = MetaTemplate::getVarDirect($frame, $srcName, $anyCase);
+			if ($result) {
+				$dom = $result[1];
 				// Reparses the value as if included, so includeonly works as expected.
 				$varValue = trim($frame->expand($dom, PPFrame::RECOVER_ORIG));
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);

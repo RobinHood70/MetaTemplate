@@ -250,7 +250,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 *
 	 * @return MetaTemplateCategoryVars
 	 */
-	private function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): MetaTemplateCategoryVars
+	private function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): ?MetaTemplateCategoryVars
 	{
 		/** @todo Pagename entry should be changed to getText() for consistency. */
 		$child = self::$frame->newChild(false, $title, 0);

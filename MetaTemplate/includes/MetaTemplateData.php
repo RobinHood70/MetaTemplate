@@ -621,7 +621,7 @@ class MetaTemplateData
 	 * @return bool True if data was updated; otherwise, false.
 	 *
 	 */
-	public static function save(Title $title): bool
+	public static function save(int $pageId): bool
 	{
 		// This algorithm is based on the assumption that data is rarely changed, therefore:
 		// * It's best to read the existing DB data before making any DB updates/inserts.
@@ -643,7 +643,7 @@ class MetaTemplateData
 			if ($vars->revId !== -1 && $sql->saveVars($vars)) {
 				$retval =  true;
 			}
-		} elseif ($sql->hasPageVariables($title) && $sql->deleteVariables($title)) {
+		} elseif ($sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId)) {
 			// Check whether the page used to have variables; if not, delete will cause cascading refreshes.
 			$retval = true;
 		}

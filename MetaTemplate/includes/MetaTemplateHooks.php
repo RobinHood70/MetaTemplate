@@ -25,7 +25,7 @@ class MetaTemplateHooks
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			#RHlogFunctionText('Deleted: ', $article->getTitle()->getFullText());
-			MetaTemplateSql::getInstance()->deleteVariables($article->getTitle());
+			MetaTemplateSql::getInstance()->deleteVariables($article->getId());
 		}
 	}
 
@@ -146,7 +146,7 @@ class MetaTemplateHooks
 			$titleOld = $old instanceof MediaWiki\Linker\LinkTarget
 				? Title::newFromLinkTarget($old)
 				: $old;
-			MetaTemplateSql::getInstance()->deleteVariables($titleOld);
+			MetaTemplateSql::getInstance()->deleteVariables($pageid);
 			LinksUpdate::queueRecursiveJobsForTable($titleOld, 'templatelinks');
 
 			$titleNew = $new instanceof MediaWiki\Linker\LinkTarget
@@ -164,15 +164,16 @@ class MetaTemplateHooks
 	 */
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
-		global $wgCommandLineMode;
+		$title = $parser->getTitle();
+		$revision = $parser->getRevisionObject() ?? Revision::newFromTitle($title, 0, Revision::READ_LATEST);
+		$revisionId = $revision->getId();
 		if (
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) &&
-			($parser->getRevisionId() || $wgCommandLineMode) &&
+			($revisionId /* || MetaTemplateData::$saveData */) &&
 			!$parser->getOptions()->getIsPreview()
 		) {
-			$title = $parser->getTitle();
-			if (MetaTemplateData::save($title)) {
-				WikiPage::onArticleEdit($title, $parser->getRevisionObject());
+			if (MetaTemplateData::save($title->getArticleID())) {
+				WikiPage::onArticleEdit($title, $revision);
 			}
 		}
 	}

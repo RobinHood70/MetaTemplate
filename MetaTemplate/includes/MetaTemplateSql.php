@@ -141,7 +141,7 @@ class MetaTemplateSql
 
 	#region Public Functions
 	/**
-	 * [Description for catQuery]
+	 * Gets all the secondary information necessary for a <catpagetemplate> call.
 	 *
 	 * @param MetaTemplatePage[] $pages
 	 * @param string[] $varNames
@@ -188,14 +188,13 @@ class MetaTemplateSql
 	 *
 	 * @return bool False if the database is in read-only mode; otherwise, true.
 	 */
-	public function deleteVariables(Title $title): bool
+	public function deleteVariables(int $pageId): bool
 	{
 		if (wfReadOnly()) {
 			return false;
 		}
 
 		// Assumes cascading is in effect to delete TABLE_DATA rows.
-		$pageId = $title->getArticleID();
 		$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId]);
 		return true;
 	}
@@ -247,13 +246,12 @@ class MetaTemplateSql
 	 *
 	 * @return MetaTemplateSetCollection
 	 */
-	public function hasPageVariables(Title $title): bool
+	public function hasPageVariables(int $pageId): bool
 	{
 		// Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
 		// data is tracked with $deleteIds.
 
 		// logFunctionText("($pageId)");
-		$pageId = $title->getArticleID();
 		$tables = [self::TABLE_SET];
 		$fields = [self::SET_PAGE_ID];
 		$options = ['LIMIT' => 1];

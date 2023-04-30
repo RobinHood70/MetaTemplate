@@ -10,10 +10,6 @@ use Wikimedia\Rdbms\IResultWrapper;
  */
 class MetaTemplateHooks
 {
-	#region Private Static Variables
-	private static $purgedPages = [];
-	#endregion
-
 	#region Public Static Functions
 	/**
 	 * Deletes all set-related data when a page is deleted.
@@ -182,15 +178,22 @@ class MetaTemplateHooks
 			return;
 		}
 
+		// There doesn't seem to be a reliable way to clear the saveData variable at the start of the main parsing
+		// block (onFirstCallInit doesn't seem to work right for this), so before saving, double-check that we're
+		// actually saving the data to the right page. The check in doSave() should take care of most cases, but if
+		// we're going from a page with #save to a page without, saveData may still be contaminated with old data.
+		$pageId = $title->getArticleID();
+		if (MetaTemplateData::$saveData && MetaTemplateData::$saveData->articleId != $pageId) {
+			MetaTemplateData::$saveData = null;
+			return;
+		}
+
 		#RHshow('Save', MetaTemplateData::$saveData);
 		$revision = $parser->getRevisionObject() ?? Revision::newFromId($title->getLatestRevId());
-		$pageId = $title->getArticleID();
 		if (
 			$revision &&
-			/* !(self::$purgedPages[$pageId] ?? false) && */
 			MetaTemplateData::save($pageId)
 		) {
-			self::$purgedPages[$pageId] = true;
 			WikiPage::onArticleEdit($title, $revision);
 		}
 	}

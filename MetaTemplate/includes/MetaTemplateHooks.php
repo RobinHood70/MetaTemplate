@@ -182,7 +182,7 @@ class MetaTemplateHooks
 			return;
 		}
 
-		RHshow('Preview', $parser->getOptions()->getIsPreview());
+		#RHshow('Save', MetaTemplateData::$saveData);
 		$revision = $parser->getRevisionObject() ?? Revision::newFromId($title->getLatestRevId());
 		$pageId = $title->getArticleID();
 		if (
@@ -190,15 +190,9 @@ class MetaTemplateHooks
 			/* !(self::$purgedPages[$pageId] ?? false) && */
 			MetaTemplateData::save($pageId)
 		) {
-			RHalert('saved');
 			self::$purgedPages[$pageId] = true;
 			WikiPage::onArticleEdit($title, $revision);
 		}
-	}
-
-	public static function onParserBeforeInternalParse(Parser &$parser, &$text, &$strip_state)
-	{
-		MetaTemplateData::$saveData = null;
 	}
 
 	/**

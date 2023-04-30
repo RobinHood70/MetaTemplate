@@ -496,6 +496,10 @@ class MetaTemplateData
 			return [''];
 		}
 
+		if (self::$saveData && self::$saveData->articleId !== $title->getArticleID()) {
+			self::$saveData = null;
+		}
+
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,

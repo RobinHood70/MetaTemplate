@@ -25,12 +25,6 @@ class MetaTemplateUpserts
 		$oldSets = $oldData->sets ?? null;
 		$newSets = $newData->sets ?? null;
 
-		// Do not change to identity operator - object identity is a reference compare, which will fail.
-		if ($oldSets == $newSets) {
-			#RHshow(__METHOD__, 'Both sets equal; no upserts needed.');
-			return;
-		}
-
 		if ($oldData) {
 			#RHshow('Old Data', $oldData);
 			$this->pageId = $oldData->articleId;
@@ -58,14 +52,18 @@ class MetaTemplateUpserts
 			if ($newSets) {
 				foreach ($newSets as $setName => $newSet) {
 					$oldSet = $oldSets[$setName] ?? null;
-					if ($oldSet) {
+					if (is_null($oldSet)) {
+						$this->inserts[] = $newSet;
+					} else {
 						// All sets are checked for updates as long as an old set existed, since transcluded info may have changed values.
 						$oldId = $oldData->setIds[$setName] ?? 0;
 						if ($oldId !== 0) {
-							$this->updates[$oldId] = [$oldSet, $newSet];
+							ksort($oldSet->variables);
+							ksort($newSet->variables);
+							if ($oldSet != $newSet) {
+								$this->updates[$oldId] = [$oldSet, $newSet];
+							}
 						}
-					} else {
-						$this->inserts[] = $newSet;
 					}
 				}
 

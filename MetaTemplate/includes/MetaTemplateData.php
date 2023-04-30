@@ -35,11 +35,15 @@ class MetaTemplateData
 	public const SAVE_VARNAME_WIDTH = 50;
 
 	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
+	#endregion
 
+	#region Private Constants
 	private const STRIP_MARKERS = '/(<!--(IW)?LINK (.*?)-->|' . Parser::MARKER_PREFIX . '-.*?-[0-9A-Fa-f]+' . Parser::MARKER_SUFFIX . ')/';
+	#endregion
 
+	#region Public Static Properties
 	/** @var ?MetaTemplateSetCollection $saveData */
-	private static $saveData;
+	public static $saveData;
 	#endregion
 
 	#region Private Constants
@@ -639,7 +643,6 @@ class MetaTemplateData
 
 		$retval = false;
 		if ($vars && !empty($vars->sets)) {
-			// The above check below will only be satisfied on Template-space pages that use #save.
 			if ($vars->revId !== -1 && $sql->saveVars($vars)) {
 				$retval =  true;
 			}
@@ -672,7 +675,7 @@ class MetaTemplateData
 
 		/** @var MetaTemplateSetCollection $pageVars */
 		$pageVars = self::$saveData;
-		if (!$pageVars) {
+		if (is_null($pageVars)) {
 			$pageVars = new MetaTemplateSetCollection($title->getArticleID(), $title->getLatestRevID());
 			self::$saveData = $pageVars;
 		}

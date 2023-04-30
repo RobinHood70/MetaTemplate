@@ -59,6 +59,7 @@
 		"OutputPageParserOutput": "MetaTemplateHooks::onOutputPageParserOutput",
 		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
+		"ParserBeforeInternalParse": "MetaTemplateHooks::onParserBeforeInternalParse",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
 		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
 		"ParserTestTables": "MetaTemplateHooks::onParserTestTables",

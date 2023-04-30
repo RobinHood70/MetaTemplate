@@ -10,6 +10,11 @@ use Wikimedia\Rdbms\IResultWrapper;
  */
 class MetaTemplateHooks
 {
+	#region Private Static Variables
+	private static $purgedPages = [];
+	#endregion
+
+	#region Public Static Functions
 	/**
 	 * Deletes all set-related data when a page is deleted.
 	 *
@@ -164,18 +169,36 @@ class MetaTemplateHooks
 	 */
 	public static function onParserAfterTidy(Parser $parser, &$text): void
 	{
-		$title = $parser->getTitle();
-		$revision = $parser->getRevisionObject() ?? Revision::newFromTitle($title, 0, Revision::READ_LATEST);
-		$revisionId = $revision->getId();
+		global $wgCommandLine;
 		if (
-			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) &&
-			($revisionId /* || MetaTemplateData::$saveData */) &&
-			!$parser->getOptions()->getIsPreview()
+			!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) ||
+			(is_null($parser->getRevisionId()) && !$wgCommandLine)
 		) {
-			if (MetaTemplateData::save($title->getArticleID())) {
-				WikiPage::onArticleEdit($title, $revision);
-			}
+			return;
 		}
+
+		$title = $parser->getTitle();
+		if (is_null($title) || !$title->canExist()) {
+			return;
+		}
+
+		RHshow('Preview', $parser->getOptions()->getIsPreview());
+		$revision = $parser->getRevisionObject() ?? Revision::newFromId($title->getLatestRevId());
+		$pageId = $title->getArticleID();
+		if (
+			$revision &&
+			/* !(self::$purgedPages[$pageId] ?? false) && */
+			MetaTemplateData::save($pageId)
+		) {
+			RHalert('saved');
+			self::$purgedPages[$pageId] = true;
+			WikiPage::onArticleEdit($title, $revision);
+		}
+	}
+
+	public static function onParserBeforeInternalParse(Parser &$parser, &$text, &$strip_state)
+	{
+		MetaTemplateData::$saveData = null;
 	}
 
 	/**
@@ -247,7 +270,9 @@ class MetaTemplateHooks
 
 		return true;
 	}
+	#endregion
 
+	#region Private Static Functions
 	/**
 	 * Initialize parser functions.
 	 *
@@ -293,4 +318,5 @@ class MetaTemplateHooks
 			ParserHelper::setHookSynonyms($parser, MetaTemplateData::TG_SAVEMARKUP, 'MetaTemplateData::doSaveMarkupTag');
 		}
 	}
+	#endregion
 }

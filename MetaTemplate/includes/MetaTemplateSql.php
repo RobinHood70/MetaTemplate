@@ -64,7 +64,7 @@ class MetaTemplateSql
 	{
 		$dbWriteConst = defined('DB_PRIMARY') ? 'DB_PRIMARY' : 'DB_MASTER';
 		$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
-		$this->dbRead = $lb->getConnectionRef(constant($dbWriteConst));
+		$this->dbRead = $lb->getConnectionRef(DB_REPLICA);
 
 		// We get dbWrite lazily since writing will often be unnecessary.
 		$this->dbWrite = $lb->getLazyConnectionRef(constant($dbWriteConst));

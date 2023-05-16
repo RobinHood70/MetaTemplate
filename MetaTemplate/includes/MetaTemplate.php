@@ -719,13 +719,13 @@ class MetaTemplate
 		if ($overwrite || !is_null($dom) || is_null(self::getVarDirect($frame, $varName, $anyCase))) {
 			$dom = $dom ?? $values[1] ?? null;
 			if (!is_null($dom)) {
+				$varDisplay = trim($frame->expand($dom));
 				$prevMode = MetaTemplateData::$saveMode;
 				MetaTemplateData::$saveMode = 3;
-				$varValue =  trim($frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
+				$varValue = trim($frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
 				$dom = $frame->parser->preprocessToDom($varValue);
 				MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.
-				$varValue = $frame->expand($dom);
-				self::setVarDirect($frame, $varName, $dom, $varValue);
+				self::setVarDirect($frame, $varName, $dom, $varDisplay);
 				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false)[1], PPFrame::RECOVER_ORIG));
 			}
 		}

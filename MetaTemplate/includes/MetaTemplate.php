@@ -722,6 +722,14 @@ class MetaTemplate
 				$varDisplay = trim($frame->expand($dom));
 				$prevMode = MetaTemplateData::$saveMode;
 				MetaTemplateData::$saveMode = 3;
+				// Because we have to expand variables, the generated dom tree can get misprocessed in the event of
+				// something with an = or | (pipe) in it. I haven't found a good resolution for this. Should I a do
+				// manual replace: = with {{=}} and similar? Since this should only affect variables saved within a
+				// savemarkup context, it's an edge case and so, for now, I'm not worrying about it.
+				//
+				// Example: if mod=<sup class=example>TR</sup>
+				// {{Echo|{{{mod}}}}} becomes
+				// {{Echo|(variable: <sup class)(equals)(value: example>TR</sup>)}}
 				$varValue = trim($frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
 				$dom = $frame->parser->preprocessToDom($varValue);
 				MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.

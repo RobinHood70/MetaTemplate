@@ -661,44 +661,6 @@ class MetaTemplateData
 			WikiPage::onArticleEdit($title, $revision);
 		}
 	}
-
-	/**
-	 * Saves all pending data.
-	 *
-	 * @param Title $title The title of the data to be saved.
-	 *
-	 * @return bool True if data was updated; otherwise, false.
-	 *
-	 */
-	public static function save(int $pageId): bool
-	{
-		// This algorithm is based on the assumption that data is rarely changed, therefore:
-		// * It's best to read the existing DB data before making any DB updates/inserts.
-		// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
-		//   once instead of individually or by set.
-		// * It's best to use the read-only DB until we know we need to write.
-		//
-		// The wikiPage::onArticleEdit() calls ensure that data gets refreshed recursively, even on indirectly affected
-		// pages such as where there's a #load of #save'd data. Those types of pages don't seem to have their caches
-		// invalidated otherwise.
-
-		/** @var MetaTemplateSetCollection $vars */
-		$vars = self::$saveData;
-		$sql = MetaTemplateSql::getInstance();
-
-		$retval = false;
-		if ($vars && !empty($vars->sets)) {
-			if ($vars->revId !== -1 && $sql->saveVars($vars)) {
-				$retval =  true;
-			}
-		} elseif ($sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId)) {
-			// Check whether the page used to have variables; if not, delete will cause cascading refreshes.
-			$retval = true;
-		}
-
-		self::$saveData = null;
-		return $retval;
-	}
 	#endregion
 
 	#region Private Static Functions
@@ -879,6 +841,46 @@ class MetaTemplateData
 	private static function removeMarkers(string $text)
 	{
 		return preg_replace(self::STRIP_MARKERS, '', $text);
+	}
+
+	/**
+	 * Saves all pending data.
+	 *
+	 * @param Title $title The title of the data to be saved.
+	 *
+	 * @return bool True if data was updated; otherwise, false.
+	 *
+	 */
+	private static function save(int $pageId): bool
+	{
+		// This algorithm is based on the assumption that data is rarely changed, therefore:
+		// * It's best to read the existing DB data before making any DB updates/inserts.
+		// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
+		//   once instead of individually or by set.
+		// * It's best to use the read-only DB until we know we need to write.
+		//
+		// The wikiPage::onArticleEdit() calls ensure that data gets refreshed recursively, even on indirectly affected
+		// pages such as where there's a #load of #save'd data. Those types of pages don't seem to have their caches
+		// invalidated otherwise.
+
+		/** @var MetaTemplateSetCollection $vars */
+		$vars = self::$saveData;
+		$sql = MetaTemplateSql::getInstance();
+
+		$retval = false;
+		if ($vars && !empty($vars->sets)) {
+			if (
+				$vars->revId !== -1 && $sql->saveVars($vars)
+			) {
+				$retval =  true;
+			}
+		} elseif ($sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId)) {
+			// Check whether the page used to have variables; if not, delete will cause cascading refreshes.
+			$retval = true;
+		}
+
+		self::$saveData = null;
+		return $retval;
 	}
 
 	private static function stripAll(Parser $parser, ?string $text)

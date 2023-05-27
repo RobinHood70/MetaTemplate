@@ -111,6 +111,15 @@ class MetaTemplateHooks
 		$bypassVars[] = 'ns_id';
 	}
 
+	public static function onNewRevisionFromEditComplete(WikiPage $wikiPage, Revision $rev, $baseID, User $user)
+	{
+		// The intent here is to reduce or remove recursively updating an article twice (once by the MW software and
+		// again by the onParserAfterTidy routine). This works in current versions of MW but should be tested again in
+		// future, as this is significantly removed from where the recursive update actually takes place and MW's
+		// update scheme may change.
+		MetaTemplateData::$articleEditId = $wikiPage->getId();
+	}
+
 	/**
 	 * Initializes the the category viewer when called from the parser cache.
 	 *

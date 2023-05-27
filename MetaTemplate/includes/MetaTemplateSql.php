@@ -556,11 +556,14 @@ class MetaTemplateSql
 		if (!isset(self::$pagesSaved[$articleId])) {
 			self::$pagesSaved[$articleId] = true;
 			$oldData = $this->loadPageVariables($articleId);
-			$upserts = new MetaTemplateUpserts($oldData, $vars);
-			if ($upserts->getTotal() > 0) {
-				#RHwriteFile('Normal Save: ', $title->getFullText());
-				$this->saveUpserts($upserts);
-				return true;
+			if ($oldData->revId <= $vars->revId || $vars->revId === 0) {
+				// In theory, $oldData->revId < $vars->revId should work, but <= is used in case loaded data is being re-saved without an actual page update.
+				$upserts = new MetaTemplateUpserts($oldData, $vars);
+				if ($upserts->getTotal() > 0) {
+					#RHwriteFile('Normal Save: ', $title->getFullText());
+					$this->saveUpserts($upserts);
+					return true;
+				}
 			}
 		}
 
@@ -734,7 +737,7 @@ class MetaTemplateSql
 				$this->updateSetData($setId, $oldSet, $newSet);
 			}
 
-			if ($upserts->oldRevId < $newRevId) {
+			if ($upserts->oldRevId <= $newRevId) {
 				$this->dbWrite->update(
 					self::TABLE_SET,
 					[self::FIELD_REV_ID => $newRevId],

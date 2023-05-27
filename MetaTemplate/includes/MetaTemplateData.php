@@ -38,6 +38,13 @@ class MetaTemplateData
 	#endregion
 
 	#region Private Constants
+	/**
+	 * Key for the value indicating that a #save operation was attempted during a #listsaved operation and ignored.
+	 *
+	 * @var string (?bool)
+	 */
+	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
+
 	private const STRIP_MARKERS = '/(<!--(IW)?LINK (.*?)-->|' . Parser::MARKER_PREFIX . '-.*?-[0-9A-Fa-f]+' . Parser::MARKER_SUFFIX . ')/';
 	#endregion
 
@@ -46,27 +53,21 @@ class MetaTemplateData
 	public static $saveData;
 	#endregion
 
-	#region Private Constants
 	/**
-	 * Key for the value indicating which save mode is in use.
+	 * Save mode in use.
 	 *     0 = not saving
 	 *     1 = saving normally
 	 *     2 = saving markup via parameter
+	 *     3 = #local assigning value
 	 *
 	 * @var int $saveMode
 	 */
 	public static $saveMode = 0;
 
-	/**
-	 * Key for the value indicating that a #save operation was attempted during a #listsaved operation and ignored.
-	 *
-	 * @var string (?bool)
-	 */
-	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
-	#endregion
+	/** @var int $articleEditId */
+	public static $articleEditId = 0;
 
-	#region Public Static Properties
-	/** @var ?string */
+	/** @var ?string mwSet */
 	public static $mwSet = null;
 
 	/**
@@ -622,43 +623,49 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Writes all #saved data to the database.
+	 * What MetaTemplateData needs to do during a ParserAfterTidy event.
 	 *
 	 * @param Parser $parser The parser in use.
-	 * @param mixed $text The text of the article.
+	 * @param string $text The text being parsed. Note that unlike a normal ParserAfterTidy, this cannot be modified.
+	 * @todo See first note.
 	 */
-	public static function onParserAfterTidy(Parser $parser, &$text): void
+	public static function onParserAfterTidy(Parser $parser, string $text): void
 	{
-		global $wgCommandLine;
+		// Don't save if:
+		// * data is disabled
+		// * there's no revision ID (this is some kind of preview or scanning operation)
+		// * title isn't in a save-enabled namespace
+		$revId = $parser->getRevisionId();
 		if (
 			!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) ||
-			(is_null($parser->getRevisionId()) && !$wgCommandLine)
+			(is_null($revId) ||
+				$parser->getOptions()->getInterfaceMessage())
 		) {
+			self::$saveData = null;
 			return;
 		}
 
 		$title = $parser->getTitle();
 		if (is_null($title) || !$title->canExist()) {
+			self::$saveData = null;
 			return;
 		}
 
-		// There doesn't seem to be a reliable way to clear the saveData variable at the start of the main parsing
-		// block (onFirstCallInit doesn't seem to work right for this), so before saving, double-check that we're
-		// actually saving the data to the right page. The check in doSave() should take care of most cases, but if
-		// we're going from a page with #save to a page without, saveData may still be contaminated with old data.
+		// Before saving, double-check that we're actually saving the data to the right page.
 		$pageId = $title->getArticleID();
-		if (MetaTemplateData::$saveData && MetaTemplateData::$saveData->articleId != $pageId) {
-			MetaTemplateData::$saveData = null;
+		if (MetaTemplateData::$saveData && MetaTemplateData::$saveData->articleId !== $pageId) {
+			#RHwriteFile('Save data still set from previous article: ', Title::newFromID(MetaTemplateData::$saveData->articleId)->getPrefixedText());
+			self::$saveData = null;
 			return;
 		}
 
 		#RHshow('Save', MetaTemplateData::$saveData);
-		$revision = $parser->getRevisionObject() ?? Revision::newFromId($title->getLatestRevId());
-		if (
-			$revision &&
-			MetaTemplateData::save($pageId)
-		) {
-			WikiPage::onArticleEdit($title, $revision);
+		// Save always clears saveData, so we don't need to.
+		if (self::save($pageId)) {
+			if (self::$articleEditId !== $pageId) {
+				WikiPage::onArticleEdit($title, $parser->getRevisionObject());
+				self::$articleEditId = $pageId;
+			}
 		}
 	}
 	#endregion

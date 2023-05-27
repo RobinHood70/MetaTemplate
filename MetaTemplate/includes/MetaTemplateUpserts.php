@@ -37,12 +37,6 @@ class MetaTemplateUpserts
 					}
 				}
 			}
-
-			/*
-			if (count($this->deletes)) {
-				RHshow('Upsert Deletes', $this->deletes);
-			}
-			*/
 		}
 
 		if ($newData) {
@@ -57,7 +51,7 @@ class MetaTemplateUpserts
 					} else {
 						// All sets are checked for updates as long as an old set existed, since transcluded info may have changed values.
 						$oldId = $oldData->setIds[$setName] ?? 0;
-						if ($oldId !== 0) {
+						if ($oldId !== 0 || $this->newRevId === 0) {
 							ksort($oldSet->variables);
 							ksort($newSet->variables);
 							if ($oldSet != $newSet) {
@@ -66,18 +60,22 @@ class MetaTemplateUpserts
 						}
 					}
 				}
-
-				/*
-				if (count($this->inserts)) {
-					#RHshow('Upsert Inserts', $this->inserts);
-				}
-
-				if (count($this->updates)) {
-					#RHshow('Upsert Updates', $this->updates);
-				}
-				*/
 			}
 		}
+
+		/*
+		if (count($this->deletes)) {
+			RHshow('Upsert Deletes', $this->deletes);
+		}
+
+		if (count($this->inserts)) {
+			#RHshow('Upsert Inserts', $this->inserts);
+		}
+
+		if (count($this->updates)) {
+			#RHshow('Upsert Updates', $this->updates);
+		}
+		*/
 	}
 
 	/**

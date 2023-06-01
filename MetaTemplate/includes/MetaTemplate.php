@@ -700,24 +700,22 @@ class MetaTemplate
 			// We don't use unsetVar() here because we need the value of $dom if found.
 			$lcname = strtolower($varName);
 			foreach ($frame->namedArgs as $key => $varValue) {
-				if (strtolower($key) === $lcname) {
+				if (strtolower($key) === $lcname && $key !== $lcname) {
 					$dom = $varValue;
 					unset($key);
+					self::setVarDirect($frame, $varName, $dom, $frame->namedExpansionCache[$key]);
 				}
 			}
 
-			// If we didn't find an existing value, there's nothing to set below, so exit.
-			if (is_null($dom) && !$overwrite) {
-				return;
-			}
+			return;
 		}
 
 		// Set the variable if:
 		//     * this is a #local;
 		//     * a variable was found above via case=any, so we need to assign the existing value to the correct case;
 		//     * there is no existing definition for the variable.
-		if ($overwrite || !is_null($dom) || is_null(self::getVarDirect($frame, $varName, $anyCase))) {
-			$dom = $dom ?? $values[1] ?? null;
+		if ($overwrite || is_null(self::getVarDirect($frame, $varName, $anyCase))) {
+			$dom = $values[1] ?? null;
 			if (!is_null($dom)) {
 				$varDisplay = trim($frame->expand($dom));
 				$prevMode = MetaTemplateData::$saveMode;

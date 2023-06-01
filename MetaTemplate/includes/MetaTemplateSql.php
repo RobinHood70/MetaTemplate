@@ -499,15 +499,20 @@ class MetaTemplateSql
 		/** @var string $dir  */
 		$dir = dirname(__DIR__);
 		$dbw = $this->dbWrite;
+		$doMigrate = false;
 		if (!$dbw->tableExists(self::TABLE_SET)) {
+			$doMigrate = true;
 			$updater->addExtensionTable(self::TABLE_SET, "$dir/sql/create-" . self::TABLE_SET . '.sql');
 		}
 
 		if (!$dbw->tableExists(self::TABLE_DATA)) {
+			$doMigrate = true;
 			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_DATA . '.sql');
 		}
 
-		$updater->addExtensionUpdate([[$this, 'migrateTables']]);
+		if ($doMigrate) {
+			$updater->addExtensionUpdate([[$this, 'migrateTables']]);
+		}
 	}
 
 	public function pagerQuery(int $pageId): array

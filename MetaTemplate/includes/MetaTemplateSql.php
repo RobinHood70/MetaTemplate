@@ -561,7 +561,7 @@ class MetaTemplateSql
 		if (!isset(self::$pagesSaved[$articleId])) {
 			self::$pagesSaved[$articleId] = true;
 			$oldData = $this->loadPageVariables($articleId);
-			if ($oldData->revId <= $vars->revId || $vars->revId === 0) {
+			if (!$oldData || $oldData->revId <= $vars->revId || $vars->revId === 0) {
 				// In theory, $oldData->revId < $vars->revId should work, but <= is used in case loaded data is being re-saved without an actual page update.
 				$upserts = new MetaTemplateUpserts($oldData, $vars);
 				if ($upserts->getTotal() > 0) {

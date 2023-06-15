@@ -263,7 +263,7 @@ class MetaTemplate
 	public static function doNestLevel(PPFrame $frame): int
 	{
 		// Rely on internal magic word caching; ours would be a duplication of effort.
-		$nestlevelVars = MagicWord::get(MetaTemplate::VR_NESTLEVEL_VAR);
+		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::VR_NESTLEVEL_VAR);
 		$lastVal = false;
 		foreach ($frame->getNamedArguments() as $arg => $value) {
 			// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
@@ -526,10 +526,11 @@ class MetaTemplate
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT) ||
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)
 		) {
-			self::$mwFullPageName = MagicWord::get(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
-			self::$mwNamespace = MagicWord::get(MetaTemplate::NA_NAMESPACE)->getSynonym(0);
-			self::$mwPageId = MagicWord::get(MetaTemplate::NA_PAGEID)->getSynonym(0);
-			self::$mwPageName = MagicWord::get(MetaTemplate::NA_PAGENAME)->getSynonym(0);
+			$helper = VersionHelper::getInstance();
+			self::$mwFullPageName = $helper->getMagicWord(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
+			self::$mwNamespace = $helper->getMagicWord(MetaTemplate::NA_NAMESPACE)->getSynonym(0);
+			self::$mwPageId = $helper->getMagicWord(MetaTemplate::NA_PAGEID)->getSynonym(0);
+			self::$mwPageName = $helper->getMagicWord(MetaTemplate::NA_PAGENAME)->getSynonym(0);
 		}
 	}
 

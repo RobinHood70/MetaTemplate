@@ -43,10 +43,11 @@ class MetaTemplateHooks
 	public static function onArticleFromTitle(Title &$title, ?Article &$article, IContextSource $context): void
 	{
 		if ($title->getNamespace() === NS_CATEGORY) {
+			$catTreeName = 'CategoryTreeCategoryPage';
 			if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 				$article = new MetaTemplateCategoryPage($title);
-			} elseif (class_exists('CategoryTreeCategoryPage')) {
-				$article = new CategoryTreeCategoryPage($title);
+			} elseif (class_exists($catTreeName)) {
+				$article = new $catTreeName($title);
 			}
 		}
 	}
@@ -111,7 +112,7 @@ class MetaTemplateHooks
 		$bypassVars[] = 'ns_id';
 	}
 
-	public static function onNewRevisionFromEditComplete(WikiPage $wikiPage, Revision $rev, $baseID, User $user)
+	public static function onNewRevisionFromEditComplete(WikiPage $wikiPage, $rev, $baseID, User $user, &$tags = null)
 	{
 		// The intent here is to reduce or remove recursively updating an article twice (once by the MW software and
 		// again by the onParserAfterTidy routine). This works in current versions of MW but should be tested again in
@@ -157,7 +158,7 @@ class MetaTemplateHooks
 				? Title::newFromLinkTarget($old)
 				: $old;
 			MetaTemplateSql::getInstance()->deleteVariables($pageid);
-			LinksUpdate::queueRecursiveJobsForTable($titleOld, 'templatelinks');
+			VersionHelper::getInstance()->updateBackLinks($titleOld, 'templatelinks');
 
 			$titleNew = $new instanceof MediaWiki\Linker\LinkTarget
 				? Title::newFromLinkTarget($new)
@@ -199,11 +200,7 @@ class MetaTemplateHooks
 			: (class_exists('Preprocessor_Uesp')
 				? Preprocessor_Uesp::class
 				: Preprocessor_Hash::class);
-		// We have to set the class as well because it's a dynamic property and will be checked again if the class is
-		// cloned, which happens during Editnotice initialization.
-		$propName = 'mPreprocessorClass'; // Call by name to avoid error from property not being defined in Parser.
-		$parser->$propName = $preprocessorClass;
-		$parser->mPreprocessor = new $preprocessorClass($parser);
+		VersionHelper::getInstance()->setPreprocessor($parser, new $preprocessorClass($parser));
 
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);

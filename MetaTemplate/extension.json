@@ -62,6 +62,7 @@
 		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
 		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
+		"RevisionFromEditComplete": "MetaTemplateHooks::onNewRevisionFromEditComplete",
 		"TitleMoveComplete": "MetaTemplateHooks::onPageMoveComplete"
 	},
 	"MessagesDirs": {

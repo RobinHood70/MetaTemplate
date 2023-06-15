@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\Revision\RevisionRecord;
+
 /**
  * Data functions of MetaTemplate (#listsaved, #load, #save).
  */
@@ -327,7 +329,8 @@ class MetaTemplateData
 		$output = $parser->getOutput();
 		#RHecho($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
-		$output->addTemplate($loadTitle, $pageId, $loadTitle->getLatestRevID());
+		$latestRev = $loadTitle->getLatestRevID();
+		$output->addTemplate($loadTitle, $pageId, $latestRev);
 		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		$setName = isset($magicArgs[self::NA_SET])
 			? substr($magicArgs[self::NA_SET], 0, self::SAVE_SETNAME_WIDTH)
@@ -388,7 +391,14 @@ class MetaTemplateData
 			}
 
 			if ($pageId !== $parser->getTitle()->getArticleID() || !self::loadFromSaveData($set)) {
-				MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
+				if (!MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set)) {
+					$loadTitle = WikiPage::factory($loadTitle)->getRedirectTarget();
+					if (!is_null($loadTitle) && $loadTitle->exists()) {
+						$pageId = $loadTitle->getArticleID();
+						$output->addTemplate($loadTitle, $pageId, $loadTitle->getLatestRevID());
+						MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set);
+					}
+				}
 			}
 
 			foreach ($set->variables as $srcName => $varValue) {
@@ -618,7 +628,7 @@ class MetaTemplateData
 	public static function init()
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			self::$mwSet = self::$mwSet ?? MagicWord::get(MetaTemplateData::NA_SET)->getSynonym(0);
+			self::$mwSet = self::$mwSet ?? VersionHelper::getInstance()->getMagicWord(MetaTemplateData::NA_SET)->getSynonym(0);
 		}
 	}
 
@@ -663,7 +673,7 @@ class MetaTemplateData
 		// Save always clears saveData, so we don't need to.
 		if (self::save($pageId)) {
 			if (self::$articleEditId !== $pageId) {
-				WikiPage::onArticleEdit($title, $parser->getRevisionObject());
+				VersionHelper::getInstance()->onArticleEdit($title, $parser);
 				self::$articleEditId = $pageId;
 			}
 		}

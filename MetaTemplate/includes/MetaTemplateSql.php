@@ -67,7 +67,7 @@ class MetaTemplateSql
 		$this->dbRead = $lb->getConnectionRef(DB_REPLICA);
 
 		// We get dbWrite lazily since writing will often be unnecessary.
-		$this->dbWrite = $lb->getLazyConnectionRef(constant($dbWriteConst));
+		$this->dbWrite = $lb->getConnectionRef(constant($dbWriteConst));
 	}
 	#endregion
 
@@ -159,8 +159,6 @@ class MetaTemplateSql
 		}
 
 		$joinConds = [self::TABLE_DATA => ['LEFT JOIN', $subConds]];
-
-		#RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 		for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
 			$pageId = $row[self::FIELD_PAGE_ID];
@@ -168,7 +166,7 @@ class MetaTemplateSql
 			$page = $pages[$pageId];
 
 			if (isset($page->sets[$setName])) {
-				$set = &$page->sets[$setName];
+				$set = $page->sets[$setName];
 			} else {
 				$set = new MetaTemplateSet($setName);
 				$page->sets[$setName] = $set;
@@ -257,7 +255,7 @@ class MetaTemplateSql
 		$options = ['LIMIT' => 1];
 		$conds = [self::SET_PAGE_ID => $pageId];
 		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options);
-		$row = $this->dbRead->fetchRow($result);
+		$row = $result->fetchRow();
 		return (bool)$row;
 	}
 
@@ -373,9 +371,9 @@ class MetaTemplateSql
 	 * @param int $pageId The page ID to load.
 	 * @param MetaTemplateSet $set The set to load.
 	 *
-	 * @return void
+	 * @return bool True if results were found; otherwise, false.
 	 */
-	public function loadSetFromPage(int $pageId, MetaTemplateSet &$set): void
+	public function loadSetFromPage(int $pageId, MetaTemplateSet &$set): bool
 	{
 		// No variables asked for means load all, but when specific values are asked for, we only want to load the ones
 		// we don't already have.
@@ -391,7 +389,7 @@ class MetaTemplateSql
 
 			// If all of them are already known, there's nothing to do, so return.
 			if (!count($loadSet)) {
-				return;
+				return true;
 			}
 		}
 
@@ -408,13 +406,17 @@ class MetaTemplateSql
 		#RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . "-$pageId", $options, $joinConds);
 		if ($result) {
+			$hasResults = false;
 			for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
+				$hasResults = true;
 				// Because the results are sorted by revId, any duplicate variables caused by an update in mid-select
 				// will overwrite the older values.
 				$varValue = $row[self::FIELD_VAR_VALUE];
 				$set->variables[$row[self::FIELD_VAR_NAME]] = $varValue;
 			}
 		}
+
+		return $hasResults;
 	}
 
 	/**
@@ -465,20 +467,24 @@ class MetaTemplateSql
 	public function migrateTables(): void
 	{
 		$db = $this->dbWrite;
-		$varMap = [
-			self::FIELD_PAGE_ID => 'mt_set_page_id',
-			self::FIELD_SET_NAME => 'mt_set_subset',
-			self::FIELD_REV_ID => 'mt_set_rev_id',
-			self::FIELD_SET_ID => 'mt_set_id'
-		];
-		$db->insertSelect(self::TABLE_SET, self::OLDTABLE_SET, $varMap, 'mt_set_page_id IN (SELECT page_id FROM page)', __METHOD__);
+		if ($db->tableExists(self::OLDTABLE_SET)) {
+			$varMap = [
+				self::FIELD_PAGE_ID => 'mt_set_page_id',
+				self::FIELD_SET_NAME => 'mt_set_subset',
+				self::FIELD_REV_ID => 'mt_set_rev_id',
+				self::FIELD_SET_ID => 'mt_set_id'
+			];
+			$db->insertSelect(self::TABLE_SET, self::OLDTABLE_SET, $varMap, 'mt_set_page_id IN (SELECT page_id FROM page)', __METHOD__);
+		}
 
-		$varMap = [
-			self::FIELD_SET_ID => 'mt_save_id',
-			self::FIELD_VAR_NAME => 'mt_save_varname',
-			self::FIELD_VAR_VALUE => 'mt_save_value'
-		];
-		$db->insertSelect(self::TABLE_DATA, self::OLDTABLE_DATA, $varMap, 'mt_save_id IN (SELECT ' . MetaTemplateSql::FIELD_SET_ID . ' FROM ' . MetaTemplateSql::TABLE_SET . ')', __METHOD__);
+		if ($db->tableExists(self::OLDTABLE_DATA)) {
+			$varMap = [
+				self::FIELD_SET_ID => 'mt_save_id',
+				self::FIELD_VAR_NAME => 'mt_save_varname',
+				self::FIELD_VAR_VALUE => 'mt_save_value'
+			];
+			$db->insertSelect(self::TABLE_DATA, self::OLDTABLE_DATA, $varMap, 'mt_save_id IN (SELECT ' . MetaTemplateSql::FIELD_SET_ID . ' FROM ' . MetaTemplateSql::TABLE_SET . ')', __METHOD__);
+		}
 	}
 
 	/**
@@ -501,12 +507,12 @@ class MetaTemplateSql
 		$dbw = $this->dbWrite;
 		$doMigrate = false;
 		if (!$dbw->tableExists(self::TABLE_SET)) {
-			$doMigrate = true;
+			$doMigrate = $dbw->tableExists(self::OLDTABLE_SET);
 			$updater->addExtensionTable(self::TABLE_SET, "$dir/sql/create-" . self::TABLE_SET . '.sql');
 		}
 
 		if (!$dbw->tableExists(self::TABLE_DATA)) {
-			$doMigrate = true;
+			$doMigrate |= $dbw->tableExists(self::OLDTABLE_DATA);
 			$updater->addExtensionTable(self::TABLE_DATA, "$dir/sql/create-" . self::TABLE_DATA . '.sql');
 		}
 
@@ -679,7 +685,7 @@ class MetaTemplateSql
 		);
 		$conds = [self::SET_PAGE_ID => $articleId];
 		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . " ($articleId)", $options, $joinConds);
-		$row = $this->dbRead->fetchRow($result);
+		$row = $result->fetchRow();
 		if (!$row) {
 			return null;
 		}
@@ -690,7 +696,7 @@ class MetaTemplateSql
 			$varName = $row[self::FIELD_VAR_NAME];
 			$varValue = $row[self::FIELD_VAR_VALUE];
 			$set->variables[$varName] = $varValue;
-			$row = $this->dbRead->fetchRow($result);
+			$row = $result->fetchRow();
 		}
 
 		return $retval;

@@ -78,7 +78,6 @@ class MetaTemplateCategoryVars
 
 		// While these aren't actually attributes, the function does exactly what's needed.
 		$args = ParserHelper::transformAttributes($frame->getNamedArguments(), $magicWords);
-
 		$this->catGroup = $args[self::VAR_CATGROUP] ?? null;
 		$this->catLabel = isset($args[self::VAR_CATLABEL])
 			? Sanitizer::removeHTMLtags($args[self::VAR_CATLABEL])
@@ -96,21 +95,19 @@ class MetaTemplateCategoryVars
 			return;
 		}
 
-		$setPage = $args[self::VAR_SETPAGE] ?? null;
-		$setPage = $setPage === $title->getFullText()
-			? null
-			: Title::newFromText($setPage);
+		$setPageText = $args[self::VAR_SETPAGE] ?? null;
 		$setAnchor = $args[self::VAR_SETANCHOR] ?? null;
-		if (!empty($setAnchor) && $setAnchor[0] === '#') {
-			$setAnchor = substr($setAnchor, 1);
-		}
+		if (!is_null($setPageText ?? $setAnchor)) {
+			if (is_null($setPageText)) {
+				$setPageText = $title->getPrefixedText();
+			}
 
-		if (!empty($setAnchor)) {
-			// Cannot be merged with previous check since we might be altering the value.
-			$setPage = ($setPage ?? $title)->createFragmentTarget($setAnchor);
-		}
+			if (strlen($setAnchor ?? '') > 0) {
+				$setPageText .= "#$setAnchor";
+			}
 
-		$this->setPage = $setPage;
+			$this->setPage = Title::newFromText($setPageText);
+		}
 
 		// Take full text of setpagetemplate ($templateOutput) only if setlabel is not defined. If that's blank, use
 		// the normal text.
@@ -129,8 +126,8 @@ class MetaTemplateCategoryVars
 		$this->setLabel = $setLabel;
 		$this->setRedirect = $args[self::VAR_SETREDIRECT] ?? null;
 		$this->setSeparator = isset($args[self::VAR_SETSEPARATOR])
-			? Sanitizer::removeHTMLtags($args[self::VAR_SETSEPARATOR])
-			: null;
+			? Sanitizer::removeHTMLtags(ParserHelper::parseSeparator($args[self::VAR_SETSEPARATOR] ?? ''))
+			: '';
 		$this->setSortKey = isset($args[self::VAR_SETSORTKEY])
 			? Sanitizer::removeHTMLtags($args[self::VAR_SETSORTKEY])
 			: $setLabel ?? $setPage ?? $title->getFullText();

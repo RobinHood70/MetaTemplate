@@ -37,18 +37,12 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 	 */
 	public function __construct(Preprocessor_Hash $preprocessor)
 	{
-		$this->preprocessor = $preprocessor;
-		$this->parser = $preprocessor->parser;
-		$this->title = $this->parser->mTitle;
-		$this->titleCache = [$this->title ? $this->title->getPrefixedDBkey() : false];
-		$this->loopCheckHash = [];
-		$this->depth = 0;
-
+		// Passing $this as parent is a workaround for the fact that PPTemplateFrame_Hash's constructor allows
+		// $parent = false but never checks that condition, leading to numerous errors in construction.
+		parent::__construct($preprocessor, $this, [], [], $preprocessor->parser->getTitle());
+		unset($this->titleCache[1]); // Blank entry because parent blindly adds $pdbk, even when it's false.
 		$this->parent = null;
-		$this->numberedArgs = [];
-		$this->namedArgs = [];
-		$this->numberedExpansionCache = [];
-		$this->namedExpansionCache = [];
+		$this->depth = 0;
 	}
 
 	/**
@@ -147,6 +141,7 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 	 */
 	public function isTemplate(): bool
 	{
+		// Even though the root frame now acts like a template, it isn't actually one, so return false.
 		return false;
 	}
 

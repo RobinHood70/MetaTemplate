@@ -197,9 +197,7 @@ class MetaTemplateHooks
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE);
 		$preprocessorClass = $useMtParser
 			? MetaTemplatePreprocessor::class
-			: (class_exists('Preprocessor_Uesp')
-				? Preprocessor_Uesp::class
-				: Preprocessor_Hash::class);
+			: Preprocessor_Hash::class;
 		VersionHelper::getInstance()->setPreprocessor($parser, new $preprocessorClass($parser));
 
 		self::initParserFunctions($parser);

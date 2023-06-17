@@ -43,6 +43,7 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 		unset($this->titleCache[1]); // Blank entry because parent blindly adds $pdbk, even when it's false.
 		$this->parent = null;
 		$this->depth = 0;
+		$this->loopCheckHash = [];
 	}
 
 	/**

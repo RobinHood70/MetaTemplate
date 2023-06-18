@@ -89,18 +89,19 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		$attributes = ParserHelper::transformAttributes($attributes, $magicWords);
 		$none = !isset($attributes[self::NA_IMAGE]) && !isset($attributes[self::NA_PAGE]) && !isset($attributes[self::NA_SUBCAT]);
-		if (isset($attributes[self::NA_IMAGE]) || $none) {
+		if (isset($attributes[self::NA_IMAGE]) || ($none && !self::$templates[self::CV_FILE])) {
 			self::$templates[self::CV_FILE] = $content;
 		}
 
-		if (isset($attributes[self::NA_PAGE]) || $none) {
+		if (isset($attributes[self::NA_PAGE]) || ($none && !self::$templates[self::CV_PAGE])) {
 			self::$templates[self::CV_PAGE] = $content;
 		}
 
-		if (isset($attributes[self::NA_SUBCAT]) || $none) {
+		if (isset($attributes[self::NA_SUBCAT]) || ($none && !self::$templates[self::CV_SUBCAT])) {
 			self::$templates[self::CV_SUBCAT] = $content;
 		}
 
+		#RHDebug::show('Templates', self::$templates);
 		// We don't care about the results, just that any #preload gets parsed. Transferring the ignore_set option via
 		// the parser output seemed like a better choice than doing it via a static, in the event that there's somehow
 		// more than one parser active.
@@ -245,9 +246,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	 *
 	 * @param string $template The template to be parsed.
 	 * @param Title $title The title of the category entry.
-	 * @param MetaTemplateSet $set The current set on the entry page.
 	 * @param string|null $sortkey The current sortkey.
 	 * @param int $pageLength The page length.
+	 * @param MetaTemplateSet $set The current set on the entry page.
 	 *
 	 * @return MetaTemplateCategoryVars
 	 */
@@ -270,7 +271,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		}
 
 		$dom = self::$frame->parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
-		$templateOutput = $child->expand($dom);
+		$templateOutput = trim($child->expand($dom));
 		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
 
 		return $retval->setSkip ? null : $retval;
@@ -302,7 +303,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		unset($setsFound['']);
 		$catVars = $this->parseCatPageTemplate($type, $title, $sortkey, $pageLength, $defaultSet);
-		#RHshow('$catVars', $catVars);
+		#RHDebug::show('$catVars', $catVars);
 
 		/* $catGroup does not need sanitizing as MW runs it through htmlspecialchars later in the process.
 		 * Unfortunately, that means you can't make links without deriving formatList(), which can then call either
@@ -316,7 +317,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$texts = [];
 		if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
 			foreach (array_values($setsFound) as $setkey => $setValues) {
-				#RHshow('Set', $setValues->name, ' => ', $setValues);
+				#RHDebug::show('Set', $setValues->name, ' => ', $setValues);
 				$setVars = $this->parseCatPageTemplate($type, $title, null, -1, $setValues);
 				if ($setVars) {
 					$texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)

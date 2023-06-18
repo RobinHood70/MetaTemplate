@@ -82,7 +82,7 @@ class MetaTemplateCategoryVars
 		$this->catLabel = isset($args[self::VAR_CATLABEL])
 			? Sanitizer::removeHTMLtags($args[self::VAR_CATLABEL])
 			: ($templateOutput === ''
-				? $title->getFullText()
+				? $title->getPrefixedText()
 				: Sanitizer::removeHTMLtags($templateOutput));
 		$this->catTextPost = isset($args[self::VAR_CATTEXTPOST])
 			? Sanitizer::removeHTMLtags($args[self::VAR_CATTEXTPOST])
@@ -111,11 +111,8 @@ class MetaTemplateCategoryVars
 
 		// Take full text of setpagetemplate ($templateOutput) only if setlabel is not defined. If that's blank, use
 		// the normal text.
-		// Temporarily accepts catlabel as synonymous with setlabel if setlabel is not defined. This is done solely for
-		// backwards compatibility and it can be removed once all existing catpagetemplates have been converted.
 		$setLabel =
 			$args[self::VAR_SETLABEL] ??
-			$args[self::VAR_CATLABEL] ??
 			($templateOutput === ''
 				? null
 				: $templateOutput);

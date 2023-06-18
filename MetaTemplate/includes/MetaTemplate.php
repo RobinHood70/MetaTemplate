@@ -46,6 +46,9 @@ class MetaTemplate
 	#endregion
 
 	#region Public Static Variables
+	/** @var string */
+	public static $catViewer;
+
 	/** @var ?string */
 	public static $mwFullPageName = null;
 

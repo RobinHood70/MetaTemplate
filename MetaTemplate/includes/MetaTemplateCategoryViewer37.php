@@ -2,7 +2,6 @@
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageReference;
-use Wikimedia\Rdbms\IResultWrapper;
 
 /* In theory, this process could be optimized further by subdividing <catpagetemplate> into a section for pages and a
  * section for sets so that only the set portion is parsed inside the loop at the end of processTemplate(). Given the
@@ -14,182 +13,9 @@ use Wikimedia\Rdbms\IResultWrapper;
  * This class wraps around the base CategoryViewer class to provide MetaTemplate's custom capabilities like altering
  * the title and showing set names on a page.
  */
-class MetaTemplateCategoryViewer extends CategoryViewer
+class MetaTemplateCategoryViewer37 extends MetaTemplateCategoryViewer
 {
-	#region Public Constants
-	// CategoryViewer does not define these despite wide-spread internal usage in later versions, so we do. If that
-	// changes in the future, these can be removed and the code altered, or they can be made synonyms for the CV names.
-	public const CV_FILE = 'file';
-	public const CV_PAGE = 'page';
-	public const CV_SUBCAT = 'subcat';
-
-	public const NA_IMAGE = 'metatemplate-image';
-	public const NA_PAGE = 'metatemplate-page';
-	public const NA_PAGELENGTH = 'metatemplate-pagelength';
-	public const NA_SORTKEY = 'metatemplate-sortkey';
-	public const NA_SUBCAT = 'metatemplate-subcat';
-
-	public const TG_CATPAGETEMPLATE = 'metatemplate-catpagetemplate';
-	#endregion
-
-	#region Private Constants
-	/**
-	 * Key for the value to store catpagetemplate data in for browser refresh.
-	 *
-	 * @var string ([PPFrame $frame, ?string[] $templates])
-	 */
-	private const KEY_TEMPLATES = MetaTemplate::KEY_METATEMPLATE . '#cptTemplates';
-	#endregion
-
-	#region Private Static Varables
-	/** @var Language */
-	private static $contLang = null;
-
-	/** @var ?PPFrame */
-	private static $frame = null;
-
-	/** @var ?string */
-	private static $mwPageLength = null;
-
-	/** @var ?string */
-	private static $mwSortKey = null;
-
-	/** @var ?string[] */
-	private static $templates = null; // Must be null for proper init on refresh
-	#endregion
-
-	#region Public Static Functions
-	/**
-	 * Creates an inline template to use with the different types of category entries.
-	 *
-	 * @param string $content The content of the tag.
-	 * @param array $attributes The tag attributes.
-	 * @param Parser $parser The parser in use.
-	 * @param PPFrame $frame The frame in use.
-	 */
-	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
-	{
-		if ($parser->getTitle()->getNamespace() !== NS_CATEGORY || !strlen(trim($content))) {
-			return '';
-		}
-
-		// The parser cache doesn't store our custom category data nor allow us to parse it in any way short of caching
-		// the entire parser and bringing it back in parseCatPageTemplate(), which seems inadvisable. Caching later in
-		// the process also isn't an option as the cache is already saved by then. Short of custom parser caching,
-		// which is probably not advisable unless/until I understand the full dynamics of category generation, the only
-		// option is to disable the cache for any page with <catpagetemplate> on it.
-		$output = $parser->getOutput();
-		$output->updateCacheExpiry(0);
-		self::$frame = $frame;
-
-		static $magicWords;
-		$magicWords = $magicWords ?? new MagicWordArray([
-			self::NA_IMAGE,
-			self::NA_PAGE,
-			self::NA_SUBCAT
-		]);
-
-		$attributes = ParserHelper::transformAttributes($attributes, $magicWords);
-		$none = !isset($attributes[self::NA_IMAGE]) && !isset($attributes[self::NA_PAGE]) && !isset($attributes[self::NA_SUBCAT]);
-		if (isset($attributes[self::NA_IMAGE]) || $none) {
-			self::$templates[self::CV_FILE] = $content;
-		}
-
-		if (isset($attributes[self::NA_PAGE]) || $none) {
-			self::$templates[self::CV_PAGE] = $content;
-		}
-
-		if (isset($attributes[self::NA_SUBCAT]) || $none) {
-			self::$templates[self::CV_SUBCAT] = $content;
-		}
-
-		// We don't care about the results, just that any #preload gets parsed. Transferring the ignore_set option via
-		// the parser output seemed like a better choice than doing it via a static, in the event that there's somehow
-		// more than one parser active.
-		$output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, true);
-		$dom = $parser->preprocessToDom($content);
-		$content = $frame->expand($dom);
-		$output->setExtensionData(MetaTemplateData::KEY_IGNORE_SET, null);
-		$output->setExtensionData(self::KEY_TEMPLATES, self::$templates);
-		return '';
-	}
-
-	/**
-	 * Indicates whether any custom templates have been defined on the page.
-	 *
-	 * @return bool True if at least one custom template has been defined; otherwise, false.
-	 */
-	public static function hasTemplate(): bool
-	{
-		return !empty(self::$templates);
-	}
-
-	/**
-	 * @todo This is a HORRIBLE way to do this. Needs to be re-written to cache the data, not the parser and so forth.
-	 * @todo Leave magic words as magic words and use all synonyms when setting the names.
-	 * Initializes the class, accounting for possible parser caching.
-	 *
-	 * @param ?ParserOutput $parserOutput The current ParserOutput object if the page is retrieved from the cache.
-	 */
-	public static function init(ParserOutput $parserOutput = null): void
-	{
-		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
-			return;
-		}
-
-		if ($parserOutput) {
-			// We got here via the parser cache (Article::view(), case 2), so reload everything we don't have.
-			// Article::view();
-			self::$templates = $parserOutput->getExtensionData(self::KEY_TEMPLATES);
-		}
-
-		// While we could just import the global $wgContLang here, the global function still works and isn't deprecated
-		// as of MediaWiki 1.40. In 1.32, however, MediaWiki introduces the method used on the commented out line, and
-		// it seems likely they'll eventually make that the official method. Given that it's valid for so much longer
-		// via this method, however, there's little point in versioning it via VersionHelper unless this code is used
-		// outside our own wikis; we can just switch once we get to 1.32.
-		self::$contLang = self::$contLang ?? wfGetLangObj(true);
-		// self::$contLang = self::$contLang ?? MediaWikiServices::getInstance()->getContentLanguage();
-		$helper = VersionHelper::getInstance();
-		self::$mwPageLength = self::$mwPageLength ?? $helper->getMagicWord(self::NA_PAGELENGTH)->getSynonym(0);
-		self::$mwSortKey = self::$mwSortKey ?? $helper->getMagicWord(self::NA_SORTKEY)->getSynonym(0);
-	}
-
-	/**
-	 * Gets any additional set variables requested.
-	 *
-	 * @param string $type The type of results ('page', 'subcat', 'image').
-	 * @param IResultWrapper $result The database results.
-	 */
-	public static function onDoCategoryQuery(string $type, IResultWrapper $result): void
-	{
-		if (
-			!self::$frame || // No catpagetemplate
-			$result->numRows() === 0 || // No categories
-			!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) // No possible sets
-		) {
-			return;
-		}
-
-		/** @var MetaTemplatePage[] $pages */
-		$pages = [];
-		for ($row = $result->fetchRow(); $row; $row = $result->fetchRow()) {
-			$pageId = $row['page_id'];
-			$ns = $row['page_namespace'];
-			$title = $row['page_title'];
-			$pages[$pageId] = new MetaTemplatePage($ns, $title);
-		}
-
-		$result->rewind();
-		$variables = MetaTemplateData::$preloadVarSets['']->variables ?? [];
-		if (!empty($pages)) {
-			MetaTemplateSql::getInstance()->catQuery($pages, array_keys($variables));
-		}
-
-		MetaTemplateData::$preloadCache = $pages;
-	}
-	#endregion
-
+	#region Public Override Functions
 	#region Public Override Functions
 	public function addImage(PageReference $page, string $sortkey, int $pageLength, bool $isRedirect = false): void
 	{
@@ -254,81 +80,41 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	#endregion
 
 	#region Private Functions
-	// This is a direct copy of the function from CategoryViewer, which MediaWiki made private...because why would
-	// anyone ever want to call the function at the heart of every category page?
-	/**
-	 * @param string $type
-	 * @param PageReference $page
-	 * @param bool $isRedirect
-	 * @param string|null $html
-	 * @return string
-	 * Annotations needed to tell taint about HtmlArmor,
-	 * due to the use of the hook it is not possible to avoid raw html handling here
-	 * @param-taint $html tainted
-	 * @return-taint escaped
-	 */
-	private function generateLink(
-		string $type,
-		PageReference $page,
-		bool $isRedirect,
-		?string $html = null
-	): string {
-		$link = null;
-		$legacyTitle = MediaWikiServices::getInstance()->getTitleFactory()
-			->castFromPageReference($page);
-		$this->getHookRunner()->onCategoryViewer__generateLink($type, $legacyTitle, $html, $link);
-		if ($link === null) {
-			$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
-			if ($html !== null) {
-				$html = new HtmlArmor($html);
-			}
-			$link = $linkRenderer->makeLink($page, $html);
-		}
-		if ($isRedirect) {
-			$link = Html::rawElement(
-				'span',
-				['class' => 'redirect-in-category'],
-				$link
-			);
-		}
-
-		return $link;
-	}
-
 	/**
 	 * Evaluates the template in the context of the category entry and each set on that page.
 	 *
 	 * @param string $template The template to be parsed.
 	 * @param Title $title The title of the category entry.
-	 * @param MetaTemplateSet $set The current set on the entry page.
 	 * @param string|null $sortkey The current sortkey.
 	 * @param int $pageLength The page length.
+	 * @param MetaTemplateSet $set The current set on the entry page.
 	 *
 	 * @return MetaTemplateCategoryVars
 	 */
-	private function parseCatPageTemplate(string $type, PageReference $page, ?string $sortkey, int $pageLength, MetaTemplateSet $set): ?MetaTemplateCategoryVars
+	protected function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): ?MetaTemplateCategoryVars
 	{
 		/** @todo Pagename entry should be changed to getText() for consistency. */
-		$mws = MediaWikiServices::getInstance();
-		$child = self::$frame->newChild(false, $mws->getTitleFactory()->castFromPageReference($page), 0);
+		$frame = self::$templateFrames[$type];
+		$child = $frame->newChild(false, $title, 0);
 		$tf = $mws->getTitleFormatter();
-		MetaTemplate::setVar($child, MetaTemplate::$mwFullPageName, $tf->getPrefixedText($page));
-		MetaTemplate::setVar($child, MetaTemplate::$mwNamespace, $tf->getNamespaceName($page->getNamespace(), $page->getDBkey()));
-		MetaTemplate::setVar($child, MetaTemplate::$mwPageName, $tf->getText($page));
+		MetaTemplate::setVar($child, MetaTemplate::$mwFullPageName, $title->getPrefixedText());
+		MetaTemplate::setVar($child, MetaTemplate::$mwNamespace, $title->getNsText());
+		MetaTemplate::setVar($child, MetaTemplate::$mwPageName, $title->getText());
 		MetaTemplate::setVar($child, self::$mwPageLength, (string)$pageLength);
 		MetaTemplate::setVar($child, self::$mwSortKey, explode("\n", $sortkey)[0]);
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			MetaTemplate::setVar($child, MetaTemplateData::$mwSet, $set->name);
 		}
 
+		$parser = $frame->parser;
 		foreach ($set->variables as $varName => $varValue) {
-			$dom = self::$frame->parser->preprocessToDom($varValue);
+			$dom = $parser->preprocessToDom($varValue);
 			MetaTemplate::setVarDirect($child, $varName, $dom, $varValue);
 		}
 
-		$dom = self::$frame->parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
-		$templateOutput = $child->expand($dom);
-		$retval = new MetaTemplateCategoryVars($child, $page, $templateOutput);
+		$dom = $parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
+		$templateOutput = trim($child->expand($dom));
+		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
 
 		return $retval->setSkip ? null : $retval;
 	}
@@ -360,8 +146,10 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		#RHshow('Sets found', count($setsFound), "\n", $setsFound);
 
 		unset($setsFound['']);
-		$catVars = $this->parseCatPageTemplate($type, $page, $sortkey, $pageLength, $defaultSet);
-		#RHshow('$catVars', $catVars);
+		$mws = MediaWikiServices::getInstance();
+		$title = $mws->getTitleFactory()->castFromPageReference($page);
+		$catVars = $this->parseCatPageTemplate($type, $title, $sortkey, $pageLength, $defaultSet);
+		#RHDebug::show('$catVars', $catVars);
 
 		/* $catGroup does not need sanitizing as MW runs it through htmlspecialchars later in the process.
 		 * Unfortunately, that means you can't make links without deriving formatList(), which can then call either
@@ -375,8 +163,9 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 		$texts = [];
 		if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
 			foreach (array_values($setsFound) as $setkey => $setValues) {
-				#RHshow('Set', $setValues->name, ' => ', $setValues);
-				$setVars = $this->parseCatPageTemplate($type, $page, null, -1, $setValues);
+				#RHDebug::show('Set', $setValues->name, ' => ', $setValues);
+				$mws = MediaWikiServices::getInstance();
+				$setVars = $this->parseCatPageTemplate($type, $title, null, -1, $setValues);
 				if ($setVars) {
 					$tf = MediaWikiServices::getInstance()->getTitleFormatter();
 					$texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)
@@ -385,7 +174,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 							$type,
 							$setVars->setPage ?? $page,
 							$setVars->setRedirect ?? $isRedirect,
-							$setVars->setLabel ?? $tf->getFullText($page)
+							$setVars->setLabel ?? $title->getFullText()
 						);
 				}
 			}

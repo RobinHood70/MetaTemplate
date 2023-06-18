@@ -61,7 +61,7 @@ class MetaTemplateHooks
 	public static function onDoCategoryQuery(string $type, IResultWrapper $result): void
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
-			MetaTemplateCategoryViewer::onDoCategoryQuery($type, $result);
+			MetaTemplate::$catViewer::onDoCategoryQuery($type, $result);
 		}
 	}
 
@@ -130,7 +130,7 @@ class MetaTemplateHooks
 	public static function onOutputPageParserOutput(OutputPage $out, ParserOutput $parserOutput): void
 	{
 		if ($out->getTitle()->getNamespace() == NS_CATEGORY) {
-			MetaTemplateCategoryViewer::init($parserOutput);
+			MetaTemplate::$catViewer::init($parserOutput);
 		}
 	}
 
@@ -199,12 +199,24 @@ class MetaTemplateHooks
 			? MetaTemplatePreprocessor::class
 			: Preprocessor_Hash::class;
 		VersionHelper::getInstance()->setPreprocessor($parser, new $preprocessorClass($parser));
+		if (version_compare(VersionHelper::getMWVersion(), '1.37', '>=')) {
+			$version = 37;
+		} elseif (version_compare(VersionHelper::getMWVersion(), '1.28', '>=')) {
+			$version = 28;
+		} else {
+			throw new Exception('MediaWiki version could not be found or is too low.');
+		}
+
+		$class = "MetaTemplateCategoryViewer$version";
+		require_once(__DIR__ . "/$class.php");
+		MetaTemplate::$catViewer = $class;
 
 		self::initParserFunctions($parser);
 		self::initTagFunctions($parser);
 		MetaTemplate::init();
 		MetaTemplateData::init();
-		MetaTemplateCategoryViewer::init();
+
+		MetaTemplate::$catViewer::init();
 	}
 
 	/**
@@ -282,7 +294,7 @@ class MetaTemplateHooks
 	private static function initTagFunctions(Parser $parser): void
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
-			ParserHelper::setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, 'MetaTemplateCategoryViewer::doCatPageTemplate');
+			ParserHelper::setHookSynonyms($parser, MetaTemplateCategoryViewer::TG_CATPAGETEMPLATE, [MetaTemplate::$catViewer, 'doCatPageTemplate']);
 		}
 
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {

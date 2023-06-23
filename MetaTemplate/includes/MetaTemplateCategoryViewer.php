@@ -231,9 +231,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		$dom = $parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
 		$templateOutput = trim($child->expand($dom));
-		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
-
-		return $retval->setSkip ? null : $retval;
+		return new MetaTemplateCategoryVars($child, $title, $templateOutput);
 	}
 	#endregion
 }

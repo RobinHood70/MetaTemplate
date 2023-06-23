@@ -71,14 +71,20 @@ class MetaTemplateCategoryViewer28 extends MetaTemplateCategoryViewer
 		$articleId = $title->getArticleID();
 		if (isset(MetaTemplateData::$preloadCache[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			$setsFound = MetaTemplateData::$preloadCache[$articleId]->sets;
-			$defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
+			if (isset($setsFound[''])) {
+				$defaultSet = $setsFound[''];
+				unset($setsFound['']);
+			} else {
+				$defaultSet =  new MetaTemplateSet('');
+			}
+
+			$setsFound = array_values($setsFound);
 		} else {
 			$defaultSet = new MetaTemplateSet('');
 			$setsFound = [];
 		}
 		#RHshow('Sets found', count($setsFound), "\n", $setsFound);
 
-		unset($setsFound['']);
 		$catVars = $this->parseCatPageTemplate($type, $title, $sortkey, $pageLength, $defaultSet);
 		#RHDebug::show('$catVars', $catVars);
 
@@ -92,20 +98,19 @@ class MetaTemplateCategoryViewer28 extends MetaTemplateCategoryViewer
 			: self::$contLang->convert($this->collation->getFirstLetter($sortkey)));
 		$catText = $catVars->catTextPre . $this->generateLink($type, $title, $isRedirect, $catVars->catLabel) . $catVars->catTextPost;
 		$texts = [];
-		if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
-			foreach (array_values($setsFound) as $setkey => $setValues) {
-				#RHDebug::show('Set', $setValues->name, ' => ', $setValues);
-				$setVars = $this->parseCatPageTemplate($type, $title, null, -1, $setValues);
-				if ($setVars) {
-					$texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)
-						? $setVars->setLabel
-						: $this->generateLink(
-							$type,
-							$setVars->setPage ?? $title,
-							$setVars->setRedirect ?? $isRedirect,
-							$setVars->setLabel ?? $title->getFullText()
-						);
-				}
+		#RHDebug::show('setsFound', $setsFound);
+		foreach ($setsFound as $index => $setValues) {
+			#RHDebug::show($setValues->name, $setValues);
+			$setVars = $this->parseCatPageTemplate($type, $title, null, -1, $setValues);
+			if (!$setVars->setSkip && (!is_null($setVars->setLabel) || !is_null($setVars->setPage))) {
+				$texts[$setVars->setSortKey . '.' . $index] = is_null($setVars->setPage)
+					? $setVars->setLabel
+					: $this->generateLink(
+						$type,
+						$setVars->setPage ?? $title,
+						$setVars->setRedirect ?? $isRedirect,
+						$setVars->setLabel ?? $title->getFullText()
+					);
 			}
 		}
 

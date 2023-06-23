@@ -413,6 +413,25 @@ class MetaTemplate
 		}
 	}
 
+	public static function getCatViewer()
+	{
+		if (!isset(self::$catViewer)) {
+			if (version_compare(VersionHelper::getMWVersion(), '1.37', '>=')) {
+				$version = 37;
+			} elseif (version_compare(VersionHelper::getMWVersion(), '1.28', '>=')) {
+				$version = 28;
+			} else {
+				throw new Exception('MediaWiki version could not be found or is too low.');
+			}
+
+			$class = "MetaTemplateCategoryViewer$version";
+			require_once(__DIR__ . "/$class.php");
+			self::$catViewer = $class;
+		}
+
+		return self::$catViewer;
+	}
+
 	/**
 	 * Gets a confiuration object, as required by modern versions of MediaWiki.
 	 *

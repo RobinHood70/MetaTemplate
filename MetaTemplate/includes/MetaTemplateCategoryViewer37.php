@@ -16,7 +16,6 @@ use MediaWiki\Page\PageReference;
 class MetaTemplateCategoryViewer37 extends MetaTemplateCategoryViewer
 {
 	#region Public Override Functions
-	#region Public Override Functions
 	public function addImage(PageReference $page, string $sortkey, int $pageLength, bool $isRedirect = false): void
 	{
 		#RHshow(__METHOD__, $page->getPrefixedText());
@@ -80,43 +79,41 @@ class MetaTemplateCategoryViewer37 extends MetaTemplateCategoryViewer
 	#endregion
 
 	#region Private Functions
+	// This is now private, so the underlying code is copied here straight from 1.37 CategoryViewer code.
 	/**
-	 * Evaluates the template in the context of the category entry and each set on that page.
-	 *
-	 * @param string $template The template to be parsed.
-	 * @param Title $title The title of the category entry.
-	 * @param string|null $sortkey The current sortkey.
-	 * @param int $pageLength The page length.
-	 * @param MetaTemplateSet $set The current set on the entry page.
-	 *
-	 * @return MetaTemplateCategoryVars
+	 * @param string $type
+	 * @param PageReference $page
+	 * @param bool $isRedirect
+	 * @param string|null $html
+	 * @return string
+	 * Annotations needed to tell taint about HtmlArmor,
+	 * due to the use of the hook it is not possible to avoid raw html handling here
+	 * @param-taint $html tainted
+	 * @return-taint escaped
 	 */
-	protected function parseCatPageTemplate(string $type, Title $title, ?string $sortkey, int $pageLength, MetaTemplateSet $set): ?MetaTemplateCategoryVars
+	private function generateLinkInternal(string $type, PageReference $page, bool $isRedirect, ?string $html = null): string
 	{
-		/** @todo Pagename entry should be changed to getText() for consistency. */
-		$frame = self::$templateFrames[$type];
-		$child = $frame->newChild(false, $title, 0);
-		$tf = $mws->getTitleFormatter();
-		MetaTemplate::setVar($child, MetaTemplate::$mwFullPageName, $title->getPrefixedText());
-		MetaTemplate::setVar($child, MetaTemplate::$mwNamespace, $title->getNsText());
-		MetaTemplate::setVar($child, MetaTemplate::$mwPageName, $title->getText());
-		MetaTemplate::setVar($child, self::$mwPageLength, (string)$pageLength);
-		MetaTemplate::setVar($child, self::$mwSortKey, explode("\n", $sortkey)[0]);
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			MetaTemplate::setVar($child, MetaTemplateData::$mwSet, $set->name);
+		$link = null;
+		$legacyTitle = MediaWikiServices::getInstance()->getTitleFactory()->castFromPageReference($page);
+		$this->getHookRunner()->onCategoryViewer__generateLink($type, $legacyTitle, $html, $link);
+		if ($link === null) {
+			$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
+			if ($html !== null) {
+				$html = new HtmlArmor($html);
+			}
+
+			$link = $linkRenderer->makeLink($page, $html);
 		}
 
-		$parser = $frame->parser;
-		foreach ($set->variables as $varName => $varValue) {
-			$dom = $parser->preprocessToDom($varValue);
-			MetaTemplate::setVarDirect($child, $varName, $dom, $varValue);
+		if ($isRedirect) {
+			$link = Html::rawElement(
+				'span',
+				['class' => 'redirect-in-category'],
+				$link
+			);
 		}
 
-		$dom = $parser->preprocessToDom(self::$templates[$type], Parser::PTD_FOR_INCLUSION);
-		$templateOutput = trim($child->expand($dom));
-		$retval = new MetaTemplateCategoryVars($child, $title, $templateOutput);
-
-		return $retval->setSkip ? null : $retval;
+		return $link;
 	}
 
 	/**
@@ -138,14 +135,20 @@ class MetaTemplateCategoryViewer37 extends MetaTemplateCategoryViewer
 		$articleId = $pageRecord->getId();
 		if (isset(MetaTemplateData::$preloadCache[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			$setsFound = MetaTemplateData::$preloadCache[$articleId]->sets;
-			$defaultSet = $setsFound[''] ?? new MetaTemplateSet('');
+			if (isset($setsFound[''])) {
+				$defaultSet = $setsFound[''];
+				unset($setsFound['']);
+			} else {
+				$defaultSet =  new MetaTemplateSet('');
+			}
+
+			$setsFound = array_values($setsFound);
 		} else {
 			$defaultSet = new MetaTemplateSet('');
 			$setsFound = [];
 		}
 		#RHshow('Sets found', count($setsFound), "\n", $setsFound);
 
-		unset($setsFound['']);
 		$mws = MediaWikiServices::getInstance();
 		$title = $mws->getTitleFactory()->castFromPageReference($page);
 		$catVars = $this->parseCatPageTemplate($type, $title, $sortkey, $pageLength, $defaultSet);
@@ -159,24 +162,20 @@ class MetaTemplateCategoryViewer37 extends MetaTemplateCategoryViewer
 		$catGroup = $catVars->catGroup ?? ($type === self::CV_SUBCAT
 			? $this->getSubcategorySortChar($page, $sortkey)
 			: self::$contLang->convert($this->collation->getFirstLetter($sortkey)));
-		$catText = $catVars->catTextPre . $this->generateLink($type, $pageRecord, $isRedirect, $catVars->catLabel) . $catVars->catTextPost;
+		$catText = $catVars->catTextPre . $this->generateLinkInternal($type, $pageRecord, $isRedirect, $catVars->catLabel) . $catVars->catTextPost;
 		$texts = [];
-		if (count($setsFound) && (!is_null($catVars->setLabel) || !is_null($catVars->setPage))) {
-			foreach (array_values($setsFound) as $setkey => $setValues) {
-				#RHDebug::show('Set', $setValues->name, ' => ', $setValues);
-				$mws = MediaWikiServices::getInstance();
-				$setVars = $this->parseCatPageTemplate($type, $title, null, -1, $setValues);
-				if ($setVars) {
-					$tf = MediaWikiServices::getInstance()->getTitleFormatter();
-					$texts[$setVars->setSortKey . '.' . $setkey] = is_null($setVars->setPage)
-						? $setVars->setLabel
-						: $this->generateLink(
-							$type,
-							$setVars->setPage ?? $page,
-							$setVars->setRedirect ?? $isRedirect,
-							$setVars->setLabel ?? $title->getFullText()
-						);
-				}
+		foreach ($setsFound as $index => $setValues) {
+			#RHDebug::show($setValues->name, $setValues);
+			$setVars = $this->parseCatPageTemplate($type, $title, null, -1, $setValues);
+			if (!$setVars->setSkip && (!is_null($setVars->setLabel) || !is_null($setVars->setPage))) {
+				$texts[$setVars->setSortKey . '.' . $index] = is_null($setVars->setPage)
+					? $setVars->setLabel
+					: $this->generateLinkInternal(
+						$type,
+						$setVars->setPage ?? $page,
+						$setVars->setRedirect ?? $isRedirect,
+						$setVars->setLabel ?? $title->getFullText()
+					);
 			}
 		}
 

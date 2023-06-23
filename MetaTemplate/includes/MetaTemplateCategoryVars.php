@@ -78,6 +78,7 @@ class MetaTemplateCategoryVars
 
 		// While these aren't actually attributes, the function does exactly what's needed.
 		$args = ParserHelper::transformAttributes($frame->getNamedArguments(), $magicWords);
+		#RHDebug::show('Args', $frame->getNamedArguments());
 		$this->catGroup = $args[self::VAR_CATGROUP] ?? null;
 		$this->catLabel = isset($args[self::VAR_CATLABEL])
 			? Sanitizer::removeHTMLtags($args[self::VAR_CATLABEL])
@@ -85,10 +86,19 @@ class MetaTemplateCategoryVars
 				? $title->getPrefixedText()
 				: Sanitizer::removeHTMLtags($templateOutput));
 		$this->catTextPost = isset($args[self::VAR_CATTEXTPOST])
-			? Sanitizer::removeHTMLtags($args[self::VAR_CATTEXTPOST])
+			? Sanitizer::removeHTMLtags(ParserHelper::parseSeparator($args[self::VAR_CATTEXTPOST]))
 			: '';
 		$this->catTextPre = isset($args[self::VAR_CATTEXTPRE])
-			? Sanitizer::removeHTMLtags($args[self::VAR_CATTEXTPRE])
+			? Sanitizer::removeHTMLtags(ParserHelper::parseSeparator($args[self::VAR_CATTEXTPRE]))
+			: '';
+		$this->setTextPost = isset($args[self::VAR_SETTEXTPOST])
+			? Sanitizer::removeHTMLtags(ParserHelper::parseSeparator($args[self::VAR_SETTEXTPOST]))
+			: '';
+		$this->setTextPre = isset($args[self::VAR_SETTEXTPRE])
+			? Sanitizer::removeHTMLtags(ParserHelper::parseSeparator($args[self::VAR_SETTEXTPRE]))
+			: '';
+		$this->setSeparator = isset($args[self::VAR_SETSEPARATOR])
+			? Sanitizer::removeHTMLtags(ParserHelper::parseSeparator($args[self::VAR_SETSEPARATOR]))
 			: '';
 		$this->setSkip = $args[self::VAR_SETSKIP] ?? false;
 		if ($this->setSkip) {
@@ -122,18 +132,9 @@ class MetaTemplateCategoryVars
 
 		$this->setLabel = $setLabel;
 		$this->setRedirect = $args[self::VAR_SETREDIRECT] ?? null;
-		$this->setSeparator = isset($args[self::VAR_SETSEPARATOR])
-			? Sanitizer::removeHTMLtags(ParserHelper::parseSeparator($args[self::VAR_SETSEPARATOR] ?? ''))
-			: '';
 		$this->setSortKey = isset($args[self::VAR_SETSORTKEY])
 			? Sanitizer::removeHTMLtags($args[self::VAR_SETSORTKEY])
 			: $setLabel ?? $setPage ?? $title->getFullText();
-		$this->setTextPost = isset($args[self::VAR_SETTEXTPOST])
-			? Sanitizer::removeHTMLtags($args[self::VAR_SETTEXTPOST])
-			: '';
-		$this->setTextPre = isset($args[self::VAR_SETTEXTPRE])
-			? Sanitizer::removeHTMLtags($args[self::VAR_SETTEXTPRE])
-			: '';
 	}
 	#endregion
 }

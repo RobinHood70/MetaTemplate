@@ -113,6 +113,8 @@ class MetaTemplateData
 	{
 		global $wgContLang;
 
+		$parser->addTrackingCategory('metatemplate-tracking-listsaved');
+
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
@@ -294,6 +296,8 @@ class MetaTemplateData
 	 */
 	public static function doLoad(Parser $parser, PPFrame $frame, array $args)
 	{
+		$parser->addTrackingCategory('metatemplate-tracking-load');
+
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([
 			MetaTemplate::NA_CASE,
@@ -449,6 +453,7 @@ class MetaTemplateData
 	 */
 	public static function doPreload(Parser $parser, PPFrame $frame, array $args): void
 	{
+		$parser->addTrackingCategory('metatemplate-tracking-load');
 		if ($frame->depth > 0) {
 			return;
 		}
@@ -502,6 +507,8 @@ class MetaTemplateData
 	 */
 	public static function doSave(Parser $parser, PPFrame $frame, array $args): array
 	{
+		$parser->addTrackingCategory('metatemplate-tracking-save');
+
 		$title = $parser->getTitle();
 		if (!$title->canExist()) {
 			return [''];
@@ -599,6 +606,8 @@ class MetaTemplateData
 	 */
 	public static function doSaveMarkupTag($content, array $attributes, Parser $parser, PPFrame $frame): array
 	{
+		$parser->addTrackingCategory('metatemplate-tracking-save');
+
 		#RHshow('Frame', ' ', $frame->depth, ' ', $frame->title->getFullText(), ' ', $frame->getArguments());
 		switch (self::$saveMode) {
 			case 1: // Normal save but may have <savemarkup>

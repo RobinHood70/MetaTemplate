@@ -733,12 +733,13 @@ class MetaTemplate
 		$anyCase = self::checkAnyCase($magicArgs) && !self::isNumericVariable($varName);
 		[$varKey, $varValue] = self::getVarDirect($frame, $varName, $anyCase, true);
 		if (!$anyCase && !$overwrite && !is_null($varValue)) {
+			// If this is a case-sensitive define/preview and the value is already set, there's nothing to do.
 			return;
 		}
 
 		// Handle {{#define:var|case=any}} with no value
 		if (count($values) === 1) {
-			if (!is_null($varKey) && $varKey !== $varName) {
+			if ($varKey !== $varName && !is_null($varValue)) {
 				$varDisplay = $frame->namedExpansionCache[$varKey] ?? null;
 				self::setVarDirect($frame, $varName, $varValue, $varDisplay);
 			}

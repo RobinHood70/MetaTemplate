@@ -493,9 +493,10 @@ class MetaTemplate
 	 *
 	 * @param PPFrame $frame The frame to start at.
 	 * @param int|string $varName The variable name.
-	 * @param bool $anyCase Whether the variable's name is case-sensitive or not.
+	 * @param bool $anyCase Whether to search case-insensitively. Finds the last in sequence if there are multiple
+	 * matches.
 	 *
-	 * @return array<string, ?PPNode> Returns the name of the value found (so calls using anyCase=true know where to
+	 * @return array<string, ?PPNode> Returns the name of the value found (so, calls using $anyCase=true know where to
 	 * look if they need to) and the value in raw format.
 	 */
 	public static function getVarDirect(PPFrame $frame, $varName, bool $anyCase = false): ?array
@@ -512,8 +513,13 @@ class MetaTemplate
 			$lcName = $lcName ?? strtolower($varName);
 			foreach ($frame->namedArgs as $key => $varValue) {
 				if (strtolower($key) === $lcName) {
-					return [$key, $varValue];
+					$lastKey = $key;
+					$lastValue = $varValue;
 				}
+			}
+
+			if (isset($lastKey)) {
+				return [$lastKey, $lastValue];
 			}
 		}
 
@@ -725,49 +731,39 @@ class MetaTemplate
 		}
 
 		$anyCase = self::checkAnyCase($magicArgs) && !self::isNumericVariable($varName);
-		$dom = null;
-		if (count($values) < 2) {
-			if (!$anyCase) {
-				return;
-			}
+		[$varKey, $varValue] = self::getVarDirect($frame, $varName, $anyCase, true);
+		if (!$anyCase && !$overwrite && !is_null($varValue)) {
+			return;
+		}
 
-			// We don't use unsetVar() here because we need the value of $dom if found.
-			$lcname = strtolower($varName);
-			foreach ($frame->namedArgs as $key => $varValue) {
-				if (strtolower($key) === $lcname && $key !== $lcname) {
-					$dom = $varValue;
-					unset($key);
-					self::setVarDirect($frame, $varName, $dom, $frame->namedExpansionCache[$key]);
-				}
+		// Handle {{#define:var|case=any}} with no value
+		if (count($values) === 1) {
+			if (!is_null($varKey) && $varKey !== $varName) {
+				$varDisplay = $frame->namedExpansionCache[$varKey] ?? null;
+				self::setVarDirect($frame, $varName, $varValue, $varDisplay);
 			}
 
 			return;
 		}
 
-		// Set the variable if:
-		//     * this is a #local;
-		//     * a variable was found above via case=any, so we need to assign the existing value to the correct case;
-		//     * there is no existing definition for the variable.
-		if ($overwrite || is_null(self::getVarDirect($frame, $varName, $anyCase))) {
-			$dom = $values[1] ?? null;
-			if (!is_null($dom)) {
-				$varDisplay = trim($frame->expand($dom));
-				$prevMode = MetaTemplateData::$saveMode;
-				MetaTemplateData::$saveMode = 3;
-				// Because we have to expand variables, the generated dom tree can get misprocessed in the event of
-				// something with an = or | (pipe) in it. I haven't found a good resolution for this. Should I a do
-				// manual replace: = with {{=}} and similar? Since this should only affect variables saved within a
-				// savemarkup context, it's an edge case and so, for now, I'm not worrying about it.
-				//
-				// Example: if mod=<sup class=example>TR</sup>
-				// {{Echo|{{{mod}}}}} becomes
-				// {{Echo|(variable: <sup class)(equals)(value: example>TR</sup>)}}
-				$varValue = trim($frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
-				$dom = $frame->parser->preprocessToDom($varValue);
-				MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.
-				self::setVarDirect($frame, $varName, $dom, $varDisplay);
-				#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false)[1], PPFrame::RECOVER_ORIG));
-			}
+		$dom = $values[1];
+		if (!is_null($dom)) {
+			$varDisplay = trim($frame->expand($dom));
+			$prevMode = MetaTemplateData::$saveMode;
+			MetaTemplateData::$saveMode = 3;
+			// Because we have to expand variables, the generated dom tree can get misprocessed in the event of
+			// something with an = or | (pipe) in it. I haven't found a good resolution for this. Should I a do
+			// manual replace: = with {{=}} and similar? Since this should only affect variables saved within a
+			// savemarkup context, it's an edge case and so, for now, I'm not worrying about it.
+			//
+			// Example: if mod=<sup class=example>TR</sup>
+			// {{Echo|{{{mod}}}}} becomes
+			// {{Echo|(variable: <sup class)(equals)(value: example>TR</sup>)}}
+			$varValue = trim($frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
+			$dom = $frame->parser->preprocessToDom($varValue);
+			MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.
+			self::setVarDirect($frame, $varName, $dom, $varDisplay);
+			#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false)[1], PPFrame::RECOVER_ORIG));
 		}
 	}
 
@@ -860,12 +856,11 @@ class MetaTemplate
 	}
 
 	/**
-	 * As the nane suggests, this determines if a variable name is numeric.
+	 * As the name suggests, this determines if a variable name is numeric.
 	 *
 	 * @param mixed $varName The name to check.
 	 *
 	 * @return bool True if the name is numeric.
-	 *
 	 */
 	private static function isNumericVariable($varName): bool
 	{

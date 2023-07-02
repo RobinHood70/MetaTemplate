@@ -172,7 +172,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	public static function onDoCategoryQuery(string $type, IResultWrapper $result): void
 	{
 		if (
-			!self::$templateFrames[$type] || // No catpagetemplate
+			!isset(self::$templateFrames[$type]) || // No catpagetemplate
 			$result->numRows() === 0 || // No categories
 			!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) // No possible sets
 		) {

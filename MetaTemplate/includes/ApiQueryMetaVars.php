@@ -123,30 +123,30 @@ class ApiQueryMetaVars extends ApiQueryGeneratorBase
 				return;
 			}
 
-			$this->addWhereFld(MetaTemplateSql::SET_PAGE_ID, array_keys($pages));
+			$this->addWhereFld(MetaTemplateSql::S_PAGE_ID, array_keys($pages));
 		}
 
-		$this->addTables(MetaTemplateSql::TABLE_DATA);
-		$this->addTables(MetaTemplateSql::TABLE_SET);
-		$this->addJoinConds([MetaTemplateSql::TABLE_DATA => ['JOIN', MetaTemplateSql::SET_SET_ID . '=' . MetaTemplateSql::DATA_SET_ID]]);
+		$this->addTables(MetaTemplateSql::TABLE_DATA_ALIAS);
+		$this->addTables(MetaTemplateSql::TABLE_SET_ALIAS);
+		$this->addJoinConds([MetaTemplateSql::TABLE_DATA => ['JOIN', MetaTemplateSql::S_SET_ID . '=' . MetaTemplateSql::D_SET_ID]]);
 		$this->addFields([
-			MetaTemplateSql::SET_SET_ID,
-			MetaTemplateSql::SET_PAGE_ID,
-			MetaTemplateSql::SET_SET_NAME,
-			MetaTemplateSql::DATA_VAR_NAME,
-			MetaTemplateSql::DATA_VAR_VALUE
+			MetaTemplateSql::S_SET_ID,
+			MetaTemplateSql::FIELD_PAGE_ID,
+			MetaTemplateSql::FIELD_SET_NAME,
+			MetaTemplateSql::FIELD_VAR_NAME,
+			MetaTemplateSql::FIELD_VAR_VALUE
 		]);
 
 		if ($params[self::KEY_CONTINUE])
-			$this->addWhere(MetaTemplateSql::SET_PAGE_ID . '>=' . (int)$params[self::KEY_CONTINUE]);
+			$this->addWhere(MetaTemplateSql::S_PAGE_ID . '>=' . (int)$params[self::KEY_CONTINUE]);
 
 		if ($params[self::KEY_VAR])
-			$this->addWhereFld(MetaTemplateSql::DATA_VAR_NAME, $params[self::KEY_VAR]);
+			$this->addWhereFld(MetaTemplateSql::FIELD_VAR_NAME, $params[self::KEY_VAR]);
 
 		if ($params[self::KEY_SET] !== null)
-			$this->addWhereFld(MetaTemplateSql::SET_SET_NAME, $params[self::KEY_SET]);
+			$this->addWhereFld(MetaTemplateSql::FIELD_SET_NAME, $params[self::KEY_SET]);
 
-		$this->addOption('ORDER BY', [MetaTemplateSql::SET_PAGE_ID, MetaTemplateSql::SET_REV_ID]);
+		$this->addOption('ORDER BY', [MetaTemplateSql::S_PAGE_ID, MetaTemplateSql::FIELD_REV_ID]);
 
 		$rows = $this->select(__METHOD__);
 		$currentPage = 0; # Id of the page currently processed

@@ -181,10 +181,10 @@ class SpecialPagesWithMetaVar extends QueryPage
 	{
 		$retval = [];
 		if ($this->sortByVal && $this->varName !== null && $this->varName !== '') {
-			$retval[] = MetaTemplateSql::DATA_VAR_VALUE;
+			$retval[] = MetaTemplateSql::FIELD_VAR_VALUE;
 		}
 
-		$retval = array_merge($retval, ['page_namespace', 'page_title', MetaTemplateSql::SET_SET_NAME]);
+		$retval = array_merge($retval, ['page_namespace', 'page_title', MetaTemplateSql::FIELD_SET_NAME]);
 
 		return $retval;
 	}

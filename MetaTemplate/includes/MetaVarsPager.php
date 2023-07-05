@@ -81,7 +81,7 @@ class MetaVarsPager extends TablePager
 
 	public function getExtraSortFields(): array
 	{
-		return [MetaTemplateSql::DATA_VAR_NAME];
+		return [MetaTemplateSql::FIELD_VAR_NAME];
 	}
 
 	public function isFieldSortable($name): bool

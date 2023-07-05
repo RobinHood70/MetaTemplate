@@ -11,9 +11,10 @@ use Wikimedia\Rdbms\IResultWrapper;
 class MetaTemplateSql
 {
 	#region Public Constants
-	public const DATA_SET_ID = self::TABLE_DATA . '.' . self::FIELD_SET_ID;
-	public const DATA_VAR_NAME = self::TABLE_DATA . '.' . self::FIELD_VAR_NAME;
-	public const DATA_VAR_VALUE = self::TABLE_DATA . '.' . self::FIELD_VAR_VALUE;
+	public const D_SET_ID = self::DATA_ALIAS . '.' . self::FIELD_SET_ID;
+	public const D_VAR_NAME = self::DATA_ALIAS . '.' . self::FIELD_VAR_NAME;
+	public const D_VAR_VALUE = self::DATA_ALIAS . '.' . self::FIELD_VAR_VALUE;
+	public const DATA_ALIAS = 'd';
 
 	public const FIELD_PAGE_ID = 'pageId';
 	public const FIELD_REV_ID = 'revId';
@@ -22,13 +23,14 @@ class MetaTemplateSql
 	public const FIELD_VAR_NAME = 'varName';
 	public const FIELD_VAR_VALUE = 'varValue';
 
-	public const SET_PAGE_ID = self::TABLE_SET . '.' . self::FIELD_PAGE_ID;
-	public const SET_REV_ID = self::TABLE_SET . '.' . self::FIELD_REV_ID;
-	public const SET_SET_ID = self::TABLE_SET . '.' . self::FIELD_SET_ID;
-	public const SET_SET_NAME = self::TABLE_SET . '.' . self::FIELD_SET_NAME;
+	public const S_PAGE_ID = self::SET_ALIAS . '.' . self::FIELD_PAGE_ID;
+	public const S_SET_ID = self::SET_ALIAS . '.' . self::FIELD_SET_ID;
+	public const SET_ALIAS = 's';
 
 	public const TABLE_DATA = 'mtSaveData';
+	public const TABLE_DATA_ALIAS = [self::DATA_ALIAS => self::TABLE_DATA];
 	public const TABLE_SET = 'mtSaveSet';
+	public const TABLE_SET_ALIAS = [self::SET_ALIAS => self::TABLE_SET];
 	#endregion
 
 	#region Private Constants
@@ -97,9 +99,10 @@ class MetaTemplateSql
 	 */
 	public static function getPageswWithMetaVarsQueryInfo(?string $nsNum, ?string $setName, ?string $varName): array
 	{
-		$tables = [
-			self::TABLE_SET, 'page'
-		];
+		$tables = array_merge(
+			['page'],
+			self::TABLE_SET_ALIAS
+		);
 		$fields = [
 			'page.page_id',
 			'page.page_namespace',
@@ -107,21 +110,21 @@ class MetaTemplateSql
 			'page.page_len',
 			'page.page_is_redirect',
 			'page.page_latest',
-			self::SET_SET_NAME,
+			self::FIELD_SET_NAME,
 		];
 		$conds = [];
-		$joinConds = [self::TABLE_SET => ['INNER JOIN', 'page.page_id = ' . self::SET_PAGE_ID]];
+		$joinConds = [self::SET_ALIAS => ['JOIN', 'page.page_id = ' . self::S_PAGE_ID]];
 		$setName = $setName ?? '*';
 		if ($setName === '*' || isset($varName)) {
-			$tables[] = self::TABLE_DATA;
-			$fields[] = self::DATA_VAR_NAME;
-			$fields[] = self::DATA_VAR_VALUE;
-			$conds[self::DATA_VAR_NAME] =  $varName;
-			$joinConds[self::TABLE_DATA] = ['INNER JOIN', self::SET_SET_ID . ' = ' . self::DATA_SET_ID];
+			$tables[] = self::TABLE_DATA_ALIAS;
+			$fields[] = self::FIELD_VAR_NAME;
+			$fields[] = self::FIELD_VAR_VALUE;
+			$conds[self::FIELD_VAR_NAME] =  $varName;
+			$joinConds[self::DATA_ALIAS] = ['JOIN', self::S_SET_ID . ' = ' . self::D_SET_ID];
 		}
 
 		if ($setName !== '*') {
-			$conds[self::SET_SET_NAME] = $setName;
+			$conds[self::FIELD_SET_NAME] = $setName;
 		}
 
 		if (
@@ -150,15 +153,15 @@ class MetaTemplateSql
 	 */
 	public function catQuery(array $pages, array $variables): void
 	{
-		[$tables, $fields, $options] = self::baseQuery(self::SET_PAGE_ID, self::SET_SET_NAME);
-		$conds = [self::SET_PAGE_ID => array_keys($pages)];
-		$subConds = [self::SET_SET_ID . '=' . self::DATA_SET_ID];
+		[$tables, $fields, $options] = self::baseQuery(self::FIELD_PAGE_ID, self::FIELD_SET_NAME);
+		$conds = [self::FIELD_PAGE_ID => array_keys($pages)];
+		$joinConds = [self::S_SET_ID . '=' . self::D_SET_ID];
 		if (!empty($variables)) {
 			// Doing this as part of the join allows the LEFT JOIN functionality to produce empty rows.
-			$subConds[self::DATA_VAR_NAME] = $variables;
+			$joinConds[self::FIELD_VAR_NAME] = $variables;
 		}
 
-		$joinConds = [self::TABLE_DATA => ['LEFT JOIN', $subConds]];
+		$joinConds = [self::DATA_ALIAS => ['LEFT JOIN', $joinConds]];
 		$rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 		for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
 			$pageId = $row[self::FIELD_PAGE_ID];
@@ -200,10 +203,13 @@ class MetaTemplateSql
 	public function getNamespaces(): IResultWrapper
 	{
 		/** @todo Change to all namespaces. Leaving as is for now only to get things up and running before changing anything. */
-		$tables = [self::TABLE_SET, 'page'];
+		$tables = array_merge(
+			['page'],
+			self::TABLE_SET_ALIAS
+		);
 		$fields = ['DISTINCT page_namespace'];
 		$options = ['ORDER BY' => 'page_namespace'];
-		$joinConds = [self::TABLE_SET => ['INNER JOIN', self::SET_PAGE_ID . '=' . 'page.page_id']];
+		$joinConds = [self::SET_ALIAS => ['JOIN', self::S_PAGE_ID . '=' . 'page.page_id']];
 
 		return $this->dbRead->select($tables, $fields, '', __METHOD__, $options, $joinConds);
 	}
@@ -218,10 +224,10 @@ class MetaTemplateSql
 	public function getPopularVariables(int $limit): ?IResultWrapper
 	{
 		$table = self::TABLE_DATA;
-		$fields = [self::DATA_VAR_NAME];
-		$conds = self::DATA_VAR_NAME . ' NOT LIKE \'@%\'';
+		$fields = [self::FIELD_VAR_NAME];
+		$conds = self::FIELD_VAR_NAME . ' NOT LIKE \'@%\'';
 		$options = [
-			'GROUP BY' => self::DATA_VAR_NAME,
+			'GROUP BY' => self::FIELD_VAR_NAME,
 			'ORDER BY' => 'COUNT(*) DESC',
 			'LIMIT' => $limit
 		];
@@ -251,9 +257,9 @@ class MetaTemplateSql
 
 		// logFunctionText("($pageId)");
 		$tables = [self::TABLE_SET];
-		$fields = [self::SET_PAGE_ID];
+		$fields = [self::FIELD_PAGE_ID];
 		$options = ['LIMIT' => 1];
-		$conds = [self::SET_PAGE_ID => $pageId];
+		$conds = [self::FIELD_PAGE_ID => $pageId];
 		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options);
 		$row = $result->fetchRow();
 		return (bool)$row;
@@ -272,21 +278,21 @@ class MetaTemplateSql
 	public function loadListSavedData(?int $namespace, ?string $setName, array $conditions, array $setLimit, array $fieldLimit): array
 	{
 		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
-		$tables = [
-			'page',
-			self::TABLE_SET,
-			self::TABLE_DATA
-		];
+		$tables = array_merge(
+			['page'],
+			self::TABLE_SET_ALIAS,
+			self::TABLE_DATA_ALIAS
+		);
 
 		$fields = [
 			'page.page_title',
 			'page.page_namespace',
-			self::SET_PAGE_ID,
-			self::SET_SET_ID,
-			self::SET_REV_ID,
-			self::SET_SET_NAME,
-			self::DATA_VAR_NAME,
-			self::DATA_VAR_VALUE
+			self::S_PAGE_ID,
+			self::S_SET_ID,
+			self::FIELD_REV_ID,
+			self::FIELD_SET_NAME,
+			self::D_VAR_NAME,
+			self::D_VAR_VALUE
 		];
 
 		$options = ['ORDER BY' => [
@@ -301,29 +307,29 @@ class MetaTemplateSql
 		}
 
 		if (!empty($setLimit)) {
-			$conds[self::SET_SET_NAME] = $setLimit;
+			$conds[self::FIELD_SET_NAME] = $setLimit;
 		}
 
 		if (!empty($fieldLimit)) {
-			$conds[self::DATA_VAR_NAME] = $fieldLimit;
+			$conds[self::D_VAR_NAME] = $fieldLimit;
 		}
 
 		$joinConds = [
-			self::TABLE_SET => ['JOIN', ['page.page_id=' . self::SET_PAGE_ID]],
-			self::TABLE_DATA => ['JOIN', [self::DATA_SET_ID . '=' . self::SET_SET_ID]]
+			self::SET_ALIAS => ['JOIN', ['page.page_id=' . self::S_PAGE_ID]],
+			self::DATA_ALIAS => ['JOIN', [self::S_SET_ID . '=' . self::D_SET_ID]]
 		];
 
 		$filter = 1;
 		foreach ($conditions as $key => $value) {
 			$filterName = 'filter' . $filter;
 			$tables[$filterName] = self::TABLE_DATA;
-			$joinConds[$filterName] = ['JOIN', [self::SET_SET_ID . '=' . $filterName . '.setId']];
+			$joinConds[$filterName] = ['JOIN', [self::S_SET_ID . '=' . $filterName . '.setId']];
 			$conds[$filterName . '.' . self::FIELD_VAR_NAME] = $key;
 			$conds[$filterName . '.' . self::FIELD_VAR_VALUE] = $value;
 			++$filter;
 		}
 
-		#RHecho(__METHOD__ . " query:\n", $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+		#RHDebug::echo(__METHOD__ . " query:\n", $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 
 		$retval = [];
@@ -395,12 +401,12 @@ class MetaTemplateSql
 
 		[$tables, $fields, $options, $joinConds] = self::baseQuery();
 		$conds = [
-			self::SET_PAGE_ID => $pageId,
-			self::SET_SET_NAME => $set->name ?? ''
+			self::FIELD_PAGE_ID => $pageId,
+			self::FIELD_SET_NAME => $set->name ?? ''
 		];
 
 		if (count($loadSet)) {
-			$conds[self::DATA_VAR_NAME] = array_keys($loadSet);
+			$conds[self::FIELD_VAR_NAME] = array_keys($loadSet);
 		}
 
 		#RHecho($this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
@@ -429,10 +435,10 @@ class MetaTemplateSql
 	 */
 	public function loadSetsFromPage(int $pageId, array $varNames = null, PPFrame $frame = null): array
 	{
-		[$tables, $fields, $options, $joinConds] = self::baseQuery(self::SET_SET_NAME);
-		$conds = [self::SET_PAGE_ID => $pageId];
+		[$tables, $fields, $options, $joinConds] = self::baseQuery(self::FIELD_SET_NAME);
+		$conds = [self::FIELD_PAGE_ID => $pageId];
 		if ($varNames && count($varNames)) {
-			$conds[self::DATA_VAR_NAME] = $varNames;
+			$conds[self::FIELD_VAR_NAME] = $varNames;
 		}
 
 		// We don't have page info yet, so this doesn't make sense to be put into a MetaTemplatePage object here.
@@ -525,12 +531,12 @@ class MetaTemplateSql
 	{
 		[$tables,, $options, $joinConds] = self::baseQuery();
 		$fields = [
-			'CAST(' . self::SET_SET_NAME . ' AS CHAR) ' . self::FIELD_SET_NAME,
-			'CAST(' . self::DATA_VAR_NAME . ' AS CHAR) ' . self::FIELD_VAR_NAME,
-			self::DATA_VAR_VALUE
+			'CAST(' . self::FIELD_SET_NAME . ' AS CHAR) ' . self::FIELD_SET_NAME,
+			'CAST(' . self::FIELD_VAR_NAME . ' AS CHAR) ' . self::FIELD_VAR_NAME,
+			self::FIELD_VAR_VALUE
 		];
 
-		$conds = [self::SET_PAGE_ID => $pageId];
+		$conds = [self::FIELD_PAGE_ID => $pageId];
 
 		// Transactions should make sure this never happens, but in the event that we got more than one rev_id back,
 		// ensure that we start with the lowest first, so data is overridden by the most recent values once we get
@@ -557,6 +563,7 @@ class MetaTemplateSql
 	 */
 	public function saveVars(MetaTemplateSetCollection $vars): bool
 	{
+		RHDebug::show('Vars', $vars);
 		if (wfReadOnly()) {
 			return false;
 		}
@@ -567,10 +574,12 @@ class MetaTemplateSql
 		if (!isset(self::$pagesSaved[$articleId])) {
 			self::$pagesSaved[$articleId] = true;
 			$oldData = $this->loadPageVariables($articleId);
+			RHDebug::show('Old Data', $oldData);
 			if (!$oldData || $oldData->revId <= $vars->revId || $vars->revId === 0) {
 				// In theory, $oldData->revId < $vars->revId should work, but <= is used in case loaded data is being re-saved without an actual page update.
 				$upserts = new MetaTemplateUpserts($oldData, $vars);
 				if ($upserts->getTotal() > 0) {
+					RHDebug::echo('Here4');
 					#RHwriteFile('Normal Save: ', $title->getFullText());
 					$this->saveUpserts($upserts);
 					return true;
@@ -618,15 +627,15 @@ class MetaTemplateSql
 	 */
 	private static function baseQuery(...$addFields)
 	{
-		$tables = [
-			self::TABLE_SET,
-			self::TABLE_DATA
-		];
+		$tables = array_merge(self::TABLE_SET_ALIAS, self::TABLE_DATA_ALIAS);
 
-		$fields = array_merge($addFields, [
-			self::DATA_VAR_NAME,
-			self::DATA_VAR_VALUE
-		]);
+		$fields = array_merge(
+			$addFields,
+			[
+				self::FIELD_VAR_NAME,
+				self::FIELD_VAR_VALUE
+			]
+		);
 
 		$options = ['ORDER BY' => [
 			self::FIELD_PAGE_ID,
@@ -634,10 +643,7 @@ class MetaTemplateSql
 			self::FIELD_REV_ID
 		]];
 
-		$joinConds = [
-			self::TABLE_DATA =>
-			['JOIN', [self::SET_SET_ID . '=' . self::DATA_SET_ID]]
-		];
+		$joinConds = [self::DATA_ALIAS => ['JOIN', [self::S_SET_ID . '=' . self::D_SET_ID]]];
 
 		#RHecho("Tables:\n", $tables, "\n\nFields:\n", $fields, "\n\nOptions:\n", $options, "\n\nJoinConds:\n", $joinConds);
 		return [$tables, $fields, $options, $joinConds];
@@ -672,25 +678,25 @@ class MetaTemplateSql
 	 *
 	 * @return MetaTemplateSetCollection
 	 */
-	private function loadPageVariables(int $articleId): ?MetaTemplateSetCollection
+	private function loadPageVariables(int $pageId): ?MetaTemplateSetCollection
 	{
 		// Sorting is to ensure that we're always using the latest data in the event of redundant data. Any redundant
 		// data is tracked with $deleteIds.
 
 		// logFunctionText("($articleId)");
 		[$tables, $fields, $options, $joinConds] = self::baseQuery(
-			self::SET_SET_ID,
-			self::SET_SET_NAME,
-			self::SET_REV_ID
+			self::S_SET_ID,
+			self::FIELD_SET_NAME,
+			self::FIELD_REV_ID
 		);
-		$conds = [self::SET_PAGE_ID => $articleId];
-		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . " ($articleId)", $options, $joinConds);
+		$conds = [self::FIELD_PAGE_ID => $pageId];
+		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__ . " ($pageId)", $options, $joinConds);
 		$row = $result->fetchRow();
 		if (!$row) {
 			return null;
 		}
 
-		$retval = new MetaTemplateSetCollection($articleId, $row[self::FIELD_REV_ID]);
+		$retval = new MetaTemplateSetCollection($pageId, $row[self::FIELD_REV_ID]);
 		while ($row) {
 			$set =  $retval->addToSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
 			$varName = $row[self::FIELD_VAR_NAME];

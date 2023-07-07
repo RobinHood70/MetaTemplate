@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\Revision\RevisionRecord;
-
 /**
  * Data functions of MetaTemplate (#listsaved, #load, #save).
  */
@@ -50,7 +48,14 @@ class MetaTemplateData
 	private const STRIP_MARKERS = '/(<!--(IW)?LINK (.*?)-->|' . Parser::MARKER_PREFIX . '-.*?-[0-9A-Fa-f]+' . Parser::MARKER_SUFFIX . ')/';
 	#endregion
 
-	#region Public Static Properties
+	#region Public Static roperties
+	/**
+	 * Whether to allow saving or not. The editor parses #save in a wide variety of situations. This variable controls whether to act on the request or not.
+	 *
+	 * @var bool $allowSaves
+	 */
+	public static $allowSaves = true;
+
 	/** @var ?MetaTemplateSetCollection $saveData */
 	public static $saveData;
 	#endregion
@@ -507,8 +512,8 @@ class MetaTemplateData
 	 */
 	public static function doSave(Parser $parser, PPFrame $frame, array $args): array
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-save');
-
+		#RHDebug::writeFile(__METHOD__);
+		#RHDebug::writeFile('Allow saves: ', self::$allowSaves);
 		$title = $parser->getTitle();
 		if (!$title->canExist()) {
 			return [''];
@@ -540,6 +545,7 @@ class MetaTemplateData
 		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		self::$saveMode = ($magicArgs[self::NA_SAVEMARKUP] ?? false) ? 2 : 1;
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
+		#RHDebug::writeFile('Translations: ', $translations);
 		foreach ($translations as $srcName => $destName) {
 			$result = MetaTemplate::getVarDirect($frame, $srcName, $anyCase);
 			if ($result) {
@@ -655,17 +661,22 @@ class MetaTemplateData
 		// * there's no revision ID (this is some kind of preview or scanning operation)
 		// * title isn't in a save-enabled namespace
 		$revId = $parser->getRevisionId();
+		$options = $parser->getOptions();
 		if (
 			!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) ||
-			(is_null($revId) ||
-				$parser->getOptions()->getInterfaceMessage())
+			$options->getInterfaceMessage() ||
+			$options->getIsPreview()
 		) {
 			self::$saveData = null;
 			return;
 		}
 
 		$title = $parser->getTitle();
-		if (is_null($title) || !$title->canExist()) {
+		#RHDebug::writeFile($title->getPrefixedText(), ': ', $revId ?? 'null', ' <=> ', $title->getLatestRevID());
+		#RHDebug::writeFile("\n\n", $text, "\n\n\n");
+		#RHDebug::writeFile("\n", $options);
+
+		if (is_null($title) || !$title->canExist() || ($revId && $revId < $title->getLatestRevID())) {
 			self::$saveData = null;
 			return;
 		}
@@ -678,14 +689,15 @@ class MetaTemplateData
 			return;
 		}
 
-		#RHshow('Save', MetaTemplateData::$saveData);
-		// Save always clears saveData, so we don't need to.
-		if (self::save($pageId)) {
-			if (self::$articleEditId !== $pageId) {
-				VersionHelper::getInstance()->onArticleEdit($title, $parser);
-				self::$articleEditId = $pageId;
-			}
+		#RHDebug::writeFile($parser->getTitle()->getPrefixedText() . ": " . $revId, "\n", substr($text, 0, 50));
+		if (is_null($revId)) {
+			// If this is a legitimate save via the Save button, where $revId will also be null, it'll be picked up by
+			// the PageSaveComplete hook.
+			return;
 		}
+
+		// Save always clears saveData, so we don't need to.
+		self::save($pageId, $revId);
 	}
 	#endregion
 
@@ -872,13 +884,22 @@ class MetaTemplateData
 	/**
 	 * Saves all pending data.
 	 *
-	 * @param Title $title The title of the data to be saved.
+	 * @param int $pageId The page id of the data to be saved.
+	 * @param mixed $revision
 	 *
 	 * @return bool True if data was updated; otherwise, false.
 	 *
 	 */
-	private static function save(int $pageId): bool
+	public static function save(int $pageId, int $revId): bool
 	{
+		#RHDebug::writeFile(RHDebug::getStackTrace());
+		#RHDebug::writeFile(__METHOD__);
+		#RHDebug::writeFile('Allow saves: ', self::$allowSaves);
+		if (!self::$allowSaves) {
+			#RHDebug::writeFile('Saves not allowed!');
+			return false;
+		}
+
 		// This algorithm is based on the assumption that data is rarely changed, therefore:
 		// * It's best to read the existing DB data before making any DB updates/inserts.
 		// * Chances are that we're going to need to read all the data for this save set, so best to read it all at
@@ -894,15 +915,26 @@ class MetaTemplateData
 		$sql = MetaTemplateSql::getInstance();
 
 		$retval = false;
+		#RHDebug::writeFile($vars);
 		if ($vars && !empty($vars->sets)) {
-			if (
-				$vars->revId !== -1 && $sql->saveVars($vars)
-			) {
+			if ($vars->revId !== -1) {
+				if ($sql->saveVars($vars)) {
+					#RHDebug::writeFile('Variables saved');
+				}
+
 				$retval =  true;
 			}
 		} elseif ($sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId)) {
 			// Check whether the page used to have variables; if not, delete will cause cascading refreshes.
 			$retval = true;
+		}
+
+		if ($retval) {
+			if (self::$articleEditId !== $pageId) {
+				$title = Title::newFromID($pageId);
+				VersionHelper::getInstance()->onArticleEdit($title, $revId);
+				self::$articleEditId = $pageId;
+			}
 		}
 
 		self::$saveData = null;

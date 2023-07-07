@@ -241,6 +241,34 @@ class MetaTemplateHooks
 
 		return true;
 	}
+
+	public static function onArticleSaveComplete(&$article, &$user, $text, $summary, $minoredit, $watchthis, $sectionanchor, &$flags, $revision, &$status, $baseRevId)
+	{
+		#RHDebug::writeFile(__METHOD__);
+		if (isset(MetaTemplateData::$saveData)) {
+			MetaTemplateData::save($article->getId(), $revision);
+		}
+	}
+
+	public static function allowSaves()
+	{
+		// RHDebug::writeFile(__METHOD__);
+		// MetaTemplateData::$allowSaves = true;
+	}
+
+	public static function disallowSaves()
+	{
+		#RHDebug::writeFile(__METHOD__);
+		MetaTemplateData::$allowSaves = false;
+	}
+
+	public static function onPageSaveComplete($wikiPage, $user, $summary, $flags, $revisionRecord, $editResult)
+	{
+		#RHDebug::writeFile(__METHOD__);
+		if (isset(MetaTemplateData::$saveData)) {
+			MetaTemplateData::save($wikiPage->getId(), $revisionRecord);
+		}
+	}
 	#endregion
 
 	#region Private Static Functions

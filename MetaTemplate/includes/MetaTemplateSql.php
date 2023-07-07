@@ -433,7 +433,7 @@ class MetaTemplateSql
 	 *
 	 * @return MetaTemplateSet[] The sets found with the requested name.
 	 */
-	public function loadSetsFromPage(int $pageId, array $varNames = null, PPFrame $frame = null): array
+	public function loadSetsFromPage(int $pageId, array $varNames = null): array
 	{
 		[$tables, $fields, $options, $joinConds] = self::baseQuery(self::FIELD_SET_NAME);
 		$conds = [self::FIELD_PAGE_ID => $pageId];
@@ -563,23 +563,21 @@ class MetaTemplateSql
 	 */
 	public function saveVars(MetaTemplateSetCollection $vars): bool
 	{
-		RHDebug::show('Vars', $vars);
+		#RHDebug::show('Vars', $vars);
 		if (wfReadOnly()) {
 			return false;
 		}
 
-		#RHecho('Vars', $vars);
 		// Whether or not the data changed, the page has been evaluated, so add it to the list.
 		$articleId = $vars->articleId;
 		if (!isset(self::$pagesSaved[$articleId])) {
 			self::$pagesSaved[$articleId] = true;
 			$oldData = $this->loadPageVariables($articleId);
-			RHDebug::show('Old Data', $oldData);
+			#RHDebug::show('Old Data', $oldData);
 			if (!$oldData || $oldData->revId <= $vars->revId || $vars->revId === 0) {
 				// In theory, $oldData->revId < $vars->revId should work, but <= is used in case loaded data is being re-saved without an actual page update.
 				$upserts = new MetaTemplateUpserts($oldData, $vars);
 				if ($upserts->getTotal() > 0) {
-					RHDebug::echo('Here4');
 					#RHwriteFile('Normal Save: ', $title->getFullText());
 					$this->saveUpserts($upserts);
 					return true;
@@ -604,20 +602,6 @@ class MetaTemplateSql
 	#endregion
 
 	#region Private Static Functions
-	/**
-	 * Adds the specified value to an array for each synonym in the list of synonyms.
-	 *
-	 * @param array $data The array to add to.
-	 * @param iterable $synonyms The synonyms to add to.
-	 * @param mixed $value The value to add.
-	 */
-	private static function addData(array &$data, iterable $synonyms, $value): void
-	{
-		foreach ($synonyms as $synonym) {
-			$data[$synonym] = $value;
-		}
-	}
-
 	/**
 	 * Returns the basic query arrays for most MetaTemplate queries.
 	 *

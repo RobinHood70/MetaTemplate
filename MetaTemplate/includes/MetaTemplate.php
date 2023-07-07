@@ -737,20 +737,28 @@ class MetaTemplate
 			return;
 		}
 
-		// Handle {{#define:var|case=any}} with no value
-		if (count($values) === 1) {
-			if ($varKey !== $varName && !is_null($varValue)) {
-				$varDisplay = $frame->namedExpansionCache[$varKey] ?? null;
-				self::setVarDirect($frame, $varName, $varValue, $varDisplay);
-			}
+		#RHDebug::show($varKey ?? $varName, $frame->expand($varValue ?? '<not defined>'));
+		#RHDebug::show('Overwrite', (int)$overwrite);
+		#RHDebug::show('Value count', count($values));
+		if ($varKey !== $varName && !is_null($varValue) && (!$overwrite || count($values) === 1)) {
+			#RHDebug::echo('Direct copy');
+			// If we got a value but the name has changed, set the variable to the new value directly.
+			$varDisplay = $frame->namedExpansionCache[$varKey] ?? null;
+			self::setVarDirect($frame, $varName, $varValue, $varDisplay);
 
 			return;
 		}
 
-		$dom = $values[1];
-		if (!is_null($dom)) {
-			$varDisplay = trim($frame->expand($dom));
+		if ($overwrite) {
+			$varValue = $values[1] ?? null;
+		} else {
+			$varValue = $varValue ?? $values[1] ?? null;
+		}
+
+		if (!is_null($varValue)) {
 			$prevMode = MetaTemplateData::$saveMode;
+			$varDisplay = trim($frame->expand($varValue));
+			#RHDebug::show('varDisplay', $varDisplay);
 			MetaTemplateData::$saveMode = 3;
 			// Because we have to expand variables, the generated dom tree can get misprocessed in the event of
 			// something with an = or | (pipe) in it. I haven't found a good resolution for this. Should I a do
@@ -760,7 +768,7 @@ class MetaTemplate
 			// Example: if mod=<sup class=example>TR</sup>
 			// {{Echo|{{{mod}}}}} becomes
 			// {{Echo|(variable: <sup class)(equals)(value: example>TR</sup>)}}
-			$varValue = trim($frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
+			$varValue = trim($frame->expand($varValue, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
 			$dom = $frame->parser->preprocessToDom($varValue);
 			MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.
 			self::setVarDirect($frame, $varName, $dom, $varDisplay);

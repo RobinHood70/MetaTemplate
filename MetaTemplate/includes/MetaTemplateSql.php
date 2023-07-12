@@ -116,7 +116,7 @@ class MetaTemplateSql
 		$joinConds = [self::SET_ALIAS => ['JOIN', 'page.page_id = ' . self::S_PAGE_ID]];
 		$setName = $setName ?? '*';
 		if ($setName === '*' || isset($varName)) {
-			$tables[] = self::TABLE_DATA_ALIAS;
+			$tables = array_merge($tables, self::TABLE_DATA_ALIAS);
 			$fields[] = self::FIELD_VAR_NAME;
 			$fields[] = self::FIELD_VAR_VALUE;
 			$conds[self::FIELD_VAR_NAME] =  $varName;
@@ -133,12 +133,15 @@ class MetaTemplateSql
 			$conds['page_namespace'] = $nsNum;
 		}
 
-		return [
+		$retval = [
 			'tables' => $tables,
 			'fields' => $fields,
 			'conds' => $conds,
 			'join_conds' => $joinConds
 		];
+
+		#RHDebug::show('Query values', $retval);
+		return $retval;
 	}
 	#endregion
 
@@ -198,49 +201,6 @@ class MetaTemplateSql
 		// Assumes cascading is in effect to delete TABLE_DATA rows.
 		$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId]);
 		return true;
-	}
-
-	public function getNamespaces(): IResultWrapper
-	{
-		/** @todo Change to all namespaces. Leaving as is for now only to get things up and running before changing anything. */
-		$tables = array_merge(
-			['page'],
-			self::TABLE_SET_ALIAS
-		);
-		$fields = ['DISTINCT page_namespace'];
-		$options = ['ORDER BY' => 'page_namespace'];
-		$joinConds = [self::SET_ALIAS => ['JOIN', self::S_PAGE_ID . '=' . 'page.page_id']];
-
-		return $this->dbRead->select($tables, $fields, '', __METHOD__, $options, $joinConds);
-	}
-
-	/**
-	 * Gets a list of the most-used Metatemplate variables.
-	 *
-	 * @param int $limit The number of variables to get.
-	 *
-	 * @return ?IResultWrapper
-	 */
-	public function getPopularVariables(int $limit): ?IResultWrapper
-	{
-		$table = self::TABLE_DATA;
-		$fields = [self::FIELD_VAR_NAME];
-		$conds = self::FIELD_VAR_NAME . ' NOT LIKE \'@%\'';
-		$options = [
-			'GROUP BY' => self::FIELD_VAR_NAME,
-			'ORDER BY' => 'COUNT(*) DESC',
-			'LIMIT' => $limit
-		];
-
-		$retval = $this->dbRead->select(
-			$table,
-			$fields,
-			$conds,
-			__METHOD__,
-			$options
-		);
-
-		return $retval ? $retval : null;
 	}
 
 	/**

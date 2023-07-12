@@ -31,59 +31,27 @@ class SpecialPagesWithMetaVar extends QueryPage
 
 	public function execute($par)
 	{
-		global $wgContLang;
-
 		$this->setHeaders();
 		$this->outputHeader();
-		$this->getOutput()->addModuleStyles('mediawiki.special.mtpageswithmetavar');
 
 		$setName = null;
-		$varName = null;
 		$sort = false;
 
-		if ($par !== null) {
+		$par = is_null($par) ? trim($par) : '';
+		if (strlen($par)) {
 			$newPar = str_replace('_', ' ', $par);
 			$split = explode('/', $newPar, 2);
 			if (count($split) === 1) {
 				$setName = '*';
-				$varName = $split[0];
 			} else {
 				$setName = $split[0];
-				$varName = $split[1];
 			}
 		} else {
 			$request = $this->getRequest();
-			$varName = $request->getVal('varname');
 			$setName = $request->getVal('setname', '*');
 			$sort = $request->getVal('sortbyval');
 			$nsNum = $request->getVal('ns', 'all');
 		}
-
-		$varNames = [];
-		$varRows = MetaTemplateSql::getInstance()->getPopularVariables(25);
-		if ($varRows) {
-			for ($row = $varRows->fetchRow(); $row; $row = $varRows->fetchRow()) {
-				$varName = $row[MetaTemplateSql::FIELD_VAR_NAME];
-				$varNames[$varName] = $varName;
-			}
-		}
-
-		ksort($varNames, SORT_NATURAL | SORT_FLAG_CASE);
-
-		$nsAll = wfMessage('namespacesall')->text();
-		$namespaces = [$nsAll => 'all'];
-		$namespaceRows = MetaTemplateSql::getInstance()->getNamespaces();
-		for ($row = $namespaceRows->fetchRow(); $row; $row = $namespaceRows->fetchRow()) {
-			$nsId = (int)$row['page_namespace'];
-			if ($nsId >= NS_MAIN) {
-				$nsName = ($nsId === NS_MAIN)
-					? wfMessage('blanknamespace')->text()
-					: $wgContLang->getFormattedNsText($nsId);
-				$namespaces[$nsName] = $nsId;
-			}
-		}
-
-		#RHshow($varName, $varNames);
 
 		$descriptor = [
 			'setname' => [
@@ -99,10 +67,8 @@ class SpecialPagesWithMetaVar extends QueryPage
 				'required' => false,
 			],
 			'varname' => [
-				'type' => 'selectorother',
+				'type' => 'text',
 				'name' => 'varname',
-				'options' => $varNames,
-				'default' => $varName,
 				'label-message' => 'metatemplate-pageswithmetavar-varname',
 				'required' => false,
 			],
@@ -113,11 +79,11 @@ class SpecialPagesWithMetaVar extends QueryPage
 				'label-message' => 'metatemplate-pageswithmetavar-sort',
 			],
 			'ns' => [
-				'type' => 'select',
+				'type' => 'namespaceselect',
 				'name' => 'ns',
-				'options' => $namespaces,
 				'default' => $nsNum,
-				'label-message' => 'namespace', // MediaWiki name, not MT
+				'label-message' => 'namespace',
+				'all' => '',
 			],
 		];
 

@@ -37,6 +37,7 @@ class MetaTemplate
 	public const STTNG_ENABLEDATA = 'EnableData';
 	public const STTNG_ENABLEDEFINE = 'EnableDefine';
 	public const STTNG_ENABLEPAGENAMES = 'EnablePageNames';
+	public const STTNG_RESAVEONPURGE = 'ResaveOnPurge';
 
 	public const VR_FULLPAGENAME0 = 'metatemplate-fullpagename0';
 	public const VR_NAMESPACE0 = 'metatemplate-namespace0';

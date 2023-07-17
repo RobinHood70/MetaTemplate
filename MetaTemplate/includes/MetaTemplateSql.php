@@ -2,7 +2,6 @@
 
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IResultWrapper;
 
 /**
  * Handles all SQL-related functions for MetaTemplate. For the time being, write methods to a read-only database will
@@ -198,6 +197,7 @@ class MetaTemplateSql
 			return false;
 		}
 
+		RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
 		// Assumes cascading is in effect to delete TABLE_DATA rows.
 		$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId]);
 		return true;
@@ -519,11 +519,11 @@ class MetaTemplateSql
 	 * @param MetaTemplateSetCollection $vars The sets to be saved.
 	 *
 	 * @return bool True if any updates were made; false is no updates are required or the database is in read-only
-	 *     mode.
+	 * mode.
 	 */
 	public function saveVars(MetaTemplateSetCollection $vars): bool
 	{
-		#RHDebug::show('Vars', $vars);
+		RHDebug::writeFile('Vars', $vars);
 		if (wfReadOnly()) {
 			return false;
 		}
@@ -533,12 +533,12 @@ class MetaTemplateSql
 		if (!isset(self::$pagesSaved[$articleId])) {
 			self::$pagesSaved[$articleId] = true;
 			$oldData = $this->loadPageVariables($articleId);
-			#RHDebug::show('Old Data', $oldData);
+			RHDebug::writeFile('Old Data', $oldData);
 			if (!$oldData || $oldData->revId <= $vars->revId || $vars->revId === 0) {
 				// In theory, $oldData->revId < $vars->revId should work, but <= is used in case loaded data is being re-saved without an actual page update.
 				$upserts = new MetaTemplateUpserts($oldData, $vars);
 				if ($upserts->getTotal() > 0) {
-					#RHwriteFile('Normal Save: ', $title->getFullText());
+					RHDebug::writeFile('Saving');
 					$this->saveUpserts($upserts);
 					return true;
 				}
@@ -612,7 +612,8 @@ class MetaTemplateSql
 			];
 		}
 
-		$this->dbWrite->insert(self::TABLE_DATA, $data);
+		$result = $this->dbWrite->insert(self::TABLE_DATA, $data);
+		RHDebug::writeFile(__METHOD__ . ' Insert: ' . (int)$result);
 	}
 
 	/**
@@ -653,41 +654,50 @@ class MetaTemplateSql
 	}
 
 	/**
-	 * @todo See how much of this can be converted to bulk updates. Even though MW internally wraps most of these in a
-	 * transaction (supposedly...unverified), speed could probably still be improved with bulk updates.
-	 *
 	 * Alters the database in whatever ways are necessary to update one revision's variables to the next.
 	 *
 	 * @param MetaTemplateUpserts $upserts
 	 *
 	 * @return bool False if the database is in read-only mode; otherwise, true.
+	 *
+	 * @todo See how much of this can be converted to bulk updates and or the built-in upsert methods. (Is it faster?)
+	 * Even though MW internally wraps most of these in a transaction (supposedly...unverified), speed could probably
+	 * still be improved with bulk updates.
 	 */
 	private function saveUpserts(MetaTemplateUpserts $upserts)
 	{
+		RHDebug::writeFile($upserts);
+		$this->dbWrite->startAtomic(__METHOD__);
 		$deletes = $upserts->deletes;
-		// writeFile('  Deletes: ', count($deletes));
 		if (count($deletes)) {
+			RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
 			// Assumes cascading is in effect, so doesn't delete TABLE_DATA entries.
 			$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_SET_ID => $deletes]);
 		}
 
 		$pageId = $upserts->pageId;
 		$newRevId = $upserts->newRevId;
-		// writeFile('  Inserts: ', count($inserts));
 		foreach ($upserts->inserts as $newSet) {
 			$record = [
 				self::FIELD_PAGE_ID => $pageId,
 				self::FIELD_SET_NAME => $newSet->name,
 				self::FIELD_REV_ID => $newRevId
 			];
-			#RHshow('Insert', $record);
-			$this->dbWrite->insert(self::TABLE_SET, $record);
 
+
+			$this->dbWrite->insert(self::TABLE_SET, $record, __METHOD__, ['IGNORE']);
 			$setId = $this->dbWrite->insertId();
+			if ($setId === 0) {
+				// In the event of a set being defined but missing its data row, delete the set row and try again.
+				$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId, self::FIELD_SET_NAME => $newSet->name]);
+				$this->dbWrite->insert(self::TABLE_SET, $record);
+				$setId = $this->dbWrite->insertId();
+			}
+
+			RHDebug::writeFile('Insert ID: ', $setId);
 			$this->insertSetData($setId, $newSet);
 		}
 
-		// writeFile('  Updates: ', count($updates));
 		if (count($upserts->updates)) {
 			foreach ($upserts->updates as $setId => $setData) {
 				/**
@@ -706,6 +716,8 @@ class MetaTemplateSql
 				);
 			}
 		}
+
+		$this->dbWrite->endAtomic(__METHOD__);
 	}
 
 	/**
@@ -751,6 +763,7 @@ class MetaTemplateSql
 		}
 
 		if (count($deletes)) {
+			RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
 			$this->dbWrite->delete(self::TABLE_DATA, [
 				self::FIELD_SET_ID => $setId,
 				self::FIELD_VAR_NAME => $deletes

@@ -12,7 +12,8 @@
 		"EnableData": true,
 		"EnableDefine": true,
 		"EnablePageNames": true,
-		"ListsavedMaxTemplateSize": 10000
+		"ListsavedMaxTemplateSize": 10000,
+		"ResaveOnPurge": true
 	},
 	"license-name": "GPL-2.0-or-later",
 	"manifest_version": 1,
@@ -52,20 +53,18 @@
 	},
 	"Hooks": {
 		"ArticleFromTitle": "MetaTemplateHooks::onArticleFromTitle",
-		"ArticleSaveComplete": "MetaTemplateHooks::onSaveComplete",
+		"ArticlePurge": "MetaTemplateHooks::onArticlePurge",
+		"ArticleSaveComplete": "MetaTemplateHooks::onArticleSaveComplete",
 		"CategoryViewer::doCategoryQuery": "MetaTemplateHooks::onDoCategoryQuery",
-		"EditFormInitialText": "MetaTemplateHooks::disallowSaves",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
 		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
-		"NewRevisionFromEditComplete": "MetaTemplateHooks::onNewRevisionFromEditComplete",
 		"OutputPageParserOutput": "MetaTemplateHooks::onOutputPageParserOutput",
+		"PageContentSaveComplete": "MetaTemplateHooks::onPageContentSaveComplete",
 		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",
 		"PageSaveComplete": "MetaTemplateHooks::onPageSaveComplete",
-		"ParserAfterTidy": "MetaTemplateHooks::onParserAfterTidy",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
 		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
-		"RevisionFromEditComplete": "MetaTemplateHooks::onNewRevisionFromEditComplete",
 		"TitleMoveComplete": "MetaTemplateHooks::onPageMoveComplete"
 	},
 	"MessagesDirs": {

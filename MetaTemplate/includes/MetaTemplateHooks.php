@@ -52,6 +52,21 @@ class MetaTemplateHooks
 		}
 	}
 
+	public static function onArticlePurge(WikiPage $article)
+	{
+		if (MetaTemplate::getSetting(MetaTemplate::STTNG_RESAVEONPURGE)) {
+			$options = $article->makeParserOptions('canonical');
+			$article->getParserOutput($options, null, true);
+			MetaTemplateData::save($article, $article->getRevision());
+		}
+	}
+
+	public static function onArticleSaveComplete(&$article, &$user, $text, $summary, $minoredit, $watchthis, $sectionanchor, &$flags, $revision, &$status, $baseRevId)
+	{
+		#RHDebug::writeFile(__METHOD__);
+		MetaTemplateData::save($article->getPage(), $revision);
+	}
+
 	/**
 	 * Passes the CategoryViewer::doCategoryQuery hook through to the category viewer, if enabled.
 	 *
@@ -112,15 +127,6 @@ class MetaTemplateHooks
 		$bypassVars[] = 'ns_id';
 	}
 
-	public static function onNewRevisionFromEditComplete(WikiPage $wikiPage, $rev, $baseID, User $user, &$tags = null)
-	{
-		// The intent here is to reduce or remove recursively updating an article twice (once by the MW software and
-		// again by the onParserAfterTidy routine). This works in current versions of MW but should be tested again in
-		// future, as this is significantly removed from where the recursive update actually takes place and MW's
-		// update scheme may change.
-		MetaTemplateData::$articleEditId = $wikiPage->getId();
-	}
-
 	/**
 	 * Initializes the the category viewer when called from the parser cache.
 	 *
@@ -132,6 +138,12 @@ class MetaTemplateHooks
 		if ($out->getTitle()->getNamespace() == NS_CATEGORY) {
 			MetaTemplate::getCatViewer()::init($parserOutput);
 		}
+	}
+
+	public static function onPageContentSaveComplete($wikiPage, $user, $mainContent, $summaryText, $isMinor, $isWatch, $section, $flags, $revision, $status, $originalRevId, $undidRevId)
+	{
+		#RHDebug::writeFile(__METHOD__);
+		MetaTemplateData::save($wikiPage, $revision);
 	}
 
 	/**
@@ -167,15 +179,10 @@ class MetaTemplateHooks
 		}
 	}
 
-	/**
-	 * Writes all #saved data to the database.
-	 *
-	 * @param Parser $parser The parser in use.
-	 * @param mixed $text The text of the article.
-	 */
-	public static function onParserAfterTidy(Parser $parser, &$text): void
+	public static function onPageSaveComplete(WikiPage $wikiPage, $user, string $summary, int $flags, $revisionRecord, $editResult)
 	{
-		MetaTemplateData::onParserAfterTidy($parser, $text);
+		#RHDebug::writeFile(__METHOD__);
+		MetaTemplateData::save($wikiPage, $revisionRecord);
 	}
 
 	/**
@@ -240,34 +247,6 @@ class MetaTemplateHooks
 		}
 
 		return true;
-	}
-
-	public static function onArticleSaveComplete(&$article, &$user, $text, $summary, $minoredit, $watchthis, $sectionanchor, &$flags, $revision, &$status, $baseRevId)
-	{
-		#RHDebug::writeFile(__METHOD__);
-		if (isset(MetaTemplateData::$saveData)) {
-			MetaTemplateData::save($article->getId(), $revision);
-		}
-	}
-
-	public static function allowSaves()
-	{
-		// RHDebug::writeFile(__METHOD__);
-		// MetaTemplateData::$allowSaves = true;
-	}
-
-	public static function disallowSaves()
-	{
-		#RHDebug::writeFile(__METHOD__);
-		MetaTemplateData::$allowSaves = false;
-	}
-
-	public static function onPageSaveComplete($wikiPage, $user, $summary, $flags, $revisionRecord, $editResult)
-	{
-		#RHDebug::writeFile(__METHOD__);
-		if (isset(MetaTemplateData::$saveData)) {
-			MetaTemplateData::save($wikiPage->getId(), $revisionRecord);
-		}
 	}
 	#endregion
 

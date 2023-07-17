@@ -47,23 +47,43 @@ class MetaTemplate
 	#endregion
 
 	#region Public Static Variables
-	/** @var string */
+	/**
+	 * The category viewer class name.
+	 *
+	 * @var ?string
+	 */
 	public static $catViewer;
 
-	/** @var ?string */
+	/**
+	 * Keyword to use for 'fullpagename' value in #listsaved.
+	 *
+	 * @var ?string
+	 */
 	public static $mwFullPageName = null;
 
-	/** @var ?string */
+	/**
+	 * Keyword to use for 'namespace' value in #listsaved.
+	 *
+	 * @var ?string
+	 */
 	public static $mwNamespace = null;
 
-	/** @var ?string */
+	/**
+	 * Keyword to use for 'pageid' value in #listsaved.
+	 *
+	 * @var ?string
+	 */
 	public static $mwPageId = null;
 
-	/** @var ?string */
+	/**
+	 * Keyword to use for 'pagename' value in #listsaved.
+	 *
+	 * @var ?string
+	 */
 	public static $mwPageName = null;
 	#endregion
 
-	#region Private Static Variables
+	#region Private Static Properties
 	/**
 	 * An array of strings containing the names of parameters that should be passed through to a template, even if
 	 * displayed on its own page.
@@ -90,7 +110,9 @@ class MetaTemplate
 	}
 
 	/**
-	 * @return GlobalVarConfig The global variable configuration for MetaTemplate.
+	 * Gets the global variable configuration for MetaTemplate.
+	 *
+	 * @return GlobalVarConfig
 	 */
 	public static function configBuilder(): GlobalVarConfig
 	{
@@ -110,8 +132,6 @@ class MetaTemplate
 	 *            'any', along with any translations or synonyms of it.
 	 *        if: A condition that must be true in order for this function to run.
 	 *     ifnot: A condition that must be false in order for this function to run.
-	 *
-	 * @return void
 	 */
 	public static function doDefine(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -161,13 +181,13 @@ class MetaTemplate
 	 *        if: A condition that must be true in order for this function to run.
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 *
-	 * @return void
+	 * @return array Normally an array with just an empty string; array with parse info in debug mode.
 	 */
-	public static function doInherit(Parser $parser, PPFrame $frame, array $args)
+	public static function doInherit(Parser $parser, PPFrame $frame, array $args): array
 	{
 		$parser->addTrackingCategory('metatemplate-tracking-frames');
 		if (!$frame->depth) {
-			return;
+			return [''];
 		}
 
 		/*
@@ -191,7 +211,7 @@ class MetaTemplate
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
 		if (!$values || !ParserHelper::checkIfs($frame, $magicArgs)) {
-			return;
+			return [''];
 		}
 
 		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
@@ -216,6 +236,8 @@ class MetaTemplate
 			$varList = implode("\n", $inherited);
 			return ParserHelper::formatPFForDebug($varList, true, false, 'Inherited Variables');
 		}
+
+		return [''];
 	}
 
 	/**
@@ -231,8 +253,6 @@ class MetaTemplate
 	 *            'any', along with any translations or synonyms of it.
 	 *        if: A condition that must be true in order for this function to run.
 	 *     ifnot: A condition that must be false in order for this function to run.
-	 *
-	 * @return void
 	 */
 	public static function doLocal(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -317,8 +337,6 @@ class MetaTemplate
 	 * @param array $args Function arguments:
 	 *     1: The variable name.
 	 *     2: The variable value.
-	 *
-	 * @return void
 	 */
 	public static function doPreview(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -344,8 +362,6 @@ class MetaTemplate
 	 *            receiving end. The variables listed in the #return statement must match exactly.
 	 *        if: A condition that must be true in order for this function to run.
 	 *     ifnot: A condition that must be false in order for this function to run.
-	 *
-	 * @return void
 	 */
 	public static function doReturn(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -395,8 +411,6 @@ class MetaTemplate
 	 *            'any', along with any translations or synonyms of it.
 	 *        if: A condition that must be true in order for this function to run.
 	 *     ifnot: A condition that must be false in order for this function to run.
-	 *
-	 * @return void
 	 */
 	public static function doUnset(Parser $parser, PPFrame $frame, array $args): void
 	{
@@ -425,7 +439,12 @@ class MetaTemplate
 		}
 	}
 
-	public static function getCatViewer()
+	/**
+	 * Gets the class name of the category viewer to use with different versions of MediaWiki.
+	 *
+	 * @return string
+	 */
+	public static function getCatViewer(): string
 	{
 		if (!isset(self::$catViewer)) {
 			if (version_compare(VersionHelper::getMWVersion(), '1.37', '>=')) {
@@ -560,7 +579,10 @@ class MetaTemplate
 		return $retval;
 	}
 
-	public static function init()
+	/**
+	 * Initializes all non-lazy components of MetaTemplate (just magic words at this point).
+	 */
+	public static function init(): void
 	{
 		if (
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT) ||
@@ -585,9 +607,6 @@ class MetaTemplate
 	 * @param string $varName The variable name. This should be pre-trimmed, if necessary.
 	 * @param PPNode|string $value The variable value.
 	 *     PPNode: use some variation of argument expansion before sending the node here.
-	 *
-	 *
-	 * @return void
 	 */
 	public static function setVar(PPFrame $frame, string $varName, string $varValue, $anyCase = false): void
 	{
@@ -619,8 +638,6 @@ class MetaTemplate
 	 * @param PPNode $dom The variable value as a tree.
 	 * @param string $cacheValue The expanded value, if needed. Otherwise, the cache will be left uninitialized,
 	 *     expanding only when needed.
-	 *
-	 * @return void
 	 */
 	public static function setVarDirect(PPFrame $frame, $varName, PPNode $dom, ?string $cacheValue = null): void
 	{
@@ -664,8 +681,6 @@ class MetaTemplate
 	 * @param string $varName The variable to unset.
 	 * @param bool $anyCase Whether the variable match should be case insensitive.
 	 * @param bool $shift For numeric unsets, whether to shift everything above it down by one.
-	 *
-	 * @return void
 	 */
 	public static function unsetVar(PPFrame $frame, $varName, bool $anyCase, bool $shift = false): void
 	{
@@ -705,8 +720,6 @@ class MetaTemplate
 	 *        if: A condition that must be true in order for this function to run.
 	 *     ifnot: A condition that must be false in order for this function to run.
 	 * @param bool $overwrite Whether the incoming variable is allowed to overwrite any existing one.
-	 *
-	 * @return void
 	 */
 	private static function checkAndSetVar(PPFrame $frame, array $args, bool $overwrite): void
 	{
@@ -781,8 +794,6 @@ class MetaTemplate
 	 * Gets a list of variables that can bypass the normal variable definition lockouts on a template page. This means
 	 * that variables which would normally display as {{{ns_id}}}, for example, will instead take on the specified/
 	 * default values.
-	 *
-	 * @return void
 	 */
 	private static function getBypassVariables(): void
 	{
@@ -882,8 +893,6 @@ class MetaTemplate
 	 *
 	 * @param PPFrame $frame The frame in use.
 	 * @param string $varName The numeric variable to unset.
-	 *
-	 * @return void
 	 */
 	private static function shiftVars(PPFrame $frame, string $varName): void
 	{

@@ -14,13 +14,6 @@ class MetaTemplateData
 	 */
 	public const KEY_IGNORE_SET = MetaTemplate::KEY_METATEMPLATE . '#ignoreSet';
 
-	/**
-	 * Key to use when saving the {{#preload}} information to the template page.
-	 *
-	 * @var string (string[])
-	 */
-	public const KEY_PRELOAD_DATA = MetaTemplate::KEY_METATEMPLATE . '#preload';
-
 	public const NA_ORDER = 'metatemplate-order';
 	public const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
 	public const NA_SET = 'metatemplate-set';
@@ -30,14 +23,17 @@ class MetaTemplateData
 	public const PF_PRELOAD = 'preload';
 	public const PF_SAVE = 'save';
 
-	public const PRELOAD_SEP = '|';
-	public const SAVE_SETNAME_WIDTH = 50;
-	public const SAVE_VARNAME_WIDTH = 50;
-
 	public const TG_SAVEMARKUP = 'metatemplate-savemarkuptag';
 	#endregion
 
 	#region Private Constants
+	/**
+	 * Key to use when saving the {{#preload}} information to the template page.
+	 *
+	 * @var string (string[])
+	 */
+	private const KEY_PRELOAD_DATA = MetaTemplate::KEY_METATEMPLATE . '#preload';
+
 	/**
 	 * Key for the value indicating that a #save operation was attempted during a #listsaved operation and ignored.
 	 *
@@ -45,16 +41,34 @@ class MetaTemplateData
 	 */
 	private const KEY_SAVE_IGNORED = MetaTemplate::KEY_METATEMPLATE . '#saveIgnored';
 
+	private const PRELOAD_SEP = '|';
+	private const SAVE_SETNAME_WIDTH = 50;
+	private const SAVE_VARNAME_WIDTH = 50;
 	private const STRIP_MARKERS = '/(<!--(IW)?LINK (.*?)-->|' . Parser::MARKER_PREFIX . '-.*?-[0-9A-Fa-f]+' . Parser::MARKER_SUFFIX . ')/';
 	#endregion
 
-	#region Public Static roperties
+	#region Public Static Properties
+
 	/**
-	 * Cumulative data from #save calls.
+	 * Keyword to use for 'set' value in #listsaved and <catpagetemplate>.
 	 *
-	 * @var ?MetaTemplateSetCollection $saveData
+	 * @var ?string $mwSet
 	 */
-	public static $saveData;
+	public static $mwSet = null;
+
+	/**
+	 * Copy of #preload list for cases like catpagetemplate that want an immediate return value.
+	 *
+	 * @var MetaTemplatePage[] $preloadCache
+	 */
+	public static $preloadCache = [];
+
+	/**
+	 * Copy of #preload list for cases like catpagetemplate that want an immediate return value.
+	 *
+	 * @var MetaTemplateSet[] $preloadVarSets
+	 */
+	public static $preloadVarSets = [];
 
 	/**
 	 * Save mode in use.
@@ -66,24 +80,15 @@ class MetaTemplateData
 	 * @var int $saveMode
 	 */
 	public static $saveMode = 0;
+	#endregion
 
-	/** @var ?string mwSet */
-	public static $mwSet = null;
-
+	#region Private Static Properties
 	/**
-	 * Copy of #preload list for cases like catpagetemplate that want an immediate return value.
+	 * Cumulative data from #save calls.
 	 *
-	 * @var MetaTemplatePage[]
+	 * @var ?MetaTemplateSetCollection
 	 */
-	public static $preloadCache = [];
-
-	/**
-	 * Copy of #preload list for cases like catpagetemplate that want an immediate return value.
-	 *
-	 * @var MetaTemplateSet[]
-	 */
-	public static $preloadVarSets = [];
-
+	private static $saveData;
 	#endregion
 
 	#region Public Static Functions

@@ -644,6 +644,61 @@ class MetaTemplateData
 			self::$mwSet = self::$mwSet ?? VersionHelper::getInstance()->getMagicWord(MetaTemplateData::NA_SET)->getSynonym(0);
 		}
 	}
+
+	/**
+	 * Saves all pending data.
+	 *
+	 * @param int $pageId The page id of the data to be saved.
+	 * @param mixed $revision
+	 */
+	public static function save(WikiPage $page, $revision): void
+	{
+		#RHDebug::writeFile(__METHOD__);
+		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			self::$saveData = null;
+			return;
+		}
+
+		// Before saving, double-check that we're actually saving the data to the right page.
+		$pageId = $page->getId();
+		$title = $page->getTitle();
+		if (MetaTemplateData::$saveData && self::$saveData->articleId !== $pageId) {
+			$conflictTitle = Title::newFromID(self::$saveData->articleId)->getPrefixedText();
+			wfWarn("Page ID conflict: data from $conflictTitle wants to be saved to {$title->getPrefixedText()}.");
+			self::$saveData = null;
+			return;
+		}
+
+		#RHDebug::writeFile($page->getTitle()->getPrefixedText() . ": " . $revision->getId());
+		if (is_null($revision)) {
+			// At one point, this flagged a new edit with no revision ID assigned yet. I don't believe this is possible
+			// anymore, but in case it is, better to save nothing at all than to throw an error.
+		}
+
+		/** @var MetaTemplateSetCollection $vars */
+		$vars = self::$saveData;
+		$sql = MetaTemplateSql::getInstance();
+		RHDebug::writeFile($vars);
+
+		$doArticleEdit = false;
+		if ($vars && !empty($vars->sets)) {
+			if ($vars->revId > 0) {
+				$sql->saveVars($vars);
+				$doArticleEdit =  true;
+			}
+		} elseif ($sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId)) {
+			// Check whether the page used to have variables; if not, delete should triger onArticleEdit().
+			$doArticleEdit = true;
+		}
+
+		// The wikiPage::onArticleEdit() calls ensure that data gets refreshed recursively, even on indirectly affected
+		// pages such as where there's a #load of #save'd data. Those types of pages don't seem to have their caches
+		// invalidated otherwise.
+		self::$saveData = null;
+		if ($doArticleEdit) {
+			WikiPage::onArticleEdit($title, $revision);
+		}
+	}
 	#endregion
 
 	#region Private Static Functions
@@ -824,61 +879,6 @@ class MetaTemplateData
 	private static function removeMarkers(string $text)
 	{
 		return preg_replace(self::STRIP_MARKERS, '', $text);
-	}
-
-	/**
-	 * Saves all pending data.
-	 *
-	 * @param int $pageId The page id of the data to be saved.
-	 * @param mixed $revision
-	 */
-	public static function save(WikiPage $page, $revision): void
-	{
-		#RHDebug::writeFile(__METHOD__);
-		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			self::$saveData = null;
-			return;
-		}
-
-		// Before saving, double-check that we're actually saving the data to the right page.
-		$pageId = $page->getId();
-		$title = $page->getTitle();
-		if (MetaTemplateData::$saveData && self::$saveData->articleId !== $pageId) {
-			$conflictTitle = Title::newFromID(self::$saveData->articleId)->getPrefixedText();
-			wfWarn("Page ID conflict: data from $conflictTitle wants to be saved to {$title->getPrefixedText()}.");
-			self::$saveData = null;
-			return;
-		}
-
-		#RHDebug::writeFile($page->getTitle()->getPrefixedText() . ": " . $revision->getId());
-		if (is_null($revision)) {
-			// At one point, this flagged a new edit with no revision ID assigned yet. I don't believe this is possible
-			// anymore, but in case it is, better to save nothing at all than to throw an error.
-		}
-
-		/** @var MetaTemplateSetCollection $vars */
-		$vars = self::$saveData;
-		$sql = MetaTemplateSql::getInstance();
-		RHDebug::writeFile($vars);
-
-		$doArticleEdit = false;
-		if ($vars && !empty($vars->sets)) {
-			if ($vars->revId > 0) {
-				$sql->saveVars($vars);
-				$doArticleEdit =  true;
-			}
-		} elseif ($sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId)) {
-			// Check whether the page used to have variables; if not, delete should triger onArticleEdit().
-			$doArticleEdit = true;
-		}
-
-		// The wikiPage::onArticleEdit() calls ensure that data gets refreshed recursively, even on indirectly affected
-		// pages such as where there's a #load of #save'd data. Those types of pages don't seem to have their caches
-		// invalidated otherwise.
-		self::$saveData = null;
-		if ($doArticleEdit) {
-			WikiPage::onArticleEdit($title, $revision);
-		}
 	}
 
 	private static function stripAll(Parser $parser, ?string $text)

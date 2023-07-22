@@ -95,17 +95,17 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 
 		$attributes = ParserHelper::transformAttributes($attributes, $magicWords);
 		$none = !isset($attributes[self::NA_IMAGE]) && !isset($attributes[self::NA_PAGE]) && !isset($attributes[self::NA_SUBCAT]);
-		if (isset($attributes[self::NA_IMAGE]) || ($none && !self::$templates[self::CV_FILE])) {
+		if (isset($attributes[self::NA_IMAGE]) || ($none && !isset(self::$templates[self::CV_FILE]))) {
 			self::$templates[self::CV_FILE] = $content;
 			self::$templateFrames[self::CV_FILE] = $frame;
 		}
 
-		if (isset($attributes[self::NA_PAGE]) || ($none && !self::$templates[self::CV_PAGE])) {
+		if (isset($attributes[self::NA_PAGE]) || ($none && !isset(self::$templates[self::CV_PAGE]))) {
 			self::$templates[self::CV_PAGE] = $content;
 			self::$templateFrames[self::CV_PAGE] = $frame;
 		}
 
-		if (isset($attributes[self::NA_SUBCAT]) || ($none && !self::$templates[self::CV_SUBCAT])) {
+		if (isset($attributes[self::NA_SUBCAT]) || ($none && !isset(self::$templates[self::CV_SUBCAT]))) {
 			self::$templates[self::CV_SUBCAT] = $content;
 			self::$templateFrames[self::CV_SUBCAT] = $frame;
 		}

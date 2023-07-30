@@ -35,6 +35,13 @@ class MetaTemplateData
 	private const KEY_PRELOAD_DATA = MetaTemplate::KEY_METATEMPLATE . '#preload';
 
 	/**
+	 * Key for the data from all #save operations on a page.
+	 *
+	 * @var string (?bool)
+	 */
+	private const KEY_SAVE_DATA = MetaTemplate::KEY_METATEMPLATE . '#saveData';
+
+	/**
 	 * Key for the value indicating that a #save operation was attempted during a #listsaved operation and ignored.
 	 *
 	 * @var string (?bool)
@@ -84,11 +91,12 @@ class MetaTemplateData
 
 	#region Private Static Properties
 	/**
-	 * Cumulative data from #save calls.
+	 * The title from the previous save() call. Due to how this handles parsing #load-ed variables, there are often two
+	 * attempts in a row to parse the same title. This prevents doing so if the same title was just parsed.
 	 *
-	 * @var ?MetaTemplateSetCollection
+	 * @var ?Title
 	 */
-	private static $saveData;
+	private static $prevId;
 	#endregion
 
 	#region Public Static Functions
@@ -338,7 +346,11 @@ class MetaTemplateData
 		#RHecho($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
 		$latestRev = $loadTitle->getLatestRevID();
-		$output->addTemplate($loadTitle, $pageId, $latestRev);
+		$title = $parser->getTitle();
+		if (!$loadTitle->equals($title)) {
+			$output->addTemplate($loadTitle, $pageId, $latestRev);
+		}
+
 		$anyCase = MetaTemplate::checkAnyCase($magicArgs);
 		$setName = isset($magicArgs[self::NA_SET])
 			? substr($magicArgs[self::NA_SET], 0, self::SAVE_SETNAME_WIDTH)
@@ -398,7 +410,7 @@ class MetaTemplateData
 				$debugInfo += ['From DB' => array_keys($set->variables)];
 			}
 
-			if ($pageId !== $parser->getTitle()->getArticleID() || !self::loadFromSaveData($set)) {
+			if ($pageId !== $parser->getTitle()->getArticleID() || !self::loadFromSaveData($output, $set)) {
 				if (!MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $set)) {
 					$loadTitle = WikiPage::factory($loadTitle)->getRedirectTarget();
 					if (!is_null($loadTitle) && $loadTitle->exists()) {
@@ -487,7 +499,7 @@ class MetaTemplateData
 
 		if (!$parser->getOptions()->getIsPreview()) {
 			$varList = implode(self::PRELOAD_SEP, array_keys($set->variables));
-			self::addToSet($parser->getTitle(), $setName, [self::KEY_PRELOAD_DATA => $varList]);
+			self::addToSet($parser, $setName, [self::KEY_PRELOAD_DATA => $varList]);
 		}
 	}
 
@@ -511,14 +523,9 @@ class MetaTemplateData
 	 */
 	public static function doSave(Parser $parser, PPFrame $frame, array $args): array
 	{
-		RHDebug::writeFile(__METHOD__);
 		$title = $parser->getTitle();
 		if (!$title->canExist()) {
 			return [''];
-		}
-
-		if (self::$saveData && self::$saveData->articleId !== $title->getArticleID()) {
-			self::$saveData = null;
 		}
 
 		static $magicWords;
@@ -580,7 +587,7 @@ class MetaTemplateData
 			$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
 			// This is effectively what saves the variables, though the actual save comes at the end in
 			// onParserAfterTidy().
-			self::addToSet($title, $setName, $varsToSave);
+			self::addToSet($parser, $setName, $varsToSave);
 		}
 
 		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
@@ -641,7 +648,7 @@ class MetaTemplateData
 	public static function init()
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			self::$mwSet = self::$mwSet ?? VersionHelper::getInstance()->getMagicWord(MetaTemplateData::NA_SET)->getSynonym(0);
+			self::$mwSet = self::$mwSet ?? VersionHelper::getInstance()->getMagicWord(self::NA_SET)->getSynonym(0);
 		}
 	}
 
@@ -651,52 +658,52 @@ class MetaTemplateData
 	 * @param int $pageId The page id of the data to be saved.
 	 * @param mixed $revision
 	 */
-	public static function save(WikiPage $page, $revision): void
+	public static function save(WikiPage $page): void
 	{
-		#RHDebug::writeFile(__METHOD__);
+		RHDebug::writeFile(__METHOD__, ': ', $page->getTitle()->getPrefixedText());
 		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			self::$saveData = null;
 			return;
 		}
 
-		// Before saving, double-check that we're actually saving the data to the right page.
+		// Before saving, double-check that we're actually saving the data to a valid page that's not a duplicate of
+		// the previous call.
 		$pageId = $page->getId();
-		$title = $page->getTitle();
-		if (MetaTemplateData::$saveData && self::$saveData->articleId !== $pageId) {
-			$conflictTitle = Title::newFromID(self::$saveData->articleId)->getPrefixedText();
-			wfWarn("Page ID conflict: data from $conflictTitle wants to be saved to {$title->getPrefixedText()}.");
-			self::$saveData = null;
+		if ($pageId <= 0 || $pageId === self::$prevId) {
+			RHDebug::writeFile(__METHOD__, ': Error or used output from previous.');
 			return;
 		}
 
-		#RHDebug::writeFile($page->getTitle()->getPrefixedText() . ": " . $revision->getId());
-		if (is_null($revision)) {
-			// At one point, this flagged a new edit with no revision ID assigned yet. I don't believe this is possible
-			// anymore, but in case it is, better to save nothing at all than to throw an error.
+		self::$prevId = $pageId;
+		$title = $page->getTitle();
+		$options = $page->makeParserOptions('canonical');
+		$parserOutput = $page->getParserOutput($options, null, true);
+		if (!$parserOutput) {
+			// Not sure it's possible for the revision to not be found, but abort if it ever happens.
+			return;
 		}
 
-		/** @var MetaTemplateSetCollection $vars */
-		$vars = self::$saveData;
+		$sd = $parserOutput->getExtensionData(self::KEY_SAVE_DATA);
 		$sql = MetaTemplateSql::getInstance();
-		RHDebug::writeFile($vars);
-
-		$doArticleEdit = false;
-		if ($vars && !empty($vars->sets)) {
-			if ($vars->revId > 0) {
-				$sql->saveVars($vars);
-				$doArticleEdit =  true;
+		if ($sd && !empty($sd->sets)) {
+			if ($sd->articleId === 0) {
+				$sd->articleId = $pageId;
+				$sd->revId = $page->getLatest();
+			} elseif ($sd->articleId !== $pageId) {
+				// This should never happen!
+				$conflictTitle = Title::newFromID($sd->articleId)->getPrefixedText();
+				wfWarn("Page ID conflict: trying to save [[$conflictTitle]] data to [[{$title->getPrefixedText()}]]; save aborted.");
+				return;
 			}
-		} elseif ($sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId)) {
-			// Check whether the page used to have variables; if not, delete should triger onArticleEdit().
-			$doArticleEdit = true;
+
+			$doUpdates = $sd->revId > 0 ? $sql->saveVars($sd) : false;
+		} else {
+			// Check whether the page used to have variables; if not, delete should trigger an update.
+			$doUpdates = $sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId);
 		}
 
-		// The wikiPage::onArticleEdit() calls ensure that data gets refreshed recursively, even on indirectly affected
-		// pages such as where there's a #load of #save'd data. Those types of pages don't seem to have their caches
-		// invalidated otherwise.
-		self::$saveData = null;
-		if ($doArticleEdit) {
-			WikiPage::onArticleEdit($title, $revision);
+		RHDebug::writeFile('Do Updates: ', (int)$doUpdates);
+		if ($doUpdates) {
+			VersionHelper::getInstance()->doSecondaryDataUpdates($page, $parserOutput, $options);
 		}
 	}
 	#endregion
@@ -711,21 +718,16 @@ class MetaTemplateData
 	 *
 	 * @return void
 	 */
-	private static function addToSet(Title $title, string $setName, array $variables): void
+	private static function addToSet(Parser $parser, string $setName, array $variables): void
 	{
-		#RHshow('addVars', $variables);
-		if (!count($variables)) {
-			return;
+		#RHDebug::writeFile(__METHOD__, $setName, ' => ', $variables);
+		if (count($variables)) {
+			$output = $parser->getOutput();
+			$data = $output->getExtensionData(self::KEY_SAVE_DATA)
+				?? new MetaTemplateSetCollection($parser->getTitle()->getArticleID(), $parser->getTitle()->getLatestRevID());
+			$data->addToSet(0, $setName, $variables);
+			$output->setExtensionData(self::KEY_SAVE_DATA, $data);
 		}
-
-		/** @var MetaTemplateSetCollection $pageVars */
-		$pageVars = self::$saveData;
-		if (is_null($pageVars)) {
-			$pageVars = new MetaTemplateSetCollection($title->getArticleID(), $title->getLatestRevID());
-			self::$saveData = $pageVars;
-		}
-
-		$pageVars->addToSet(0, $setName, $variables);
 	}
 
 	/**
@@ -765,15 +767,15 @@ class MetaTemplateData
 	 *
 	 * @return bool True if all variables were loaded.
 	 */
-	private static function loadFromSaveData(MetaTemplateSet &$set): bool
+	private static function loadFromSaveData(ParserOutput $output, MetaTemplateSet &$set): bool
 	{
-		$pageVars = self::$saveData;
-		if (!$pageVars) {
-			return false; // $pageVars = new MetaTemplateSetCollection($pageId, 0);
+		$data = $output->getExtensionData(self::KEY_SAVE_DATA);
+		if (!$data) {
+			return false;
 		}
 
 		#RHshow('Page Variables', $pageVars);
-		$pageSet = $pageVars->sets[$set->name] ?? false;
+		$pageSet = $data->sets[$set->name] ?? false;
 		if (!$pageSet) {
 			return false;
 		}
@@ -856,7 +858,7 @@ class MetaTemplateData
 		}
 
 		$sortOrder[] = MetaTemplate::$mwPageName;
-		$sortOrder[] = MetaTemplateData::$mwSet;
+		$sortOrder[] = self::$mwSet;
 		$used = [];
 		$args = [];
 		foreach ($sortOrder as $field) {

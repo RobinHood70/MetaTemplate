@@ -54,17 +54,16 @@ class MetaTemplateHooks
 
 	public static function onArticlePurge(WikiPage $article)
 	{
+		RHDebug::writeFile(__METHOD__, ': ', $article->getTitle()->getPrefixedText());
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_RESAVEONPURGE)) {
-			$options = $article->makeParserOptions('canonical');
-			$article->getParserOutput($options, null, true);
-			MetaTemplateData::save($article, $article->getRevision());
+			MetaTemplateData::save($article);
 		}
 	}
 
 	public static function onArticleSaveComplete(&$article, &$user, $text, $summary, $minoredit, $watchthis, $sectionanchor, &$flags, $revision, &$status, $baseRevId)
 	{
-		#RHDebug::writeFile(__METHOD__);
-		MetaTemplateData::save($article->getPage(), $revision);
+		RHDebug::writeFile(__METHOD__, ': ', $article->getTitle()->getPrefixedText());
+		MetaTemplateData::save($article->getPage());
 	}
 
 	/**
@@ -78,6 +77,19 @@ class MetaTemplateHooks
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 			MetaTemplateCategoryViewer::onDoCategoryQuery($type, $result);
 		}
+	}
+
+	/**
+	 * Re-save the page on link update.
+	 *
+	 * @param LinksUpdate|MediaWiki\Deferred\LinksUpdate\LinksUpdate $linksUpdate
+	 *
+	 */
+	public static function onLinksUpdateComplete(&$linksUpdate)
+	{
+		RHDebug::writeFile(__METHOD__, ': ', $linksUpdate->getTitle()->getPrefixedText());
+		$page = WikiPage::factory($linksUpdate->getTitle());
+		MetaTemplateData::save($page);
 	}
 
 	/**
@@ -142,8 +154,8 @@ class MetaTemplateHooks
 
 	public static function onPageContentSaveComplete($wikiPage, $user, $mainContent, $summaryText, $isMinor, $isWatch, $section, $flags, $revision, $status, $originalRevId, $undidRevId)
 	{
-		#RHDebug::writeFile(__METHOD__);
-		MetaTemplateData::save($wikiPage, $revision);
+		RHDebug::writeFile(__METHOD__, ': ', $wikiPage->getTitle()->getPrefixedText());
+		MetaTemplateData::save($wikiPage);
 	}
 
 	/**
@@ -181,8 +193,8 @@ class MetaTemplateHooks
 
 	public static function onPageSaveComplete(WikiPage $wikiPage, $user, string $summary, int $flags, $revisionRecord, $editResult)
 	{
-		#RHDebug::writeFile(__METHOD__);
-		MetaTemplateData::save($wikiPage, $revisionRecord);
+		RHDebug::writeFile(__METHOD__, ': ', $wikiPage->getTitle()->getPrefixedText());
+		MetaTemplateData::save($wikiPage);
 	}
 
 	/**
@@ -192,6 +204,10 @@ class MetaTemplateHooks
 	 */
 	public static function onParserFirstCallInit(Parser $parser): void
 	{
+		#if ($parser->getTitle()) {
+		#	RHDebug::writeFile(__METHOD__, ': ', $parser->getTitle()->getPrefixedText());
+		#}
+
 		// This should work up to 1.35. In 1.36, they change mPreprocessor to private. At that point, we can probably
 		// override this through reflection. It doesn't look like there are any other options, since even in a derived
 		// class, we can't set the private mPreprocessor property.
@@ -244,6 +260,10 @@ class MetaTemplateHooks
 			case MetaTemplate::VR_PAGENAME0:
 				$ret = MetaTemplate::doPageNameX($parser, $frame, null);
 				break;
+		}
+
+		if (isset($ret)) {
+			// $variableCache[$magicWordId] = $ret;
 		}
 
 		return true;

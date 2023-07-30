@@ -197,7 +197,7 @@ class MetaTemplateSql
 			return false;
 		}
 
-		RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
+		#RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
 		// Assumes cascading is in effect to delete TABLE_DATA rows.
 		$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId]);
 		return true;
@@ -523,7 +523,7 @@ class MetaTemplateSql
 	 */
 	public function saveVars(MetaTemplateSetCollection $vars): bool
 	{
-		RHDebug::writeFile('Vars', $vars);
+		#RHDebug::writeFile(__METHOD__ . ': Vars: ', $vars);
 		if (wfReadOnly()) {
 			return false;
 		}
@@ -533,12 +533,12 @@ class MetaTemplateSql
 		if (!isset(self::$pagesSaved[$articleId])) {
 			self::$pagesSaved[$articleId] = true;
 			$oldData = $this->loadPageVariables($articleId);
-			RHDebug::writeFile('Old Data', $oldData);
+			#RHDebug::writeFile('Old Data', $oldData);
 			if (!$oldData || $oldData->revId <= $vars->revId || $vars->revId === 0) {
 				// In theory, $oldData->revId < $vars->revId should work, but <= is used in case loaded data is being re-saved without an actual page update.
 				$upserts = new MetaTemplateUpserts($oldData, $vars);
 				if ($upserts->getTotal() > 0) {
-					RHDebug::writeFile('Saving');
+					#RHDebug::writeFile('Saving');
 					$this->saveUpserts($upserts);
 					return true;
 				}
@@ -613,7 +613,7 @@ class MetaTemplateSql
 		}
 
 		$result = $this->dbWrite->insert(self::TABLE_DATA, $data);
-		RHDebug::writeFile(__METHOD__ . ' Insert: ' . (int)$result);
+		#RHDebug::writeFile(__METHOD__ . ' Insert: ' . (int)$result);
 	}
 
 	/**
@@ -666,11 +666,11 @@ class MetaTemplateSql
 	 */
 	private function saveUpserts(MetaTemplateUpserts $upserts)
 	{
-		RHDebug::writeFile($upserts);
+		#RHDebug::writeFile($upserts);
 		$this->dbWrite->startAtomic(__METHOD__);
 		$deletes = $upserts->deletes;
 		if (count($deletes)) {
-			RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
+			#RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
 			// Assumes cascading is in effect, so doesn't delete TABLE_DATA entries.
 			$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_SET_ID => $deletes]);
 		}
@@ -694,7 +694,7 @@ class MetaTemplateSql
 				$setId = $this->dbWrite->insertId();
 			}
 
-			RHDebug::writeFile('Insert ID: ', $setId);
+			#RHDebug::writeFile('Insert ID: ', $setId);
 			$this->insertSetData($setId, $newSet);
 		}
 
@@ -763,7 +763,7 @@ class MetaTemplateSql
 		}
 
 		if (count($deletes)) {
-			RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
+			#RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
 			$this->dbWrite->delete(self::TABLE_DATA, [
 				self::FIELD_SET_ID => $setId,
 				self::FIELD_VAR_NAME => $deletes

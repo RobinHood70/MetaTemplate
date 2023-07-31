@@ -28,6 +28,7 @@ class MetaTemplate
 	public const PF_INHERIT = 'inherit';
 	public const PF_LOCAL = 'local';
 	public const PF_NAMESPACEx = 'namespacex';
+	public const PF_NESTLEVEL = 'nestlevel';
 	public const PF_PAGENAMEx = 'pagenamex';
 	public const PF_PREVIEW = 'preview';
 	public const PF_RETURN = 'return';
@@ -289,19 +290,27 @@ class MetaTemplate
 	 *
 	 * @return int The frame depth.
 	 */
-	public static function doNestLevel(Parser $parser, PPFrame $frame): int
+	public static function doNestLevel(Parser $parser, PPFrame $frame, ?array $args): int
 	{
 		$parser->addTrackingCategory('metatemplate-tracking-frames');
 		// Rely on internal magic word caching; ours would be a duplication of effort.
 		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::VR_NESTLEVEL_VAR);
 		$lastVal = false;
-		foreach ($frame->getNamedArguments() as $arg => $value) {
-			// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
-			// case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
-			// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
-			// multiple qualifying values defined.
-			if ($nestlevelVars->matchStartToEnd($arg)) {
-				$lastVal = $value;
+		if ($args && count($args) && $parser->getOptions()->getIsPreview()) {
+			$value = $frame->expand(($args[0]));
+			if (ctype_digit($value)) {
+				$lastVal = (int)$value;
+			}
+		} else {
+			foreach ($frame->getNamedArguments() as $arg => $value) {
+				// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
+				// case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
+				// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
+				// multiple qualifying values defined.
+				if ($nestlevelVars->matchStartToEnd($arg)) {
+					$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
+					$lastVal = $value;
+				}
 			}
 		}
 

@@ -83,6 +83,7 @@
 		"metatemplate-tracking-listsaved",
 		"metatemplate-tracking-listsaved-extraparams",
 		"metatemplate-tracking-load",
+		"metatemplate-tracking-oldpagenames",
 		"metatemplate-tracking-save",
 		"metatemplate-tracking-savemarkup-overlap",
 		"metatemplate-tracking-variables"

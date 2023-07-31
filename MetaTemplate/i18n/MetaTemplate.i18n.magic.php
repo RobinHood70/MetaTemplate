@@ -12,6 +12,7 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 	$magicWords['en'] += [
 		MetaTemplate::PF_FULLPAGENAMEx => [1, 'FULLPAGENAMEx'],
 		MetaTemplate::PF_NAMESPACEx => [1, 'NAMESPACEx'],
+		MetaTemplate::PF_NESTLEVEL => [1, 'NESTLEVEL'],
 		MetaTemplate::PF_PAGENAMEx => [1, 'PAGENAMEx'],
 
 		MetaTemplate::VR_FULLPAGENAME0 => [1, 'FULLPAGENAME0'],

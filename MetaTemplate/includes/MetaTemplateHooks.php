@@ -255,7 +255,7 @@ class MetaTemplateHooks
 				$ret = MetaTemplate::doNamespaceX($parser, $frame, null);
 				break;
 			case MetaTemplate::VR_NESTLEVEL:
-				$ret = MetaTemplate::doNestLevel($parser, $frame);
+				$ret = MetaTemplate::doNestLevel($parser, $frame, null);
 				break;
 			case MetaTemplate::VR_PAGENAME0:
 				$ret = MetaTemplate::doPageNameX($parser, $frame, null);
@@ -263,7 +263,7 @@ class MetaTemplateHooks
 		}
 
 		if (isset($ret)) {
-			// $variableCache[$magicWordId] = $ret;
+			$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
 		}
 
 		return true;
@@ -298,6 +298,7 @@ class MetaTemplateHooks
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 			$parser->setFunctionHook(MetaTemplate::PF_FULLPAGENAMEx, 'MetaTemplate::doFullPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
 			$parser->setFunctionHook(MetaTemplate::PF_NAMESPACEx, 'MetaTemplate::doNamespaceX', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
+			$parser->setFunctionHook(MetaTemplate::PF_NESTLEVEL, 'MetaTemplate::doNestlevel', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
 			$parser->setFunctionHook(MetaTemplate::PF_PAGENAMEx, 'MetaTemplate::doPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
 		}
 	}

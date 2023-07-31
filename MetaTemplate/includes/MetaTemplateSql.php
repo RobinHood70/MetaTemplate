@@ -641,7 +641,7 @@ class MetaTemplateSql
 			return null;
 		}
 
-		$retval = new MetaTemplateSetCollection($pageId, $row[self::FIELD_REV_ID]);
+		$retval = new MetaTemplateSetCollection($pageId, $row[self::FIELD_REV_ID], false);
 		while ($row) {
 			$set =  $retval->addToSet($row[self::FIELD_SET_ID], $row[self::FIELD_SET_NAME]);
 			$varName = $row[self::FIELD_VAR_NAME];

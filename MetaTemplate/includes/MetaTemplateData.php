@@ -337,10 +337,6 @@ class MetaTemplateData
 
 		unset($values[0]);
 		$pageId = $loadTitle->getArticleID();
-		if ($pageId <= 0) {
-			return;
-		}
-
 		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
 		$output = $parser->getOutput();
 		#RHecho($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
@@ -583,7 +579,7 @@ class MetaTemplateData
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, true);
 		}
 
-		if ($title->getNamespace() !== NS_TEMPLATE && !$parser->getOptions()->getIsPreview()) {
+		if ($title->getNamespace() !== NS_TEMPLATE) {
 			$setName = substr($magicArgs[self::NA_SET] ?? '', 0, self::SAVE_SETNAME_WIDTH);
 			// This is effectively what saves the variables, though the actual save comes at the end in
 			// onParserAfterTidy().
@@ -669,7 +665,7 @@ class MetaTemplateData
 		// the previous call.
 		$pageId = $page->getId();
 		if ($pageId <= 0 || $pageId === self::$prevId) {
-			RHDebug::writeFile(__METHOD__, ': Error or used output from previous.');
+			#RHDebug::writeFile(__METHOD__, ': Previewing, error, or using output from previous call.');
 			return;
 		}
 
@@ -683,6 +679,10 @@ class MetaTemplateData
 		}
 
 		$sd = $parserOutput->getExtensionData(self::KEY_SAVE_DATA);
+		if ($sd->isPreview) {
+			return;
+		}
+
 		$sql = MetaTemplateSql::getInstance();
 		if ($sd && !empty($sd->sets)) {
 			if ($sd->articleId === 0) {
@@ -723,8 +723,12 @@ class MetaTemplateData
 		#RHDebug::writeFile(__METHOD__, $setName, ' => ', $variables);
 		if (count($variables)) {
 			$output = $parser->getOutput();
-			$data = $output->getExtensionData(self::KEY_SAVE_DATA)
-				?? new MetaTemplateSetCollection($parser->getTitle()->getArticleID(), $parser->getTitle()->getLatestRevID());
+			$data = $output->getExtensionData(self::KEY_SAVE_DATA);
+			if (is_null($data)) {
+				$title = $parser->getTitle();
+				$data = new MetaTemplateSetCollection($title->getArticleID(), $title->getLatestRevID(), $parser->getOptions()->getIsPreview());
+			}
+
 			$data->addToSet(0, $setName, $variables);
 			$output->setExtensionData(self::KEY_SAVE_DATA, $data);
 		}

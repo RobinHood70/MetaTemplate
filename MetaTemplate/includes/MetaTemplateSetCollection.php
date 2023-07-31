@@ -2,6 +2,14 @@
 
 class MetaTemplateSetCollection
 {
+	/**
+	 * Whether this is preview data or data that should be saved. This allows #load to load preview data from the same
+	 * page, even when the page hasn't been saved.
+	 *
+	 * @var bool
+	 */
+	public $isPreview;
+
 	/** @var int */
 	public $articleId;
 
@@ -27,14 +35,16 @@ class MetaTemplateSetCollection
 	 *
 	 * @param Title $title The title the set belongs to.
 	 * @param int $revId The revision ID of the set.
+	 * @param bool $isPreview Whether this is preview data or not.
 
 	 * @internal These parameters are strictly here so that they travel with the set data; they're not used internally.
 	 *
 	 */
-	public function __construct(int $articleId, int $revId)
+	public function __construct(int $articleId, int $revId, bool $isPreview)
 	{
 		$this->articleId = $articleId;
 		$this->revId = $revId;
+		$this->isPreview = $isPreview;
 	}
 
 	/**

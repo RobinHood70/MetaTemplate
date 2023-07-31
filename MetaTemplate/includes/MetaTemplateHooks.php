@@ -54,7 +54,7 @@ class MetaTemplateHooks
 
 	public static function onArticlePurge(WikiPage $article)
 	{
-		RHDebug::writeFile(__METHOD__, ': ', $article->getTitle()->getPrefixedText());
+		#RHDebug::writeFile(__METHOD__, ': ', $article->getTitle()->getPrefixedText());
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_RESAVEONPURGE)) {
 			MetaTemplateData::save($article);
 		}
@@ -62,7 +62,7 @@ class MetaTemplateHooks
 
 	public static function onArticleSaveComplete(&$article, &$user, $text, $summary, $minoredit, $watchthis, $sectionanchor, &$flags, $revision, &$status, $baseRevId)
 	{
-		RHDebug::writeFile(__METHOD__, ': ', $article->getTitle()->getPrefixedText());
+		#RHDebug::writeFile(__METHOD__, ': ', $article->getTitle()->getPrefixedText());
 		MetaTemplateData::save($article->getPage());
 	}
 
@@ -87,7 +87,7 @@ class MetaTemplateHooks
 	 */
 	public static function onLinksUpdateComplete(&$linksUpdate)
 	{
-		RHDebug::writeFile(__METHOD__, ': ', $linksUpdate->getTitle()->getPrefixedText());
+		#RHDebug::writeFile(__METHOD__, ': ', $linksUpdate->getTitle()->getPrefixedText());
 		$page = WikiPage::factory($linksUpdate->getTitle());
 		MetaTemplateData::save($page);
 	}
@@ -154,7 +154,7 @@ class MetaTemplateHooks
 
 	public static function onPageContentSaveComplete($wikiPage, $user, $mainContent, $summaryText, $isMinor, $isWatch, $section, $flags, $revision, $status, $originalRevId, $undidRevId)
 	{
-		RHDebug::writeFile(__METHOD__, ': ', $wikiPage->getTitle()->getPrefixedText());
+		#RHDebug::writeFile(__METHOD__, ': ', $wikiPage->getTitle()->getPrefixedText());
 		MetaTemplateData::save($wikiPage);
 	}
 
@@ -193,7 +193,7 @@ class MetaTemplateHooks
 
 	public static function onPageSaveComplete(WikiPage $wikiPage, $user, string $summary, int $flags, $revisionRecord, $editResult)
 	{
-		RHDebug::writeFile(__METHOD__, ': ', $wikiPage->getTitle()->getPrefixedText());
+		#RHDebug::writeFile(__METHOD__, ': ', $wikiPage->getTitle()->getPrefixedText());
 		MetaTemplateData::save($wikiPage);
 	}
 

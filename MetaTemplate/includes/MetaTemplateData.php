@@ -656,20 +656,19 @@ class MetaTemplateData
 	 */
 	public static function save(WikiPage $page): void
 	{
-		RHDebug::writeFile(__METHOD__, ': ', $page->getTitle()->getPrefixedText());
+		#RHDebug::writeFile(__METHOD__, ': ', $page->getTitle()->getPrefixedText());
 		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 			return;
 		}
 
 		// Before saving, double-check that we're actually saving the data to a valid page that's not a duplicate of
 		// the previous call.
-		$pageId = $page->getId();
-		if ($pageId <= 0 || $pageId === self::$prevId) {
-			#RHDebug::writeFile(__METHOD__, ': Previewing, error, or using output from previous call.');
+		$latest = $page->getLatest();
+		if ($latest <= 0 || $latest === self::$prevId) {
 			return;
 		}
 
-		self::$prevId = $pageId;
+		self::$prevId = $latest;
 		$title = $page->getTitle();
 		$options = $page->makeParserOptions('canonical');
 		$parserOutput = $page->getParserOutput($options, null, true);
@@ -678,16 +677,20 @@ class MetaTemplateData
 			return;
 		}
 
+		#RHDebug::writeFile(__METHOD__, ' - Saving: ', $page->getTitle()->getPrefixedText());
+		/** @var MetaTemplateSetCollection $sd */
 		$sd = $parserOutput->getExtensionData(self::KEY_SAVE_DATA);
 		if ($sd->isPreview) {
 			return;
 		}
 
 		$sql = MetaTemplateSql::getInstance();
+		$pageId = $page->getId();
 		if ($sd && !empty($sd->sets)) {
 			if ($sd->articleId === 0) {
+				// I'm not sure if this is possible anymore, but leaving it here in case.
 				$sd->articleId = $pageId;
-				$sd->revId = $page->getLatest();
+				$sd->revId = $latest;
 			} elseif ($sd->articleId !== $pageId) {
 				// This should never happen!
 				$conflictTitle = Title::newFromID($sd->articleId)->getPrefixedText();
@@ -701,7 +704,6 @@ class MetaTemplateData
 			$doUpdates = $sql->hasPageVariables($pageId) && $sql->deleteVariables($pageId);
 		}
 
-		RHDebug::writeFile('Do Updates: ', (int)$doUpdates);
 		if ($doUpdates) {
 			VersionHelper::getInstance()->doSecondaryDataUpdates($page, $parserOutput, $options);
 		}
@@ -723,10 +725,15 @@ class MetaTemplateData
 		#RHDebug::writeFile(__METHOD__, $setName, ' => ', $variables);
 		if (count($variables)) {
 			$output = $parser->getOutput();
+			/** @var MetaTemplateSetCollection $data */
 			$data = $output->getExtensionData(self::KEY_SAVE_DATA);
 			if (is_null($data)) {
 				$title = $parser->getTitle();
-				$data = new MetaTemplateSetCollection($title->getArticleID(), $title->getLatestRevID(), $parser->getOptions()->getIsPreview());
+				$data = new MetaTemplateSetCollection(
+					$title->getArticleID(),
+					$title->getLatestRevID(),
+					$parser->getOptions()->getIsPreview()
+				);
 			}
 
 			$data->addToSet(0, $setName, $variables);
@@ -773,6 +780,7 @@ class MetaTemplateData
 	 */
 	private static function loadFromSaveData(ParserOutput $output, MetaTemplateSet &$set): bool
 	{
+		/** @var MetaTemplateSetCollection $data */
 		$data = $output->getExtensionData(self::KEY_SAVE_DATA);
 		if (!$data) {
 			return false;

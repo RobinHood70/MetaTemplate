@@ -292,14 +292,25 @@ class MetaTemplate
 	 */
 	public static function doNestLevel(Parser $parser, PPFrame $frame, ?array $args): int
 	{
+		RHDebug::show('Args', $args);
 		$parser->addTrackingCategory('metatemplate-tracking-frames');
 		// Rely on internal magic word caching; ours would be a duplication of effort.
 		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::VR_NESTLEVEL_VAR);
 		$lastVal = false;
-		if ($args && count($args) && $parser->getOptions()->getIsPreview()) {
+		if ($args && count($args)) {
 			$value = $frame->expand(($args[0]));
 			if (ctype_digit($value)) {
 				$lastVal = (int)$value;
+			}
+
+			foreach ($frame->getNamedArguments() as $arg => $value) {
+				// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
+				// case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
+				// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
+				// multiple qualifying values defined.
+				if ($nestlevelVars->matchStartToEnd($arg)) {
+					$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
+				}
 			}
 		} else {
 			foreach ($frame->getNamedArguments() as $arg => $value) {
@@ -308,7 +319,6 @@ class MetaTemplate
 				// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
 				// multiple qualifying values defined.
 				if ($nestlevelVars->matchStartToEnd($arg)) {
-					$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
 					$lastVal = $value;
 				}
 			}

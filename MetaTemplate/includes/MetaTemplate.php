@@ -300,15 +300,15 @@ class MetaTemplate
 			$value = $frame->expand(($args[0]));
 			if (ctype_digit($value)) {
 				$lastVal = (int)$value;
-			}
-
-			foreach ($frame->getNamedArguments() as $arg => $value) {
-				// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
-				// case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
-				// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
-				// multiple qualifying values defined.
-				if ($nestlevelVars->matchStartToEnd($arg)) {
-					$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
+			} else {
+				foreach ($frame->getNamedArguments() as $arg => $value) {
+					// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
+					// case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
+					// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
+					// multiple qualifying values defined.
+					if ($nestlevelVars->matchStartToEnd($arg)) {
+						$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
+					}
 				}
 			}
 		} else {

@@ -249,20 +249,21 @@ class MetaTemplateHooks
 
 		switch ($magicWordId) {
 			case MetaTemplate::VR_FULLPAGENAME0:
-				$ret = MetaTemplate::doFullPageNameX($parser, $frame, null);
+				$ret2 = MetaTemplate::doFullPageNameX($parser, $frame, null);
 				break;
 			case MetaTemplate::VR_NAMESPACE0:
-				$ret = MetaTemplate::doNamespaceX($parser, $frame, null);
+				$ret2 = MetaTemplate::doNamespaceX($parser, $frame, null);
 				break;
 			case MetaTemplate::VR_NESTLEVEL:
-				$ret = MetaTemplate::doNestLevel($parser, $frame, null);
+				$ret2 = MetaTemplate::doNestLevel($parser, $frame, null);
 				break;
 			case MetaTemplate::VR_PAGENAME0:
-				$ret = MetaTemplate::doPageNameX($parser, $frame, null);
+				$ret2 = MetaTemplate::doPageNameX($parser, $frame, null);
 				break;
 		}
 
-		if (isset($ret)) {
+		if (isset($ret2)) {
+			$ret = $ret2;
 			$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
 		}
 

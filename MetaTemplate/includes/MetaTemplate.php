@@ -292,7 +292,6 @@ class MetaTemplate
 	 */
 	public static function doNestLevel(Parser $parser, PPFrame $frame, ?array $args): int
 	{
-		RHDebug::show('Args', $args);
 		$parser->addTrackingCategory('metatemplate-tracking-frames');
 		// Rely on internal magic word caching; ours would be a duplication of effort.
 		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::VR_NESTLEVEL_VAR);

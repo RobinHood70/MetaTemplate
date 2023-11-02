@@ -138,7 +138,7 @@ class MetaTemplate
 	{
 		// Show {{{parameter names}}} if on the actual template page and not previewing, but allow bypass variables
 		// like ns_base/ns_id through at all times.
-		$parser->addTrackingCategory('metatemplate-tracking-variables');
+		// $parser->addTrackingCategory('metatemplate-tracking-variables');
 		if (!$frame->parent && $parser->getTitle()->getNamespace() === NS_TEMPLATE && !$parser->getOptions()->getIsPreview()) {
 			if (!isset(self::$bypassVars)) {
 				self::getBypassVariables();
@@ -165,7 +165,7 @@ class MetaTemplate
 	 */
 	public static function doFullPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-frames');
+		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		$title = self::getTitleAtDepth($parser, $frame, $args);
 		return is_null($title) ? '' : $title->getPrefixedText();
 	}
@@ -186,7 +186,7 @@ class MetaTemplate
 	 */
 	public static function doInherit(Parser $parser, PPFrame $frame, array $args): array
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-frames');
+		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		if (!$frame->depth) {
 			return [''];
 		}
@@ -257,7 +257,7 @@ class MetaTemplate
 	 */
 	public static function doLocal(Parser $parser, PPFrame $frame, array $args): void
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-variables');
+		// $parser->addTrackingCategory('metatemplate-tracking-variables');
 		self::checkAndSetVar($frame, $args, true);
 	}
 
@@ -273,7 +273,7 @@ class MetaTemplate
 	 */
 	public static function doNamespaceX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-frames');
+		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		$title = self::getTitleAtDepth($parser, $frame, $args);
 		return $title ? $title->getNsText() : '';
 	}
@@ -292,7 +292,7 @@ class MetaTemplate
 	 */
 	public static function doNestLevel(Parser $parser, PPFrame $frame, ?array $args): int
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-frames');
+		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		// Rely on internal magic word caching; ours would be a duplication of effort.
 		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::VR_NESTLEVEL_VAR);
 		$lastVal = false;
@@ -340,7 +340,7 @@ class MetaTemplate
 	 */
 	public static function doPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-frames');
+		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		$title = self::getTitleAtDepth($parser, $frame, $args);
 		return is_null($title) ? '' : $title->getText();
 	}
@@ -358,7 +358,7 @@ class MetaTemplate
 	 */
 	public static function doPreview(Parser $parser, PPFrame $frame, array $args): void
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-variables');
+		// $parser->addTrackingCategory('metatemplate-tracking-variables');
 		if (
 			$frame->depth == 0 &&
 			$parser->getOptions()->getIsPreview()
@@ -383,7 +383,7 @@ class MetaTemplate
 	 */
 	public static function doReturn(Parser $parser, PPFrame $frame, array $args): void
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-frames');
+		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		$parent = $frame->parent;
 		if (!$parent) {
 			return;
@@ -431,7 +431,7 @@ class MetaTemplate
 	 */
 	public static function doUnset(Parser $parser, PPFrame $frame, array $args): void
 	{
-		$parser->addTrackingCategory('metatemplate-tracking-variables');
+		// $parser->addTrackingCategory('metatemplate-tracking-variables');
 
 		static $magicWords;
 		$magicWords = $magicWords ?? new MagicWordArray([

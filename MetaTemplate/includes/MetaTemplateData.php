@@ -623,7 +623,7 @@ class MetaTemplateData
 			case 2: // Overlapping <savemarkup> and {{#save:...|savemarkup=1}}
 				$msg = wfMessage('metatemplate-listsaved-savemarkup-overlap')->text();
 				$parser->getOutput()->addWarning($msg);
-				$parser->addTrackingCategory('metatemplate-tracking-savemarkup-overlap');
+				// $parser->addTrackingCategory('metatemplate-tracking-savemarkup-overlap');
 				break;
 			case 3: // Setting with #local or variants
 				// This variant retains both templates and inclusion info.

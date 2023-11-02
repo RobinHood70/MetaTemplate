@@ -406,9 +406,8 @@ class MetaTemplate
 		$anyCase = self::checkAnyCase($magicArgs);
 		$translations = self::getVariableTranslations($frame, $values);
 		foreach ($translations as $srcName => $destName) {
-			$result = self::getVarDirect($frame, $srcName, $anyCase);
-			if ($result) {
-				$dom = $result[1];
+			[, $dom] = self::getVarDirect($frame, $srcName, $anyCase);
+			if ($dom) {
 				$expand = $frame->expand($dom, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES);
 				$expand = VersionHelper::getInstance()->getStripState($frame->parser)->unstripBoth($expand);
 				$expand = trim($expand);
@@ -543,25 +542,17 @@ class MetaTemplate
 		// Try for an exact match without triggering expansion.
 
 		$varValue = $frame->namedArgs[$varName] ?? $frame->numberedArgs[$varName] ?? null;
-		if (!is_null($varValue)) {
-			return [$varName, $varValue];
-		}
-
-		if ($anyCase && !self::isNumericVariable($varName)) {
+		if (is_null($varValue) && $anyCase && !self::isNumericVariable($varName)) {
 			$lcName = $lcName ?? strtolower($varName);
-			foreach ($frame->namedArgs as $key => $varValue) {
+			foreach ($frame->namedArgs as $key => $value) {
 				if (strtolower($key) === $lcName) {
-					$lastKey = $key;
-					$lastValue = $varValue;
+					$varName = $key;
+					$varValue = $value;
 				}
 			}
-
-			if (isset($lastKey)) {
-				return [$lastKey, $lastValue];
-			}
 		}
 
-		return null;
+		return [$varName, $varValue];
 	}
 
 	/**
@@ -749,6 +740,11 @@ class MetaTemplate
 			self::NA_CASE
 		]);
 
+		$usingData = self::getSetting(MetaTemplate::STTNG_ENABLEDATA);
+		if ($usingData) {
+			$magicWords->add(MetaTemplateData::NA_SAVEMARKUP);
+		}
+
 		/** @var array $magicArgs */
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
@@ -772,26 +768,7 @@ class MetaTemplate
 		#RHDebug::show($varKey ?? $varName, $frame->expand($varValue ?? '<not defined>'));
 		#RHDebug::show('Overwrite', (int)$overwrite);
 		#RHDebug::show('Value count', count($values));
-		if ($varKey !== $varName && !is_null($varValue) && (!$overwrite || count($values) === 1)) {
-			#RHDebug::echo('Direct copy');
-			// If we got a value but the name has changed, set the variable to the new value directly.
-			$varDisplay = $frame->namedExpansionCache[$varKey] ?? null;
-			self::setVarDirect($frame, $varName, $varValue, $varDisplay);
-
-			return;
-		}
-
-		if ($overwrite) {
-			$varValue = $values[1] ?? null;
-		} else {
-			$varValue = $varValue ?? $values[1] ?? null;
-		}
-
-		if (!is_null($varValue)) {
-			$prevMode = MetaTemplateData::$saveMode;
-			$varDisplay = trim($frame->expand($varValue));
-			#RHDebug::show('varDisplay', $varDisplay);
-			MetaTemplateData::$saveMode = 3;
+		if (count($values) > 1 && ($overwrite || is_null($varValue)) && $usingData) {
 			// Because we have to expand variables, the generated dom tree can get misprocessed in the event of
 			// something with an = or | (pipe) in it. I haven't found a good resolution for this. Should I a do
 			// manual replace: = with {{=}} and similar? Since this should only affect variables saved within a
@@ -800,11 +777,28 @@ class MetaTemplate
 			// Example: if mod=<sup class=example>TR</sup>
 			// {{Echo|{{{mod}}}}} becomes
 			// {{Echo|(variable: <sup class)(equals)(value: example>TR</sup>)}}
-			$varValue = trim($frame->expand($varValue, PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
-			$dom = $frame->parser->preprocessToDom($varValue);
+			$prevMode = MetaTemplateData::$saveMode;
+			MetaTemplateData::$saveMode = 3;
+			if ($magicArgs[MetaTemplateData::NA_SAVEMARKUP] ?? false) {
+				$varValue = trim($frame->expand($values[1], PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
+				$varValue = $frame->parser->preprocessToDom($varValue);
+				$varDisplay = null;
+			} else {
+				$varDisplay = $frame->expand($values[1]);
+				$varValue = $frame->parser->preprocessToDom($varDisplay);
+			}
+
 			MetaTemplateData::$saveMode = $prevMode; // Revert to previous before expanding for display.
-			self::setVarDirect($frame, $varName, $dom, $varDisplay);
-			#RHshow('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false)[1], PPFrame::RECOVER_ORIG));
+			#RHDebug::show('varValue', $varValue, "\ngetArg(): ", $frame->getArgument($varName), "\ngetVar(): ", $frame->expand(self::getVarDirect($frame, $varName, false)[1], PPFrame::RECOVER_ORIG));
+		} else {
+			$varDisplay = $frame->getArgument($varKey);
+			if (!$varDisplay) {
+				$varDisplay = null;
+			}
+		}
+
+		if (!is_null($varValue)) {
+			self::setVarDirect($frame, $varName, $varValue, $varDisplay);
 		}
 	}
 
@@ -879,12 +873,7 @@ class MetaTemplate
 		$dom = null;
 		while ($nextFrame && is_null($dom)) {
 			$curFrame = $nextFrame;
-			$result = self::getVarDirect($curFrame, $varName, $anyCase);
-			if ($result) {
-				$varName = $result[0];
-				$dom = $result[1];
-			}
-
+			[$varName, $dom] = self::getVarDirect($curFrame, $varName, $anyCase);
 			$nextFrame = $nextFrame->parent;
 		}
 

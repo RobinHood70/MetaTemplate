@@ -123,8 +123,6 @@ class MetaTemplateData
 	 */
 	public static function doListSaved(Parser $parser, PPFrame $frame, array $args): array
 	{
-		global $wgContLang;
-
 		$parser->addTrackingCategory('metatemplate-tracking-listsaved');
 
 		static $magicWords;
@@ -211,7 +209,8 @@ class MetaTemplateData
 		// Set up database queries to include all condition and preload data.
 		if (isset($magicArgs[MetaTemplate::NA_NAMESPACE])) {
 			$namespace = trim($frame->expand($magicArgs[MetaTemplate::NA_NAMESPACE]));
-			$namespace = $wgContLang->getNsIndex($namespace);
+			$contLang = VersionHelper::getInstance()->getContentLanguage();
+			$namespace = $contLang->getNsIndex($namespace);
 		} else {
 			$namespace = null;
 		}
@@ -362,7 +361,8 @@ class MetaTemplateData
 					: "$srcName->$destName";
 			}
 
-			if (is_null(MetaTemplate::getVarDirect($frame, $destName, $anyCase))) {
+			[, $dom] = MetaTemplate::getVarDirect($frame, $destName, $anyCase);
+			if (is_null($dom)) {
 				$set->variables[$srcName] = false;
 			}
 		}
@@ -548,9 +548,8 @@ class MetaTemplateData
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		#RHDebug::writeFile('Translations: ', $translations);
 		foreach ($translations as $srcName => $destName) {
-			$result = MetaTemplate::getVarDirect($frame, $srcName, $anyCase);
-			if ($result) {
-				$dom = $result[1];
+			[, $dom] = MetaTemplate::getVarDirect($frame, $srcName, $anyCase);
+			if ($dom) {
 				// Reparses the value as if included, so includeonly works as expected.
 				$varValue = trim($frame->expand($dom, PPFrame::RECOVER_ORIG));
 				$dom = $parser->preprocessToDom($varValue, Parser::PTD_FOR_INCLUSION);
@@ -680,7 +679,7 @@ class MetaTemplateData
 		#RHDebug::writeFile(__METHOD__, ' - Saving: ', $page->getTitle()->getPrefixedText());
 		/** @var MetaTemplateSetCollection $sd */
 		$sd = $parserOutput->getExtensionData(self::KEY_SAVE_DATA);
-		if ($sd->isPreview) {
+		if ($sd && $sd->isPreview) {
 			return;
 		}
 

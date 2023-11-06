@@ -562,7 +562,9 @@ class MetaTemplateData
 				}
 
 				// At last, if it's not empty, we can add the value to the save list.
-				$varsToSave[$destName] = $varValue;
+				if (strlen($varValue) > 0) {
+					$varsToSave[$destName] = $varValue;
+				}
 			}
 		}
 

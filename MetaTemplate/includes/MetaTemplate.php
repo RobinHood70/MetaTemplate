@@ -784,7 +784,7 @@ class MetaTemplate
 				$varValue = $frame->parser->preprocessToDom($varValue);
 				$varDisplay = null;
 			} else {
-				$varDisplay = $frame->expand($values[1]);
+				$varDisplay = trim($frame->expand($values[1]));
 				$varValue = $frame->parser->preprocessToDom($varDisplay);
 			}
 

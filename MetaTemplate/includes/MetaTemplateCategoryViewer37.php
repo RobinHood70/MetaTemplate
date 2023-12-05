@@ -27,7 +27,7 @@ class MetaTemplateCategoryViewer37 extends MetaTemplateCategoryViewer
 			$type = null;
 		}
 
-		if (is_null(self::$templates[$type])) {
+		if ($this->showGallery) {
 			parent::addImage($page, $sortkey, $pageLength, $isRedirect);
 			return;
 		}

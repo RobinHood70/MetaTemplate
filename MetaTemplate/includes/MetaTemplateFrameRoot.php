@@ -186,6 +186,5 @@ class MetaTemplateFrameRoot extends PPTemplateFrame_Hash
 	public function setVolatile($flag = true): void
 	{
 		$this->volatile = $flag;
-		$this->parser->getOutput()->updateCacheExpiry(0);
 	}
 }

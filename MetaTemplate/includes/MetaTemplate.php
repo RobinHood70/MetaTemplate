@@ -29,6 +29,7 @@ class MetaTemplate
 	public const PF_LOCAL = 'local';
 	public const PF_NAMESPACEx = 'namespacex';
 	public const PF_NESTLEVEL = 'nestlevel';
+	public const PF_NESTLEVEL_VAR = 'metatemplate-nestlevel-var';
 	public const PF_PAGENAMEx = 'pagenamex';
 	public const PF_PREVIEW = 'preview';
 	public const PF_RETURN = 'return';
@@ -39,12 +40,6 @@ class MetaTemplate
 	public const STTNG_ENABLEDEFINE = 'EnableDefine';
 	public const STTNG_ENABLEPAGENAMES = 'EnablePageNames';
 	public const STTNG_RESAVEONPURGE = 'ResaveOnPurge';
-
-	public const VR_FULLPAGENAME0 = 'metatemplate-fullpagename0';
-	public const VR_NAMESPACE0 = 'metatemplate-namespace0';
-	public const VR_NESTLEVEL = 'metatemplate-nestlevel';
-	public const VR_NESTLEVEL_VAR = 'metatemplate-nestlevel-var';
-	public const VR_PAGENAME0 = 'metatemplate-pagename0';
 	#endregion
 
 	#region Public Static Variables
@@ -294,7 +289,7 @@ class MetaTemplate
 	{
 		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		// Rely on internal magic word caching; ours would be a duplication of effort.
-		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::VR_NESTLEVEL_VAR);
+		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::PF_NESTLEVEL_VAR);
 		$lastVal = false;
 		if ($args && count($args)) {
 			$value = $frame->expand(($args[0]));
@@ -508,8 +503,7 @@ class MetaTemplate
 	 *     EnableDefine (self::STTNG_ENABLEDEFINE) - if set to false, the following features are disabled:
 	 *         {{#define}}, {{#inherit}}, {{#local}}, {{#preview}}, {{#return}}, {{#unset}}
 	 *     EnablePageNames (self::STTNG_ENABLEPAGENAMES) - if set to false, the following features are disabled:
-	 *         {{FULLPAGENAME0}}, {{FULLPAGENAMEx}}, {{NAMESPACEx}}, {{NAMESPACE0}}, {{NESTLEVEL}}, {{PAGENAME0}},
-	 *         {{PAGENAMEx}}
+	 *         {{FULLPAGENAMEx}}, {{NAMESPACEx}}, {{NESTLEVEL}}, {{PAGENAMEx}}
 	 *     ListsavedMaxTemplateSize	- templates with lengths above the size listed here will not be exectued.
 	 *
 	 * @param string $setting

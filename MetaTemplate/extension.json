@@ -58,14 +58,12 @@
 		"CategoryViewer::doCategoryQuery": "MetaTemplateHooks::onDoCategoryQuery",
 		"LinksUpdateComplete": "MetaTemplateHooks::onLinksUpdateComplete",
 		"LoadExtensionSchemaUpdates": "MetaTemplateHooks::onLoadExtensionSchemaUpdates",
-		"MagicWordwgVariableIDs": "MetaTemplateHooks::onMagicWordwgVariableIDs",
 		"MetaTemplateSetBypassVars": "MetaTemplateHooks::onMetaTemplateSetBypassVars",
 		"OutputPageParserOutput": "MetaTemplateHooks::onOutputPageParserOutput",
 		"PageContentSaveComplete": "MetaTemplateHooks::onPageContentSaveComplete",
 		"PageMoveComplete": "MetaTemplateHooks::onPageMoveComplete",
 		"PageSaveComplete": "MetaTemplateHooks::onPageSaveComplete",
 		"ParserFirstCallInit": "MetaTemplateHooks::onParserFirstCallInit",
-		"ParserGetVariableValueSwitch": "MetaTemplateHooks::onParserGetVariableValueSwitch",
 		"TitleMoveComplete": "MetaTemplateHooks::onPageMoveComplete"
 	},
 	"MessagesDirs": {

@@ -106,21 +106,6 @@ class MetaTemplateHooks
 	}
 
 	/**
-	 * Enables MetaTemplate's variables.
-	 *
-	 * @param array $aCustomVariableIds The list of custom variables to add to.
-	 */
-	public static function onMagicWordwgVariableIDs(array &$aCustomVariableIds): void
-	{
-		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
-			$aCustomVariableIds[] = MetaTemplate::VR_FULLPAGENAME0;
-			$aCustomVariableIds[] = MetaTemplate::VR_NAMESPACE0;
-			$aCustomVariableIds[] = MetaTemplate::VR_NESTLEVEL;
-			$aCustomVariableIds[] = MetaTemplate::VR_PAGENAME0;
-		}
-	}
-
-	/**
 	 * Adds ns_base and ns_id to the list of parameters that bypass the normal limitations on parameter evaluation when
 	 * viewing a template on its native page.
 	 *
@@ -228,46 +213,6 @@ class MetaTemplateHooks
 		MetaTemplate::init();
 		MetaTemplateData::init();
 		MetaTemplate::getCatViewer()::init();
-	}
-
-	/**
-	 * Gets the value of the specified variable.
-	 *
-	 * @param Parser $parser The parser in use.
-	 * @param array $variableCache The variable cache. Can be used to store values for faster evaluation in subsequent calls.
-	 * @param mixed $magicWordId The magic word ID to evaluate.
-	 * @param mixed $ret The return value.
-	 * @param PPFrame $frame The frame in use.
-	 *
-	 * @return bool Always true
-	 */
-	public static function onParserGetVariableValueSwitch(Parser $parser, array &$variableCache, $magicWordId, &$ret, PPFrame $frame): bool
-	{
-		if (!MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
-			return true;
-		}
-
-		switch ($magicWordId) {
-			case MetaTemplate::VR_FULLPAGENAME0:
-				$ret2 = MetaTemplate::doFullPageNameX($parser, $frame, null);
-				break;
-			case MetaTemplate::VR_NAMESPACE0:
-				$ret2 = MetaTemplate::doNamespaceX($parser, $frame, null);
-				break;
-			case MetaTemplate::VR_NESTLEVEL:
-				$ret2 = MetaTemplate::doNestLevel($parser, $frame, null);
-				break;
-			case MetaTemplate::VR_PAGENAME0:
-				$ret2 = MetaTemplate::doPageNameX($parser, $frame, null);
-				break;
-		}
-
-		if (isset($ret2)) {
-			$ret = $ret2;
-			$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
-		}
-
-		return true;
 	}
 	#endregion
 

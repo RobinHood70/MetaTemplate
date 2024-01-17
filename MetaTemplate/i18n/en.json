@@ -46,8 +46,6 @@
 	"metatemplate-tracking-listsaved-extraparams-desc": "The call to #listsaved contains extra parameters that are not part of the conditions. This format is no longer supported. Use #preload or #inherit within the template itself, depending on intent.",
 	"metatemplate-tracking-load": "MetaTemplate-Load",
 	"metatemplate-tracking-load-desc": "The page uses the <code><nowiki>{{#load}}</nowiki></code> function.",
-	"metatemplate-tracking-oldpagenames": "MetaTemplate-Deprecated",
-	"metatemplate-tracking-oldpagenames-desc": "The page uses an old {{xxxPAGENAME0}} or {{NESTLEVEL}} call.",
 	"metatemplate-tracking-save": "MetaTemplate-Save",
 	"metatemplate-tracking-save-desc": "The page uses the <code><nowiki>{{#save}}</nowiki></code> function.",
 	"metatemplate-tracking-savemarkup-overlap": "MetaTemplate-SaveMarkup overlap",

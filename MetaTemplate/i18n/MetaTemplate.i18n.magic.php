@@ -13,7 +13,6 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
 		MetaTemplate::PF_FULLPAGENAMEx => [1, 'FULLPAGENAMEx'],
 		MetaTemplate::PF_NAMESPACEx => [1, 'NAMESPACEx'],
 		MetaTemplate::PF_NESTLEVEL => [1, 'NESTLEVEL'],
-		MetaTemplate::PF_NESTLEVEL_VAR => [1, 'nestlevel'],
 		MetaTemplate::PF_PAGENAMEx => [1, 'PAGENAMEx'],
 	];
 }

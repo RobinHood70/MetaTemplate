@@ -158,7 +158,7 @@ class MetaTemplate
 	 *
 	 * @return string The requested full page name.
 	 */
-	public static function doFullPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
+	public static function doFullPageNameX(Parser $parser, PPFrame $frame, array $args): string
 	{
 		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		$title = self::getTitleAtDepth($parser, $frame, $args);
@@ -266,7 +266,7 @@ class MetaTemplate
 	 *
 	 * @return string The requested namespace.
 	 */
-	public static function doNamespaceX(Parser $parser, PPFrame $frame, ?array $args): string
+	public static function doNamespaceX(Parser $parser, PPFrame $frame, array $args): string
 	{
 		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		$title = self::getTitleAtDepth($parser, $frame, $args);
@@ -285,41 +285,12 @@ class MetaTemplate
 	 *
 	 * @return int The frame depth.
 	 */
-	public static function doNestLevel(Parser $parser, PPFrame $frame, ?array $args): int
+	public static function doNestLevel(Parser $parser, PPFrame $frame, array $args): int
 	{
 		// $parser->addTrackingCategory('metatemplate-tracking-frames');
-		// Rely on internal magic word caching; ours would be a duplication of effort.
-		$nestlevelVars = VersionHelper::getInstance()->getMagicWord(MetaTemplate::PF_NESTLEVEL_VAR);
-		$lastVal = false;
-		if ($args && count($args)) {
-			$value = $frame->expand(($args[0]));
-			if (ctype_digit($value)) {
-				$lastVal = (int)$value;
-			} else {
-				foreach ($frame->getNamedArguments() as $arg => $value) {
-					// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
-					// case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
-					// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
-					// multiple qualifying values defined.
-					if ($nestlevelVars->matchStartToEnd($arg)) {
-						$parser->addTrackingCategory('metatemplate-tracking-oldpagenames');
-					}
-				}
-			}
-		} else {
-			foreach ($frame->getNamedArguments() as $arg => $value) {
-				// We do a matchStartToEnd() here rather than flipping the logic around and iterating through synonyms in
-				// case someone overrides the declaration to be case-insensitive. Likewise, we always check all arguments,
-				// regardless of case-sensitivity, so that the last one defined is always used in the event that there are
-				// multiple qualifying values defined.
-				if ($nestlevelVars->matchStartToEnd($arg)) {
-					$lastVal = $value;
-				}
-			}
-		}
-
-		return $lastVal !== false
-			? $lastVal
+		$value = trim($frame->expand($args[0]));
+		return strlen($value)
+			? (int)$value
 			: $frame->depth;
 	}
 
@@ -333,7 +304,7 @@ class MetaTemplate
 	 *
 	 * @return string The requested page name.
 	 */
-	public static function doPageNameX(Parser $parser, PPFrame $frame, ?array $args): string
+	public static function doPageNameX(Parser $parser, PPFrame $frame, array $args): string
 	{
 		// $parser->addTrackingCategory('metatemplate-tracking-frames');
 		$title = self::getTitleAtDepth($parser, $frame, $args);
@@ -825,11 +796,9 @@ class MetaTemplate
 	 *
 	 * @return ?Title
 	 */
-	private static function getTitleAtDepth(Parser $parser, PPFrame $frame, ?array $args): ?Title
+	private static function getTitleAtDepth(Parser $parser, PPFrame $frame, array $args): ?Title
 	{
-		$level = empty($args[0])
-			? 0
-			: (int)$frame->expand($args[0]);
+		$level = (int)$frame->expand($args[0]);
 		$depth = $frame->depth;
 		$level = ($level > 0) ? $depth - $level + 1 : -$level;
 		if ($level < $depth) {

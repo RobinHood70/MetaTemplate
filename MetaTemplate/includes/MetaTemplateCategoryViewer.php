@@ -74,7 +74,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 	public static function doCatPageTemplate(string $content, array $attributes, Parser $parser, PPFrame $frame = NULL): string
 	{
 		$parser->addTrackingCategory('metatemplate-tracking-catpagetemplate');
-		if ($parser->getTitle()->getNamespace() !== NS_CATEGORY || !strlen(trim($content))) {
+		if (VersionHelper::getInstance()->getParserNamespace($parser) !== NS_CATEGORY || !strlen(trim($content))) {
 			return '';
 		}
 

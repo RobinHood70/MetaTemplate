@@ -57,6 +57,13 @@ class MetaTemplateData
 	#region Public Static Properties
 
 	/**
+	 * Keyword to use for 'savemarkup' value in #listsaved and <catpagetemplate>.
+	 *
+	 * @var ?string $mwSet
+	 */
+	public static $mwSavemarkup = null;
+
+	/**
 	 * Keyword to use for 'set' value in #listsaved and <catpagetemplate>.
 	 *
 	 * @var ?string $mwSet
@@ -645,6 +652,7 @@ class MetaTemplateData
 	public static function init()
 	{
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			self::$mwSavemarkup = self::$mwSavemarkup ?? VersionHelper::getInstance()->getMagicWord(self::NA_SAVEMARKUP)->getSynonym(0);
 			self::$mwSet = self::$mwSet ?? VersionHelper::getInstance()->getMagicWord(self::NA_SET)->getSynonym(0);
 		}
 	}
@@ -674,7 +682,7 @@ class MetaTemplateData
 		$options = $page->makeParserOptions('canonical');
 		$parserOutput = $page->getParserOutput($options, null, true);
 		if (!$parserOutput) {
-			// Not sure it's possible for the revision to not be found, but abort if it ever happens.
+			// Abort if parserOutput not found.
 			return;
 		}
 

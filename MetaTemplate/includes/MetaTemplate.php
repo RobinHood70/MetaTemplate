@@ -134,7 +134,7 @@ class MetaTemplate
 		// Show {{{parameter names}}} if on the actual template page and not previewing, but allow bypass variables
 		// like ns_base/ns_id through at all times.
 		// $parser->addTrackingCategory('metatemplate-tracking-variables');
-		if (!$frame->parent && $parser->getTitle()->getNamespace() === NS_TEMPLATE && !$parser->getOptions()->getIsPreview()) {
+		if (!$frame->parent && VersionHelper::getInstance()->getParserNamespace($parser) === NS_TEMPLATE && !$parser->getOptions()->getIsPreview()) {
 			if (!isset(self::$bypassVars)) {
 				self::getBypassVariables();
 			}

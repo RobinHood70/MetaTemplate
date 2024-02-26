@@ -226,26 +226,26 @@ class MetaTemplateHooks
 	{
 		// The // at the end of each function are the tracking categories the function is in.
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA) && MetaTemplateSql::getInstance()->tablesExist()) {
-			$parser->setFunctionHook(MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', SFH_OBJECT_ARGS); // listsaved
-			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', SFH_OBJECT_ARGS); // load
-			$parser->setFunctionHook(MetaTemplateData::PF_PRELOAD, 'MetaTemplateData::doPreload', SFH_OBJECT_ARGS); // load
-			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', SFH_OBJECT_ARGS); // save
+			$parser->setFunctionHook(MetaTemplateData::PF_LISTSAVED, 'MetaTemplateData::doListsaved', Parser::SFH_OBJECT_ARGS); // listsaved
+			$parser->setFunctionHook(MetaTemplateData::PF_LOAD, 'MetaTemplateData::doLoad', Parser::SFH_OBJECT_ARGS); // load
+			$parser->setFunctionHook(MetaTemplateData::PF_PRELOAD, 'MetaTemplateData::doPreload', Parser::SFH_OBJECT_ARGS); // load
+			$parser->setFunctionHook(MetaTemplateData::PF_SAVE, 'MetaTemplateData::doSave', Parser::SFH_OBJECT_ARGS); // save
 		}
 
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDEFINE)) {
-			$parser->setFunctionHook(MetaTemplate::PF_DEFINE, 'MetaTemplate::doDefine', SFH_OBJECT_ARGS); // variables
-			$parser->setFunctionHook(MetaTemplate::PF_INHERIT, 'MetaTemplate::doInherit', SFH_OBJECT_ARGS); // frames
-			$parser->setFunctionHook(MetaTemplate::PF_LOCAL, 'MetaTemplate::doLocal', SFH_OBJECT_ARGS); // variables
-			$parser->setFunctionHook(MetaTemplate::PF_PREVIEW, 'MetaTemplate::doPreview', SFH_OBJECT_ARGS); // variables
-			$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', SFH_OBJECT_ARGS); // frames
-			$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', SFH_OBJECT_ARGS); // variables
+			$parser->setFunctionHook(MetaTemplate::PF_DEFINE, 'MetaTemplate::doDefine', Parser::SFH_OBJECT_ARGS); // variables
+			$parser->setFunctionHook(MetaTemplate::PF_INHERIT, 'MetaTemplate::doInherit', Parser::SFH_OBJECT_ARGS); // frames
+			$parser->setFunctionHook(MetaTemplate::PF_LOCAL, 'MetaTemplate::doLocal', Parser::SFH_OBJECT_ARGS); // variables
+			$parser->setFunctionHook(MetaTemplate::PF_PREVIEW, 'MetaTemplate::doPreview', Parser::SFH_OBJECT_ARGS); // variables
+			$parser->setFunctionHook(MetaTemplate::PF_RETURN, 'MetaTemplate::doReturn', Parser::SFH_OBJECT_ARGS); // frames
+			$parser->setFunctionHook(MetaTemplate::PF_UNSET, 'MetaTemplate::doUnset', Parser::SFH_OBJECT_ARGS); // variables
 		}
 
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEPAGENAMES)) {
-			$parser->setFunctionHook(MetaTemplate::PF_FULLPAGENAMEx, 'MetaTemplate::doFullPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
-			$parser->setFunctionHook(MetaTemplate::PF_NAMESPACEx, 'MetaTemplate::doNamespaceX', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
-			$parser->setFunctionHook(MetaTemplate::PF_NESTLEVEL, 'MetaTemplate::doNestlevel', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
-			$parser->setFunctionHook(MetaTemplate::PF_PAGENAMEx, 'MetaTemplate::doPageNameX', SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
+			$parser->setFunctionHook(MetaTemplate::PF_FULLPAGENAMEx, 'MetaTemplate::doFullPageNameX', Parser::SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
+			$parser->setFunctionHook(MetaTemplate::PF_NAMESPACEx, 'MetaTemplate::doNamespaceX', Parser::SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
+			$parser->setFunctionHook(MetaTemplate::PF_NESTLEVEL, 'MetaTemplate::doNestlevel', Parser::SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
+			$parser->setFunctionHook(MetaTemplate::PF_PAGENAMEx, 'MetaTemplate::doPageNameX', Parser::SFH_OBJECT_ARGS | SFH_NO_HASH); // frames
 		}
 	}
 

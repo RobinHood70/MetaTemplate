@@ -464,7 +464,7 @@ class MetaTemplate
 
 	/**
 	 * This low-level function determines how MetaTemplate should behave. Possible values can be found in the "config"
-	 * section of extension.json. Prepend the names with $metatemplate to alter their values in LocalSettings.php.
+	 * section of extension.json. Prepend the names with $egMetatemplate to alter their values in LocalSettings.php.
 	 * Currently, these include:
 	 *
 	 *     EnableCatPageTemplate (self::STTNG_ENABLECPT) - if set to false, the following features are disabled:
@@ -479,12 +479,12 @@ class MetaTemplate
 	 *
 	 * @param string $setting
 	 *
-	 * @return bool Whether MetaTemplate can/should use a particular feature.
+	 * @return mixed The value of the setting.
 	 */
-	public static function getSetting($setting): bool
+	public static function getSetting($setting)
 	{
 		$config = self::getConfig();
-		return (bool)$config->get($setting);
+		return $config->get($setting);
 	}
 
 	/**

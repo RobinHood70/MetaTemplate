@@ -658,8 +658,6 @@ class MetaTemplateSql
 	 *
 	 * @param MetaTemplateUpserts $upserts
 	 *
-	 * @return bool False if the database is in read-only mode; otherwise, true.
-	 *
 	 * @todo See how much of this can be converted to bulk updates and or the built-in upsert methods. (Is it faster?)
 	 * Even though MW internally wraps most of these in a transaction (supposedly...unverified), speed could probably
 	 * still be improved with bulk updates.

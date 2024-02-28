@@ -206,11 +206,11 @@ class MetaTemplate
 		/** @var array $magicArgs */
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
-		if (!$values || !ParserHelper::checkIfs($frame, $magicArgs)) {
+		if (!$values || !ParserHelper::checkIfs($magicArgs)) {
 			return [''];
 		}
 
-		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
+		$debug = ParserHelper::checkDebugMagic($parser, $magicArgs);
 		$translations = self::getVariableTranslations($frame, $values);
 		$inherited = [];
 		foreach ($translations as $srcName => $destName) {
@@ -365,7 +365,7 @@ class MetaTemplate
 		/** @var array $magicArgs */
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
-		if (!$values || !ParserHelper::checkIfs($frame, $magicArgs)) {
+		if (!$values || !ParserHelper::checkIfs($magicArgs)) {
 			return;
 		}
 
@@ -410,7 +410,7 @@ class MetaTemplate
 		/** @var array $magicArgs */
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
-		if (!count($values) || !ParserHelper::checkIfs($frame, $magicArgs)) {
+		if (!count($values) || !ParserHelper::checkIfs($magicArgs)) {
 			return;
 		}
 
@@ -714,7 +714,7 @@ class MetaTemplate
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
 		// No values possible with, for example, {{#local:if=1}}
-		if (!ParserHelper::checkIfs($frame, $magicArgs) || !count($values)) {
+		if (!ParserHelper::checkIfs($magicArgs) || !count($values)) {
 			return;
 		}
 

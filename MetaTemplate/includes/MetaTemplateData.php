@@ -147,7 +147,7 @@ class MetaTemplateData
 		/** @var array $magicArgs */
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
-		if (!ParserHelper::checkIfs($frame, $magicArgs)) {
+		if (!ParserHelper::checkIfs($magicArgs)) {
 			return [''];
 		}
 
@@ -215,7 +215,7 @@ class MetaTemplateData
 
 		// Set up database queries to include all condition and preload data.
 		if (isset($magicArgs[MetaTemplate::NA_NAMESPACE])) {
-			$namespace = trim($frame->expand($magicArgs[MetaTemplate::NA_NAMESPACE]));
+			$namespace = $magicArgs[MetaTemplate::NA_NAMESPACE];
 			$contLang = VersionHelper::getInstance()->getContentLanguage();
 			$namespace = $contLang->getNsIndex($namespace);
 		} else {
@@ -223,7 +223,7 @@ class MetaTemplateData
 		}
 
 		#RHshow('namespaceId', $namespace ?? '<null>');
-		$setName = isset($magicArgs[self::NA_SET]) ? trim($frame->expand($magicArgs[self::NA_SET])) : null;
+		$setName = $magicArgs[self::NA_SET] ?? null;
 		self::$preloadVarSets = [];
 		$preloads = MetaTemplateSql::getInstance()->loadSetsFromPage($templateTitle->getArticleID(), [self::KEY_PRELOAD_DATA]);
 		foreach ($preloads as $varSet) {
@@ -238,7 +238,7 @@ class MetaTemplateData
 
 		$sortOrder = [];
 		if (isset($magicArgs[self::NA_ORDER])) {
-			$orderArg = trim($frame->expand($magicArgs[self::NA_ORDER]));
+			$orderArg = $magicArgs[self::NA_ORDER];
 			if (strlen($orderArg) > 0) {
 				$sortOrder = explode(',', $orderArg);
 			}
@@ -277,7 +277,7 @@ class MetaTemplateData
 		self::$preloadCache = self::pagifyRows($rows);
 
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
-		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
+		$debug = ParserHelper::checkDebugMagic($parser, $magicArgs);
 		$retval = self::createTemplates($templateName, $rows, ParserHelper::getSeparator($magicArgs));
 		if (!$debug) {
 			$output->setExtensionData(self::KEY_SAVE_IGNORED, false);
@@ -328,7 +328,7 @@ class MetaTemplateData
 		/** @var array $magicArgs */
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
-		if (!ParserHelper::checkIfs($frame, $magicArgs) || count($values) < 2) {
+		if (!ParserHelper::checkIfs($magicArgs) || count($values) < 2) {
 			return;
 		}
 
@@ -343,7 +343,7 @@ class MetaTemplateData
 
 		unset($values[0]);
 		$pageId = $loadTitle->getArticleID();
-		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
+		$debug = ParserHelper::checkDebugMagic($parser, $magicArgs);
 		$output = $parser->getOutput();
 		#RHecho($loadTitle->getFullText(), ' ', $page->getId(), ' ', $page->getLatest());
 		// If $loadTitle is valid, add it to list of this article's transclusions, whether or not it exists.
@@ -544,7 +544,7 @@ class MetaTemplateData
 		/** @var array $magicArgs */
 		/** @var array $values */
 		[$magicArgs, $values] = ParserHelper::getMagicArgs($frame, $args, $magicWords);
-		if (!count($values) || !ParserHelper::checkIfs($frame, $magicArgs)) {
+		if (!count($values) || !ParserHelper::checkIfs($magicArgs)) {
 			return [''];
 		}
 
@@ -594,7 +594,7 @@ class MetaTemplateData
 			self::addToSet($parser, $setName, $varsToSave);
 		}
 
-		$debug = ParserHelper::checkDebugMagic($parser, $frame, $magicArgs);
+		$debug = ParserHelper::checkDebugMagic($parser, $magicArgs);
 		if ($debug && count($varsToSave)) {
 			$out = [];
 			foreach ($varsToSave as $key => $value) {

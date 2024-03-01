@@ -293,6 +293,7 @@ class MetaTemplateData
 		}
 
 		self::$preloadVarSets = [];
+		$output->updateCacheExpiry(900); // Add new values every 15 minutes (unless purged).
 		return ParserHelper::formatPFForDebug($retval, $debug, true);
 	}
 

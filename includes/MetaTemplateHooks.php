@@ -166,7 +166,6 @@ class MetaTemplateHooks
 			$titleOld = $old instanceof MediaWiki\Linker\LinkTarget
 				? Title::newFromLinkTarget($old)
 				: $old;
-			MetaTemplateSql::getInstance()->deleteVariables($pageid);
 			VersionHelper::getInstance()->updateBackLinks($titleOld, 'templatelinks');
 
 			$titleNew = $new instanceof MediaWiki\Linker\LinkTarget

@@ -194,7 +194,7 @@ class MetaTemplateCategoryViewer extends CategoryViewer
 			MetaTemplateSql::getInstance()->catQuery($pages, array_keys($variables));
 		}
 
-		MetaTemplateData::$preloadCache = $pages;
+		MetaTemplateData::$dataCache = $pages;
 	}
 	#endregion
 

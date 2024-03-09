@@ -226,16 +226,16 @@ class MetaTemplateSql
 	}
 
 	/**
-	 * Preloads any variables specified by the template.
+	 * Gets all data for listsaved, limited by the parameters provided.
 	 *
 	 * @param ?int $namespace The integer namespace to restrict results to.
-	 * @param ?string $setName The name of the set to be filtered to.
-	 * @param MetaTemplateSet[] $conditions An array of key=>value strings to use for query conditions.
-	 * @param MetaTemplateSet[] $preloadSets The data to be preloaded.
+	 * @param ?string $setName The name of the set to be filtered to. (Null means no filter.)
+	 * @param string[] $fieldNames An array of field names to limit the query to if the entire set is too much.
+	 * @param array<string,string> $conditions An array of key=>value strings to use for query conditions.
 	 *
 	 * @return array An array of page row data indexed by Page ID.
 	 */
-	public function loadListSavedData(?int $namespace, ?string $setName, array $conditions, array $setLimit, array $fieldLimit): array
+	public function loadListSavedData(?int $namespace, ?string $setName, array $fieldNames, array $conditions): array
 	{
 		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
 		$tables = array_merge(
@@ -266,12 +266,12 @@ class MetaTemplateSql
 			$conds['page.page_namespace'] = $namespace;
 		}
 
-		if (!empty($setLimit)) {
-			$conds[self::FIELD_SET_NAME] = $setLimit;
+		if (!is_null($setName)) {
+			$conds = [self::FIELD_SET_NAME => $setName];
 		}
 
-		if (!empty($fieldLimit)) {
-			$conds[self::D_VAR_NAME] = $fieldLimit;
+		if (!empty($fieldNames)) {
+			$conds[self::D_VAR_NAME] = $fieldNames;
 		}
 
 		$joinConds = [
@@ -296,12 +296,6 @@ class MetaTemplateSql
 		$prevPageId = 0;
 		$prevSetId = 0;
 		for ($row = $rows->fetchRow(); $row; $row = $rows->fetchRow()) {
-			$rowSetName = $row[self::FIELD_SET_NAME];
-			if (!is_null($setName) && $rowSetName !== $setName) {
-				// Due to conditions/ordering/preloading, we may have more sets than we want, so filter the extras out.
-				continue;
-			}
-
 			if ($row[self::FIELD_PAGE_ID] != $prevPageId || $row[self::FIELD_SET_ID] != $prevSetId) {
 				if (isset($data)) {
 					$retval[] = $data;
@@ -317,7 +311,7 @@ class MetaTemplateSql
 				$data[MetaTemplate::$mwNamespace] = $title->getNsText();
 				$data[MetaTemplate::$mwPageId] = $row[self::FIELD_PAGE_ID];
 				$data[MetaTemplate::$mwPageName] = $title->getText();
-				$data[MetaTemplateData::$mwSet] = $rowSetName;
+				$data[MetaTemplateData::$mwSet] = $row[self::FIELD_SET_NAME];
 			}
 
 			$varValue = $row[self::FIELD_VAR_VALUE];

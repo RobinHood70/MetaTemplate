@@ -133,8 +133,8 @@ class MetaTemplateCategoryViewer37 extends MetaTemplateCategoryViewer
 		$pageRecord = MediaWikiServices::getInstance()->getPageStore()
 			->getPageByReference($page);
 		$articleId = $pageRecord->getId();
-		if (isset(MetaTemplateData::$preloadCache[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			$setsFound = MetaTemplateData::$preloadCache[$articleId]->sets;
+		if (isset(MetaTemplateData::$dataCache[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			$setsFound = MetaTemplateData::$dataCache[$articleId]->sets;
 			if (isset($setsFound[''])) {
 				$defaultSet = $setsFound[''];
 				unset($setsFound['']);

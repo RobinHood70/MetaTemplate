@@ -69,8 +69,8 @@ class MetaTemplateCategoryViewer28 extends MetaTemplateCategoryViewer
 	private function processTemplate(string $type, Title $title, string $sortkey, int $pageLength, bool $isRedirect = false): array
 	{
 		$articleId = $title->getArticleID();
-		if (isset(MetaTemplateData::$preloadCache[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			$setsFound = MetaTemplateData::$preloadCache[$articleId]->sets;
+		if (isset(MetaTemplateData::$dataCache[$articleId]) && MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			$setsFound = MetaTemplateData::$dataCache[$articleId]->sets;
 			if (isset($setsFound[''])) {
 				$defaultSet = $setsFound[''];
 				unset($setsFound['']);

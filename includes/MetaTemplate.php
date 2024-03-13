@@ -745,9 +745,9 @@ class MetaTemplate
 			$prevMode = MetaTemplateData::$saveMode;
 			MetaTemplateData::$saveMode = 3;
 			if ($magicArgs[MetaTemplateData::NA_SAVEMARKUP] ?? false) {
-				// Do partial expansion for the display, then wrap it in savemarkup tags for the value. That's the only way it will reliably work. We may want to wrap the display instead, covering all bases.
-				$varDisplay = trim($frame->expand($values[1], PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
-				$varValue = $frame->parser->preprocessToDom('<' . MetaTemplateData::$mwSavemarkup . '>' . $varDisplay . '</' . MetaTemplateData::$mwSavemarkup .  '>');
+				$varValue = trim($frame->expand($values[1], PPFrame::NO_IGNORE | PPFrame::NO_TEMPLATES));
+				$varValue = $frame->parser->preprocessToDom($varValue);
+				$varDisplay = null;
 			} else {
 				$varDisplay = trim($frame->expand($values[1]));
 				$varValue = $frame->parser->preprocessToDom($varDisplay);

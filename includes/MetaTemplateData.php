@@ -33,6 +33,7 @@ class MetaTemplateData
 	 * @var string (string[])
 	 */
 	private const KEY_PRELOAD_DATA = MetaTemplate::KEY_METATEMPLATE . '#preload';
+	private const KEY_PRELOAD_DATA_ANY = MetaTemplate::KEY_METATEMPLATE . '#preloadAny';
 
 	/**
 	 * Key for the data from all #save operations on a page.
@@ -242,7 +243,14 @@ class MetaTemplateData
 		}
 
 		// Load rows
-		$rows = MetaTemplateSql::getInstance()->loadListSavedData($namespace, $setName, $sortOrder, $conditions);
+		$sql = MetaTemplateSql::getInstance();
+		// Conditions are included in the field name limits so that we get the values in the database so that:
+		// * conditions no longer have to be static, but could conceivably include wildcards or case-insensitivity in
+		//   the future
+		// * we always have field values to return - otherwise either the query needs modification or it returns all
+		//   rows (which itself could be useful)
+		$fieldNames = array_merge($sortOrder, array_keys($conditions));
+		$rows = $sql->loadListSavedData($namespace, $setName, $fieldNames, $conditions);
 		if (empty($rows)) {
 			return [''];
 		}
@@ -252,8 +260,40 @@ class MetaTemplateData
 		// Convert rows to MetaTemplatePage array and cache them
 		self::pagifyRows($rows);
 		#RHDebug::show('dataCache', self::$dataCache);
-		// $pageIds = array_keys(self::$dataCache);
-		// @todo Reinstate #preload code
+		$templateId = $templateTitle->getArticleID();
+		$preloadAny = $sql->loadSetsFromPage($templateId, [self::KEY_PRELOAD_DATA_ANY]);
+		$preloads = $sql->loadSetsFromPage($templateId, [self::KEY_PRELOAD_DATA]);
+		$pageIds = array_keys(self::$dataCache);
+		$cacheData = [];
+		if (empty($preloadAny)) {
+			self::$preloadSetAny = null;
+		} else {
+			$keys = explode(self::PRELOAD_SEP, array_pop($preloadAny)->variables[self::KEY_PRELOAD_DATA_ANY]);
+			self::$preloadSetAny = new MetaTemplateSet(null, array_fill_keys($keys, false));
+			$anyCache = $sql->loadPreloadData($pageIds, null, array_keys(self::$preloadSetAny->variables));
+			$cacheData = array_merge($cacheData, $anyCache);
+		}
+
+		self::$preloadVarSets = [];
+		foreach ($preloads as $varSet) {
+			$keys = explode(self::PRELOAD_SEP, $varSet->variables[self::KEY_PRELOAD_DATA]);
+			self::$preloadVarSets[$varSet->name] = new MetaTemplateSet($varSet->name, array_fill_keys($keys, false));
+		}
+
+		foreach (self::$preloadVarSets as $varSet) {
+			$preloadData = $sql->loadPreloadData($pageIds, $varSet->name, array_keys($varSet->variables));
+			$cacheData = array_merge($cacheData, $preloadData);
+		}
+
+		foreach ($cacheData as $cacheRow) {
+			$pageId = $cacheRow['pageId'];
+			$page = self::$dataCache[$pageId] ?? null;
+			if (is_null($page)) {
+				throw new Exception("Cached page not found. This should never happen!");
+			}
+
+			$page->addToSet($cacheRow['setName'], $cacheRow['varName'], $cacheRow['varValue']);
+		}
 
 		// Create template list and expand
 		$templateName = $templateTitle->getNamespace() === NS_TEMPLATE ? $templateTitle->getText() : $templateTitle->getFullText();
@@ -274,6 +314,8 @@ class MetaTemplateData
 
 		// Now that we've expanded, clear the cache again.
 		self::$dataCache = [];
+		self::$preloadVarSets = [];
+		self::$preloadSetAny = null;
 		$output->updateCacheExpiry(900); // Add new values every 15 minutes (unless purged).
 		return ParserHelper::formatPFForDebug($retval, $debug, true);
 	}
@@ -362,26 +404,25 @@ class MetaTemplateData
 			];
 		}
 
-		// RHDebug::show('Preload Varsets', self::$preloadVarSets);
-		// RHDebug::show('Preload Cache', self::$dataCache);
 		if (!empty($needed->variables)) {
 			// Next, check preloaded variables.
-			/** @var MetaTemplatePage $cachePage */
-			$cachePage = self::$dataCache[$pageId] ?? null;
-			$cacheSet = $cachePage
-				? $cachePage->sets[$setName] ?? null
-				: null;
-			if ($cacheSet) {
-				$cacheVars = $cacheSet->variables;
+			$cacheVars = array_merge(
+				self::$preloadSetAny->variables ?? [],
+				self::$preloadVarSets[$setName]->variables ?? [],
+				self::$dataCache[$pageId]->sets[$setName]->variables ?? []
+			);
+
+			#RHDebug::show('cache vars', $cacheVars);
+			if (!empty($cacheVars)) {
 				$intersect = array_intersect_key($cacheVars, $needed->variables);
 				if ($debug && !empty($intersect)) {
 					$debugInfo += ['From cache' => array_keys($intersect)];
 				}
 
-				// Set any values that were preloaded *and* requested by #load
+				// Set any values that were preloaded *and* requested by #load. If any weren't found in the cache, it's because they weren't on the page, so set to false.
 				foreach ($intersect as $srcName => $ignored) {
 					unset($needed->variables[$srcName]);
-					$varValue = $cacheVars[$srcName] ?? false;
+					$varValue = $cacheVars[$srcName] ?? false; // Should always be found, but just in case, set to false.
 					if ($varValue !== false) {
 						MetaTemplate::setVar($frame, $translations[$srcName], $varValue);
 					}
@@ -389,6 +430,7 @@ class MetaTemplateData
 			}
 		}
 
+		#RHDebug::show('Still needed', $needed->variables);
 		if (!empty($needed->variables)) {
 			if ($debug) {
 				$debugInfo += ['From DB' => array_keys($needed->variables)];
@@ -468,20 +510,7 @@ class MetaTemplateData
 		$setName = $output->getExtensionData(self::KEY_IGNORE_SET)
 			? ''
 			: $magicArgs[self::NA_SET] ?? null;
-
-		if (isset(self::$preloadVarSets[$setName])) {
-			$set = is_null($setName)
-				? self::$preloadSetAny
-				: self::$preloadVarSets[$setName];
-		} else {
-			$set = new MetaTemplateSet($setName);
-			if (is_null($setName)) {
-				self::$preloadSetAny = $set;
-			} else {
-				self::$preloadVarSets[$setName] = $set;
-			}
-		}
-
+		$set = new MetaTemplateSet($setName);
 		foreach ($values as $value) {
 			$varName = trim($frame->expand($value));
 			$set->variables[$varName] = false;
@@ -489,7 +518,8 @@ class MetaTemplateData
 
 		if (!$parser->getOptions()->getIsPreview()) {
 			$varList = implode(self::PRELOAD_SEP, array_keys($set->variables));
-			self::addToSet($parser, $setName, [self::KEY_PRELOAD_DATA => $varList]);
+			$keyName = is_null($setName) ? self::KEY_PRELOAD_DATA_ANY : self::KEY_PRELOAD_DATA;
+			self::addToSet($parser, $setName ?? '', [$keyName => $varList]);
 		}
 	}
 

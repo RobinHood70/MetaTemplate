@@ -38,15 +38,15 @@ class MetaTemplatePage
 	 * @return MetaTemplateSet
 	 *
 	 */
-	public function addToSet(string $setName, array $variables, bool $anyCase = false)
+	public function addToSet(string $setName, string $varName, string $varValue)
 	{
-		if (isset($this->sets[$setName])) {
-			$set = $this->sets[$setName];
-		} else {
-			$set = new MetaTemplateSet($setName, []);
+		if (!isset($this->sets[$setName])) {
+			$set = new MetaTemplateSet($setName, [$varName => $varValue]);
 			$this->sets[$setName] = $set;
+			return;
 		}
 
-		$set->variables = array_merge($set->variables, $variables);
+		$set = $this->sets[$setName];
+		$set->variables = array_merge($set->variables, [$varName => $varValue]);
 	}
 }

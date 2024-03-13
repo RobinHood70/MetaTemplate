@@ -249,7 +249,6 @@ class MetaTemplateSql
 			'page.page_namespace',
 			self::S_PAGE_ID,
 			self::S_SET_ID,
-			self::FIELD_REV_ID,
 			self::FIELD_SET_NAME,
 			self::D_VAR_NAME,
 			self::D_VAR_VALUE
@@ -289,7 +288,7 @@ class MetaTemplateSql
 			++$filter;
 		}
 
-		#RHDebug::echo(__METHOD__ . " query:\n", $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
+		#RHDebug::show(__METHOD__, $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, $options, $joinConds));
 		$rows = $this->dbRead->select($tables, $fields, $conds, __METHOD__, $options, $joinConds);
 
 		$retval = [];
@@ -320,6 +319,60 @@ class MetaTemplateSql
 
 		if (isset($data)) {
 			$retval[] = $data;
+		}
+
+		return $retval;
+	}
+
+	/**
+	 * Gets all data for listsaved, limited by the parameters provided.
+	 *
+	 * @param ?int[] $pageIds The page ids to filter to. (Null means no filter.)
+	 * @param ?string $setName The name of the set to filter to. (Null means no filter.)
+	 * @param ?string[] $fieldNames The field names to filter to. (Null means no filter.)
+	 *
+	 * @return array The returned rows.
+	 */
+	public function loadPreloadData(?array $pageIds, ?string $setName, array $fieldNames): array
+	{
+		// Page fields other than title and namespace are here so Title doesn't have to reload them again later on.
+		$tables = array_merge(
+			self::TABLE_SET_ALIAS,
+			self::TABLE_DATA_ALIAS
+		);
+
+		$fields = [
+			self::S_PAGE_ID,
+			self::FIELD_SET_NAME,
+			self::D_VAR_NAME,
+			self::D_VAR_VALUE
+		];
+
+		$conds = [];
+		if (!is_null($pageIds)) {
+			$conds[self::S_PAGE_ID] = $pageIds;
+		}
+
+		if (!is_null($setName)) {
+			$conds = [self::FIELD_SET_NAME => $setName];
+		}
+
+		if (!empty($fieldNames)) {
+			$conds[self::D_VAR_NAME] = $fieldNames;
+		}
+
+		$joinConds = [
+			self::DATA_ALIAS => ['JOIN', [self::S_SET_ID . '=' . self::D_SET_ID]]
+		];
+
+		#RHDebug::show(__METHOD__, $this->dbRead->selectSQLText($tables, $fields, $conds, __METHOD__, [], $joinConds));
+		$result = $this->dbRead->select($tables, $fields, $conds, __METHOD__, [], $joinConds);
+
+		// Because we don't always know what fields we're expecting, we can't use fetchRow, which pollutes the output
+		// with indexed values and has no option not to. So instead, we use fetchObject and convert it to an array.
+		$retval = [];
+		for ($row = $result->fetchObject(); $row; $row = $result->fetchObject()) {
+			$retval[] = (array)$row;
 		}
 
 		return $retval;

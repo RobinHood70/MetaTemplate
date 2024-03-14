@@ -163,15 +163,15 @@ class MetaTemplateHooks
 	{
 		#RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
-			$titleOld = $old instanceof MediaWiki\Linker\LinkTarget
-				? Title::newFromLinkTarget($old)
-				: $old;
+			$titleOld = $old instanceof Title
+				? $old
+				: Title::newFromLinkTarget($old);
 			VersionHelper::getInstance()->updateBackLinks($titleOld, 'templatelinks');
 
-			$titleNew = $new instanceof MediaWiki\Linker\LinkTarget
-				? Title::newFromLinkTarget($new)
-				: $new;
-			WikiPage::onArticleEdit($titleNew, $revision);
+			$titleNew = $new instanceof Title
+				? $new
+				: Title::newFromLinkTarget($new);
+			MetaTemplateData::save(WikiPage::newFromID($titleNew->getArticleID(Title::GAID_FOR_UPDATE)));
 		}
 	}
 

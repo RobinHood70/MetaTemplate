@@ -675,7 +675,7 @@ class MetaTemplateData
 	}
 
 	/**
-	 * Saves all pending data.
+	 * Reparses the article and saves all data.
 	 *
 	 * @param int $pageId The page id of the data to be saved.
 	 * @param mixed $revision

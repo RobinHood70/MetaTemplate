@@ -170,7 +170,8 @@ class MetaTemplateData
 			return [ParserHelper::error('metatemplate-listsaved-template-missing', $template)];
 		}
 
-		$page = WikiPage::factory($templateTitle);
+		$helper = VersionHelper::getInstance();
+		$page = $helper->getWikiPage($templateTitle);
 		if (!$page) {
 			return [ParserHelper::error('metatemplate-listsaved-template-missing', $templateTitle->getFullText())];
 		}
@@ -224,7 +225,7 @@ class MetaTemplateData
 		// Set up database queries to include all condition and preload data.
 		if (isset($magicArgs[MetaTemplate::NA_NAMESPACE])) {
 			$namespace = $magicArgs[MetaTemplate::NA_NAMESPACE];
-			$contLang = VersionHelper::getInstance()->getContentLanguage();
+			$contLang = $helper->getContentLanguage();
 			$namespace = $contLang->getNsIndex($namespace);
 		} else {
 			$namespace = null;
@@ -438,7 +439,7 @@ class MetaTemplateData
 
 			if ($pageId !== $parser->getTitle()->getArticleID() || !self::loadFromSaveData($output, $needed)) {
 				if (!MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $needed)) {
-					$loadTitle = WikiPage::factory($loadTitle)->getRedirectTarget();
+					$loadTitle = VersionHelper::getInstance()->getWikiPage($loadTitle)->getRedirectTarget();
 					if (!is_null($loadTitle) && $loadTitle->exists()) {
 						$pageId = $loadTitle->getArticleID();
 						$output->addTemplate($loadTitle, $pageId, $loadTitle->getLatestRevID());

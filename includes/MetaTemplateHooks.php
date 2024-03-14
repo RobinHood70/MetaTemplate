@@ -88,7 +88,7 @@ class MetaTemplateHooks
 	public static function onLinksUpdateComplete(&$linksUpdate)
 	{
 		#RHDebug::writeFile(__METHOD__, ': ', $linksUpdate->getTitle()->getPrefixedText());
-		$page = WikiPage::factory($linksUpdate->getTitle());
+		$page = VersionHelper::getInstance()->getWikiPage($linksUpdate->getTitle());
 		MetaTemplateData::save($page);
 	}
 
@@ -163,15 +163,12 @@ class MetaTemplateHooks
 	{
 		#RHlogFunctionText("Move $old ($pageid) to $new ($redirid)");
 		if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
+			$helper = VersionHelper::getInstance();
 			$titleOld = $old instanceof Title
 				? $old
 				: Title::newFromLinkTarget($old);
-			VersionHelper::getInstance()->updateBackLinks($titleOld, 'templatelinks');
-
-			$titleNew = $new instanceof Title
-				? $new
-				: Title::newFromLinkTarget($new);
-			MetaTemplateData::save(WikiPage::newFromID($titleNew->getArticleID(Title::GAID_FOR_UPDATE)));
+			$helper->updateBackLinks($titleOld, 'templatelinks');
+			MetaTemplateData::save($helper->getWikiPage($new));
 		}
 	}
 

@@ -354,7 +354,7 @@ class MetaTemplateSql
 		}
 
 		if (!is_null($setName)) {
-			$conds = [self::FIELD_SET_NAME => $setName];
+			$conds[self::FIELD_SET_NAME] = $setName;
 		}
 
 		if (!empty($fieldNames)) {

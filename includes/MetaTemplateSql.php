@@ -198,7 +198,8 @@ class MetaTemplateSql
 		}
 
 		#RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
-		// Assumes cascading is in effect to delete TABLE_DATA rows.
+		// Cascade delete seems to be intermittently failing for some reason, so delete from Data table manually before deleting rows from Set table.
+		$this->dbWrite->deleteJoin(self::TABLE_DATA, self::TABLE_SET, self::TABLE_DATA . '.' . self::FIELD_SET_ID, self::TABLE_SET . '.' . self::FIELD_SET_ID, [self::FIELD_PAGE_ID => $pageId]);
 		$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId]);
 		return true;
 	}
@@ -716,7 +717,8 @@ class MetaTemplateSql
 		$deletes = $upserts->deletes;
 		if (count($deletes)) {
 			#RHDebug::writeFile(__METHOD__, ' !!!DELETE!!!');
-			// Assumes cascading is in effect, so doesn't delete TABLE_DATA entries.
+			// Cascade delete seems to be intermittently failing for some reason, so delete from Data table manually before deleting rows from Set table.
+			$this->dbWrite->delete(self::TABLE_DATA, [self::FIELD_SET_ID => $deletes]);
 			$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_SET_ID => $deletes]);
 		}
 
@@ -733,9 +735,9 @@ class MetaTemplateSql
 			$this->dbWrite->insert(self::TABLE_SET, $record, __METHOD__, ['IGNORE']);
 			$setId = $this->dbWrite->insertId();
 			if ($setId === 0) {
-				// In the event of a set being defined but missing its data row, delete the set row and try again.
+				// In the event of a set having been previously defined but with no data (how?), delete the set row and try again.
 				$this->dbWrite->delete(self::TABLE_SET, [self::FIELD_PAGE_ID => $pageId, self::FIELD_SET_NAME => $newSet->name]);
-				$this->dbWrite->insert(self::TABLE_SET, $record);
+				$this->dbWrite->insert(self::TABLE_SET, $record, __METHOD__);
 				$setId = $this->dbWrite->insertId();
 			}
 

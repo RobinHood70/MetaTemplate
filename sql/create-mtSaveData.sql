@@ -10,10 +10,6 @@ CREATE TABLE IF NOT EXISTS /*_*/mtSaveData (
 	setId INT UNSIGNED NOT NULL,
 	varName VARCHAR(50) NOT NULL,
 	varValue BLOB NOT NULL,
-	FOREIGN KEY (setId)
-		REFERENCES /*_*/mtSaveSet (setId)
-		ON DELETE CASCADE
-		ON UPDATE CASCADE,
 	PRIMARY KEY (setId, varName),
 	INDEX (varName)
 ) /*$wgDBTableOptions*/;

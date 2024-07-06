@@ -205,11 +205,15 @@ class MetaTemplateData
 		 * @var array $extras
 		 */
 		[$conditions, $extras] = ParserHelper::splitNamedArgs($frame, $values);
-		foreach ($conditions as $key => $value) {
+		foreach ($conditions as $key => &$value) {
 			if (strlen(trim($value)) === 0) {
 				unset($conditions[$key]);
+			} else {
+				$value = html_entity_decode($value, ENT_QUOTES | ENT_HTML401);
 			}
 		}
+
+		unset($value);
 
 		if (!count($conditions)) {
 			// Is this actually an error? Could there be a condition of wanting all rows (perhaps in namespace)?
@@ -251,6 +255,7 @@ class MetaTemplateData
 		// * we always have field values to return - otherwise either the query needs modification or it returns all
 		//   rows (which itself could be useful)
 		$fieldNames = array_merge($sortOrder, array_keys($conditions));
+		# RHDebug::show('conditions', $conditions);
 		$rows = $sql->loadListSavedData($namespace, $setName, $fieldNames, $conditions);
 		if (empty($rows)) {
 			return [''];

@@ -126,9 +126,7 @@ class MetaTemplateSql
 			$conds[self::FIELD_SET_NAME] = $setName;
 		}
 
-		if (
-			$nsNum !== null && $nsNum !== 'all'
-		) {
+		if (is_numeric($nsNum)) {
 			$conds['page_namespace'] = $nsNum;
 		}
 

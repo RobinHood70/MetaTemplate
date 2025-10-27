@@ -238,7 +238,7 @@ class MetaTemplateData
 
 		// Set up database queries to include all condition and preload data.
 		if (isset($magicArgs[MetaTemplate::NA_NAMESPACE])) {
-			$namespace = $magicArgs[MetaTemplate::NA_NAMESPACE];
+			$namespace = str_replace(' ', '_', $magicArgs[MetaTemplate::NA_NAMESPACE]);
 			$contLang = $helper->getContentLanguage();
 			$namespace = $contLang->getNsIndex($namespace);
 		} else {

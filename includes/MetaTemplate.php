@@ -90,6 +90,8 @@ class MetaTemplate
 
 	/** @var Config $config */
 	private static $config;
+
+	private static $usingData;
 	#endregion
 
 	#region Public Static Functions
@@ -558,9 +560,10 @@ class MetaTemplate
 	 */
 	public static function init(): void
 	{
+		self::$usingData = MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA);
 		if (
 			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT) ||
-			MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)
+			self::$usingData
 		) {
 			$helper = VersionHelper::getInstance();
 			self::$mwFullPageName = $helper->getMagicWord(MetaTemplate::NA_FULLPAGENAME)->getSynonym(0);
@@ -699,15 +702,18 @@ class MetaTemplate
 	{
 		#RHshow('Args', $frame->getArguments());
 		static $magicWords;
-		$magicWords = $magicWords ?? new MagicWordArray([
-			ParserHelper::NA_IF,
-			ParserHelper::NA_IFNOT,
-			self::NA_CASE
-		]);
+		if (!isset($magicWords)) {
+			$words = [
+				ParserHelper::NA_IF,
+				ParserHelper::NA_IFNOT,
+				self::NA_CASE
+			];
 
-		$usingData = self::getSetting(MetaTemplate::STTNG_ENABLEDATA);
-		if ($usingData) {
-			$magicWords->add(MetaTemplateData::NA_SAVEMARKUP);
+			if (self::$usingData) {
+				$words[] = MetaTemplateData::NA_SAVEMARKUP;
+			}
+
+			$magicWords = new MagicWordArray($words);
 		}
 
 		/** @var array $magicArgs */
@@ -733,7 +739,7 @@ class MetaTemplate
 		#RHDebug::show($varKey ?? $varName, $frame->expand($varValue ?? '<not defined>'));
 		#RHDebug::show('Overwrite', (int)$overwrite);
 		#RHDebug::show('Value count', count($values));
-		if (count($values) > 1 && ($overwrite || is_null($varValue)) && $usingData) {
+		if (count($values) > 1 && ($overwrite || is_null($varValue)) && self::$usingData) {
 			// Because we have to expand variables, the generated dom tree can get misprocessed in the event of
 			// something with an = or | (pipe) in it. I haven't found a good resolution for this. Should I a do
 			// manual replace: = with {{=}} and similar? Since this should only affect variables saved within a

@@ -14,6 +14,7 @@ class MetaTemplateData
 	 */
 	public const KEY_IGNORE_SET = MetaTemplate::KEY_METATEMPLATE . '#ignoreSet';
 
+	public const NA_EXISTS = 'metatemplate-exists';
 	public const NA_ORDER = 'metatemplate-order';
 	public const NA_SAVEMARKUP = 'metatemplate-savemarkupattr';
 	public const NA_SET = 'metatemplate-set';
@@ -362,6 +363,7 @@ class MetaTemplateData
 			ParserHelper::NA_DEBUG,
 			ParserHelper::NA_IF,
 			ParserHelper::NA_IFNOT,
+			self::NA_EXISTS,
 			self::NA_SET
 		]);
 
@@ -382,8 +384,13 @@ class MetaTemplateData
 		}
 
 		unset($values[0]);
+
+		$existsVar = $magicArgs[self::NA_EXISTS] ?? null;
 		$pageId = $loadTitle->getArticleID();
-		$debug = ParserHelper::checkDebugMagic($parser, $magicArgs);
+		if (isset($existsVar) && $pageId !== 0) {
+			MetaTemplate::setVar($frame, $existsVar, '1');
+		}
+
 		$output = $parser->getOutput();
 		if (!$loadTitle->equals($parser->getTitle())) {
 			// If $loadTitle is valid and not the current page, add it to the transclusion list whether or not it
@@ -398,6 +405,7 @@ class MetaTemplateData
 		$needed = new MetaTemplateSet($setName, []);
 		$translations = MetaTemplate::getVariableTranslations($frame, $values, self::SAVE_VARNAME_WIDTH);
 		$loads = [];
+		$debug = ParserHelper::checkDebugMagic($parser, $magicArgs);
 		foreach ($translations as $srcName => $destName) {
 			if ($debug) {
 				// As the array key, $srcName will have been cast to int if it looks like one, so cast it back.
@@ -453,12 +461,13 @@ class MetaTemplateData
 			}
 
 			if ($pageId !== $parser->getTitle()->getArticleID() || !self::loadFromSaveData($output, $needed)) {
-				if (!MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $needed)) {
+				$sql = MetaTemplateSql::getInstance();
+				if (!$sql->loadSetFromPage($pageId, $needed)) {
 					$loadTitle = VersionHelper::getInstance()->getWikiPage($loadTitle)->getRedirectTarget();
 					if (!is_null($loadTitle) && $loadTitle->exists()) {
 						$pageId = $loadTitle->getArticleID();
 						$output->addTemplate($loadTitle, $pageId, $loadTitle->getLatestRevID());
-						MetaTemplateSql::getInstance()->loadSetFromPage($pageId, $needed);
+						$sql->loadSetFromPage($pageId, $needed);
 					}
 				}
 			}

@@ -46,6 +46,7 @@ if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLECPT)) {
 
 if (MetaTemplate::getSetting(MetaTemplate::STTNG_ENABLEDATA)) {
 	$magicWords['en'] += [
+		MetaTemplateData::NA_EXISTS => [0, 'exists'],
 		MetaTemplateData::NA_ORDER => [0, 'order'],
 		MetaTemplateData::NA_SAVEMARKUP => [0, 'savemarkup'],
 		MetaTemplateData::NA_SET => [0, 'set', 'subset'],
